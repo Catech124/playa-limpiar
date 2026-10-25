@@ -6,7 +6,16 @@ extends CharacterBody3D
 ## El trabajo (clasificar / lavar) es MANTENER la acción mirando la estación:
 ## soltar la tecla no pierde el avance (queda en el ítem).
 
-const CHEF_SCENE := preload("res://assets/chef.glb")
+# carga diferida: si el .glb no está importado, el preload rompe el parseo de
+# todo el proyecto (nos pasó al borrar el import viejo para forzar la reimportación)
+static var _chef_scene: PackedScene
+
+
+func _chef() -> PackedScene:
+	if _chef_scene == null:
+		_chef_scene = load("res://assets/chef.glb") as PackedScene
+	return _chef_scene
+
 
 var index := 0
 var color := Color.WHITE
@@ -50,7 +59,7 @@ func _build_body() -> void:
 	add_child(_body_mesh)
 
 	# personaje low-poly (asset generado con tools/make_chef.py)
-	var model := CHEF_SCENE.instantiate()
+	var model := _chef().instantiate()
 	_body_mesh.add_child(model)
 	_tint_shirt(model)
 

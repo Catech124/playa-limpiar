@@ -7,6 +7,7 @@ const CHEF := preload("res://assets/chef.glb")
 
 var spinners: Array = []
 var angle := 0.0
+var model_ref: Node3D = null
 
 
 func _ready() -> void:
@@ -21,6 +22,8 @@ func _ready() -> void:
 
 		var model := CHEF.instantiate()
 		holder.add_child(model)
+		if i == 0:
+			model_ref = model   # el contador mide UNA copia, no las tres
 		if i > 0:
 			_tint(model, GameConfig.PLAYER_COLORS[i - 1])
 
@@ -41,7 +44,8 @@ func _ready() -> void:
 			_capture(arg.substr(7))
 
 	var title := Label3D.new()
-	title.text = "assets/chef.glb  ·  3.072 tris  ·  9 materiales"
+	title.text = "assets/chef.glb  ·  %d tris  ·  %d materiales" % [_count_tris(), _count_materials()]
+	title.position.y = 1.95
 	title.font_size = 40
 	title.pixel_size = 0.0035
 	title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -58,6 +62,31 @@ func _capture(path: String) -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	print("shot -> ", path)
 	get_tree().quit()
+
+
+func _count_tris() -> int:
+	if model_ref == null:
+		return 0
+	var n := 0
+	for node in model_ref.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (node as MeshInstance3D).mesh
+		if mesh:
+			n += mesh.get_faces().size() / 3
+	return int(n)
+
+
+func _count_materials() -> int:
+	if model_ref == null:
+		return 0
+	var names := {}
+	for node in model_ref.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (node as MeshInstance3D).mesh
+		if mesh:
+			for i in mesh.get_surface_count():
+				var m := mesh.surface_get_material(i)
+				if m:
+					names[String(m.resource_name)] = true
+	return names.size()
 
 
 func _build_environment() -> void:

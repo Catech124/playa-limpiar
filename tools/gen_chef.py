@@ -257,7 +257,7 @@ def build_body(P):
     head = Part("head", "head")
     hz = P["body"]["head_z"]
     hr = P["body"]["head_r"]
-    sphere(head, hr, (0, 0, hz), skin, scale=(1.02, 0.96, 0.99), segments=14, rings=9)
+    sphere(head, hr, (0, 0, hz), skin, scale=(1.02, 0.96, 0.99), segments=18, rings=11)
     sphere(head, 0.038, (0, -0.245, hz - 0.04), skin, scale=(1, 1.2, 0.9), segments=10, rings=6)
 
     face = Part("face", "face")
@@ -280,7 +280,11 @@ def build_hat(P):
     pal = P["palette"]
     # el sombrero se hunde en el cráneo: apoyado en la coronilla "flota",
     # porque a su radio el cráneo ya está más abajo
-    head_top = P["body"]["head_top"] - float(h.get("hat_drop", 0.07))
+    hr0 = P["body"]["head_r"]
+    support0 = hr0 * 0.76
+    # z de la superficie del cráneo en el radio de apoyo
+    surface_z = P["body"]["head_z"] + (hr0 * 0.99) * math.sqrt(max(0.0, 1.0 - (support0 / (hr0 * 1.02)) ** 2))
+    head_top = surface_z - float(h.get("hat_drop", 0.02))
     head_r = P["body"]["head_r"]
 
     hat_mat = material("hat", h["color"], 0.78)
@@ -316,13 +320,15 @@ def build_hat(P):
         sphere(part, support_r * 1.05, (0, 0, base_z), hat_mat,
                scale=(1.0, 1.0, max(0.35, copa / (support_r * 1.05))), segments=14, rings=8)
         brim_r = support_r + 0.06 + ala
-        brim = cylinder(part, brim_r, 0.022, (0, 0, base_z - 0.004), hat_mat, vertices=20)
-        # Ala recortada AL FRENTE: el ala larga a los costados se lee como
-        # sombrero de playa, y al no sobresalir hacia adelante no tapa la cara
-        # desde la cámara a 68°. Recortar el radio (no levantarlo) mantiene el
-        # ala plano y conectado con la copa: inclinarlo lo convertía en platillo.
+        # Ala cónica: nace de la copa y baja hacia el borde. Un disco plano
+        # apoyado en la coronilla deja un hueco visible (la cabeza es elipsoidal
+        # y a ese radio la superficie está más abajo): el cono queda adjunto.
+        brim = cylinder(part, brim_r, 0.055, (0, 0, base_z - 0.026), hat_mat,
+                        vertices=20, top=support_r * 0.98)
         short = float(h.get("brim_front_short", 0.55))
         for v in brim.data.vertices:
+            if v.co.z > 0:          # el borde exterior es el anillo inferior
+                continue
             x, y, z = v.co
             rr = math.hypot(x, y)
             if rr < 1e-5:
@@ -457,7 +463,7 @@ def build_only(P, with_hat=True):
         for o in objs:
             o.select_set(True)
         bpy.context.view_layer.objects.active = objs[0]
-        bpy.ops.object.shade_auto_smooth(angle=math.radians(24))
+        bpy.ops.object.shade_auto_smooth(angle=math.radians(38))
 
     return parts
 
