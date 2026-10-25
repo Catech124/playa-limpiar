@@ -6,3 +6,9 @@ export/
 # Sistema
 .DS_Store
 *.log
+
+# Corpus: los modelos se re-descargan con tools/corpus_fetch.py.
+# Se versiona solo lo que es medición: features y licencias.
+corpus/*
+!corpus/features/
+!corpus/LICENCIAS.md
