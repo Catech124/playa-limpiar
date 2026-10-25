@@ -46,6 +46,8 @@ DEFAULTS = {
         "banda": "fina",
         "color": "#F2EDE2",    # crema: ΔE ≈ 27 contra la arena (la paja daba 8)
         "tilt_deg": 0.0,
+        "brim_front_short": 0.55,
+        "hat_drop": 0.07,
     },
     "palette": {
         "skin": "#E8B48A",
@@ -167,6 +169,27 @@ def cylinder(part, r, depth, loc, mat, rotation=(0, 0, 0), vertices=14, smooth=T
     return part.add(o)
 
 
+def limb(part, p0, p1, radius, mat, vertices=10, taper=1.0):
+    """Cilindro orientado entre dos puntos: sirve para brazos con codo."""
+    from mathutils import Vector
+    a, b = Vector(p0), Vector(p1)
+    d = b - a
+    bpy.ops.mesh.primitive_cylinder_add(vertices=vertices, radius=radius,
+                                        depth=d.length, location=(a + b) * 0.5)
+    o = bpy.context.object
+    o.rotation_mode = "QUATERNION"
+    o.rotation_quaternion = d.to_track_quat("Z", "Y")
+    if taper != 1.0:
+        for v in o.data.vertices:
+            if v.co.z > 0:
+                v.co.x *= taper
+                v.co.y *= taper
+    o.data.materials.append(mat)
+    for poly in o.data.polygons:
+        poly.use_smooth = True
+    return part.add(o)
+
+
 def box(part, size, loc, mat, rotation=(0, 0, 0), bevel=0.012, smooth=False):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rotation)
     o = bpy.context.object
@@ -201,35 +224,45 @@ def build_body(P):
     legs = Part("legs", "legs")
     feet = Part("boots", "boots")
     for side in (-1, 1):
-        cylinder(legs, 0.064, 0.21, (side * 0.095, 0, 0.205), skin, vertices=10)
-        box(feet, (0.19, 0.29, 0.15), (side * 0.095, -0.032, 0.075), boots, bevel=0.032)
+        cylinder(legs, 0.064, 0.21, (side * 0.095, 0, 0.205), skin, vertices=8)
+        box(feet, (0.21, 0.32, 0.17), (side * 0.095, -0.035, 0.082), boots, bevel=0.038)
 
     hip = Part("shorts", "shorts")
-    cylinder(hip, 0.158, 0.17, (0, 0, 0.30), shorts, vertices=16)
-    sphere(hip, 0.156, (0, 0, 0.265), shorts, scale=(1, 0.95, 0.7), segments=16, rings=8)
+    cylinder(hip, 0.158, 0.17, (0, 0, 0.30), shorts, vertices=12)
+    sphere(hip, 0.156, (0, 0, 0.265), shorts, scale=(1, 0.95, 0.7), segments=12, rings=6)
 
     torso = Part("torso", "torso")
-    body = cylinder(torso, 0.176, 0.255, (0, 0, 0.510), shirt, vertices=18, top=0.222)
+    body = cylinder(torso, 0.176, 0.255, (0, 0, 0.510), shirt, vertices=12, top=0.222)
     body.scale = (1.05, 0.90, 1.0)
-    sphere(torso, 0.222, (0, 0, 0.625), shirt, scale=(1.05, 0.90, 0.58), segments=18, rings=8)
-    sphere(torso, 0.158, (0, 0, 0.410), shirt, scale=(1.04, 0.94, 0.55), segments=16, rings=8)
+    sphere(torso, 0.222, (0, 0, 0.625), shirt, scale=(1.05, 0.90, 0.58), segments=12, rings=6)
+    sphere(torso, 0.158, (0, 0, 0.410), shirt, scale=(1.04, 0.94, 0.55), segments=12, rings=6)
 
     arms = Part("arms", "arms")
     hands = Part("hands", "hands")
+    # pose asimétrica: la derecha va a la cadera, la izquierda cuelga.
+    # El corpus es 100% simétrico; la asimetría deliberada es lo que lo hace
+    # recordable (y es la única licencia que se toma contra la norma).
+    POSE = {
+        -1: {"shoulder": (-0.205, 0.0, 0.600), "elbow": (-0.300, -0.010, 0.450),
+             "wrist": (-0.330, -0.030, 0.310)},
+        1: {"shoulder": (0.205, 0.0, 0.600), "elbow": (0.310, -0.020, 0.460),
+            "wrist": (0.170, -0.150, 0.400)},
+    }
     for side in (-1, 1):
-        cylinder(arms, 0.052, 0.27, (side * 0.275, -0.006, 0.468), skin,
-                 rotation=(0, -side * math.radians(31), 0), vertices=10)
-        sphere(hands, 0.072, (side * 0.348, -0.008, 0.352), gloves, segments=12, rings=8)
+        pose = POSE[side]
+        limb(arms, pose["shoulder"], pose["elbow"], 0.056, skin, vertices=8, taper=0.92)
+        limb(arms, pose["elbow"], pose["wrist"], 0.048, skin, vertices=8, taper=0.95)
+        sphere(hands, 0.070, pose["wrist"], gloves, segments=9, rings=6)
 
     head = Part("head", "head")
     hz = P["body"]["head_z"]
     hr = P["body"]["head_r"]
-    sphere(head, hr, (0, 0, hz), skin, scale=(1.02, 0.96, 0.99), segments=22, rings=14)
+    sphere(head, hr, (0, 0, hz), skin, scale=(1.02, 0.96, 0.99), segments=14, rings=9)
     sphere(head, 0.038, (0, -0.245, hz - 0.04), skin, scale=(1, 1.2, 0.9), segments=10, rings=6)
 
     face = Part("face", "face")
     for side in (-1, 1):
-        sphere(face, 0.046, (side * 0.090, -0.238, hz + 0.010), eyes, segments=12, rings=8)
+        sphere(face, 0.046, (side * 0.090, -0.238, hz + 0.010), eyes, segments=9, rings=6)
         box(face, (0.062, 0.014, 0.013), (side * 0.090, -0.246, hz + 0.085),
             eyes, rotation=(0, 0, side * math.radians(-12)), bevel=0.005, smooth=True)
     box(face, (0.105, 0.020, 0.024), (0, -0.245, hz - 0.098), mouth, bevel=0.010, smooth=True)
@@ -245,7 +278,9 @@ def build_body(P):
 def build_hat(P):
     h = P["hat"]
     pal = P["palette"]
-    head_top = P["body"]["head_top"]
+    # el sombrero se hunde en el cráneo: apoyado en la coronilla "flota",
+    # porque a su radio el cráneo ya está más abajo
+    head_top = P["body"]["head_top"] - float(h.get("hat_drop", 0.07))
     head_r = P["body"]["head_r"]
 
     hat_mat = material("hat", h["color"], 0.78)
@@ -260,7 +295,7 @@ def build_hat(P):
     # banda: común a todos, es lo que da identidad de color
     band_h = 0.05 if h.get("banda", "fina") == "fina" else 0.075
     cylinder(part, support_r + 0.012, band_h, (0, 0, head_top + band_h * 0.5 - 0.012),
-             band_mat, vertices=20)
+             band_mat, vertices=14)
     base_z = head_top + band_h - 0.012
 
     if tipo == "toque":
@@ -277,11 +312,25 @@ def build_hat(P):
                hat_mat, scale=(1.0, 1.0, 0.85), segments=16, rings=10)
 
     elif tipo == "paja":
-        # copa semiesférica + ala plana
+        # copa semiesférica + ala CURVA: el frente sube y deja ver la cara
         sphere(part, support_r * 1.05, (0, 0, base_z), hat_mat,
-               scale=(1.0, 1.0, max(0.35, copa / (support_r * 1.05))), segments=20, rings=12)
+               scale=(1.0, 1.0, max(0.35, copa / (support_r * 1.05))), segments=14, rings=8)
         brim_r = support_r + 0.06 + ala
-        cylinder(part, brim_r, 0.024, (0, 0, base_z - 0.004), hat_mat, vertices=24)
+        brim = cylinder(part, brim_r, 0.022, (0, 0, base_z - 0.004), hat_mat, vertices=20)
+        # Ala recortada AL FRENTE: el ala larga a los costados se lee como
+        # sombrero de playa, y al no sobresalir hacia adelante no tapa la cara
+        # desde la cámara a 68°. Recortar el radio (no levantarlo) mantiene el
+        # ala plano y conectado con la copa: inclinarlo lo convertía en platillo.
+        short = float(h.get("brim_front_short", 0.55))
+        for v in brim.data.vertices:
+            x, y, z = v.co
+            rr = math.hypot(x, y)
+            if rr < 1e-5:
+                continue
+            front = max(0.0, -y / rr)
+            k = 1.0 - short * front
+            v.co.x *= k
+            v.co.y *= k
 
     else:  # gorra con visera
         sphere(part, support_r * 1.02, (0, 0, base_z), hat_mat,
@@ -399,6 +448,17 @@ def build_only(P, with_hat=True):
     if with_hat:
         parts["hat"] = build_hat(P)
     set_object_ids(parts)
+
+    # sombreado por ángulo: el corpus low-poly tiene ~45% de aristas duras y
+    # nosotros estábamos en 9% (todo suave = se veía "plastilina")
+    objs = [o for part in parts.values() for o in part.objs]
+    if objs:
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in objs:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = objs[0]
+        bpy.ops.object.shade_auto_smooth(angle=math.radians(24))
+
     return parts
 
 
