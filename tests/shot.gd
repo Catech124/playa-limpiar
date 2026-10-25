@@ -37,6 +37,21 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 
+	if "--closeup" in args:
+		main.start_game(2)
+		await get_tree().process_frame
+		main.orders.spawn()
+		main.players[0].teleport(11, 7, Vector2i(0, -1))
+		main.players[1].teleport(13, 7, Vector2i(0, 1))
+		main.camera.fov = 30.0
+		main.camera.look_at_from_position(Vector3(12.0, 3.2, 11.4), Vector3(12.0, 0.7, 7.4), Vector3.UP)
+		await get_tree().create_timer(1.2).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out_path)
+		print("shot -> ", out_path)
+		get_tree().quit()
+		return
+
 	if "--demo" in args or "--demo2" in args:
 		main.start_game(2 if "--demo2" in args else 1)
 		await get_tree().process_frame

@@ -6,6 +6,8 @@ extends CharacterBody3D
 ## El trabajo (clasificar / lavar) es MANTENER la acción mirando la estación:
 ## soltar la tecla no pierde el avance (queda en el ítem).
 
+const CHEF_SCENE := preload("res://assets/chef.glb")
+
 var index := 0
 var color := Color.WHITE
 var keymap: Dictionary = {}
@@ -24,7 +26,6 @@ var _act_pressed := false
 var _throw_pressed := false
 var _dash_pressed := false
 var _body_mesh: Node3D
-var _nose: Node3D
 
 
 func setup(idx: int, km: Dictionary, grid: GridWorld, g) -> void:
@@ -48,54 +49,50 @@ func _build_body() -> void:
 	_body_mesh = Node3D.new()
 	add_child(_body_mesh)
 
-	var body := CapsuleMesh.new()
-	body.radius = 0.28
-	body.height = 0.9
-	var bm := MeshInstance3D.new()
-	bm.mesh = body
-	bm.material_override = ItemVisuals.material(color)
-	bm.position = Vector3(0, 0.5, 0)
-	_body_mesh.add_child(bm)
-
-	var head := SphereMesh.new()
-	head.radius = 0.17
-	head.height = 0.34
-	var hm := MeshInstance3D.new()
-	hm.mesh = head
-	hm.material_override = ItemVisuals.material(color.lightened(0.25))
-	hm.position = Vector3(0, 1.02, 0)
-	_body_mesh.add_child(hm)
-
-	# nariz: indica hacia dónde mira
-	_nose = Node3D.new()
-	var nose := BoxMesh.new()
-	nose.size = Vector3(0.12, 0.1, 0.16)
-	var nm := MeshInstance3D.new()
-	nm.mesh = nose
-	nm.material_override = ItemVisuals.material(Color(1, 1, 1))
-	nm.position = Vector3(0, 0.75, -0.28)
-	_nose.add_child(nm)
-	_body_mesh.add_child(_nose)
+	# personaje low-poly (asset generado con tools/make_chef.py)
+	var model := CHEF_SCENE.instantiate()
+	_body_mesh.add_child(model)
+	_tint_shirt(model)
 
 	# anillo en el piso (legibilidad)
 	var ring := TorusMesh.new()
-	ring.inner_radius = 0.30
-	ring.outer_radius = 0.38
+	ring.inner_radius = 0.27
+	ring.outer_radius = 0.34
 	ring.rings = 20
 	var rm := MeshInstance3D.new()
 	rm.mesh = ring
 	var rmat := ItemVisuals.material(color.darkened(0.1))
 	rmat.emission_enabled = true
 	rmat.emission = color
-	rmat.emission_energy_multiplier = 0.12
+	rmat.emission_energy_multiplier = 0.18
 	rm.material_override = rmat
 	rm.rotation_degrees = Vector3(90, 0, 0)
 	rm.position = Vector3(0, 0.03, 0)
 	_body_mesh.add_child(rm)
 
 	carry_anchor = Node3D.new()
-	carry_anchor.position = Vector3(0, 1.38, 0)
+	carry_anchor.position = Vector3(0, 1.44, 0)
 	add_child(carry_anchor)
+
+
+## Pinta la remera y la cinta del sombrero con el color del jugador.
+## Es lo que hace legible al personaje desde la cámara alta.
+func _tint_shirt(root: Node) -> void:
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var mesh: Mesh = mi.mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var m := mesh.surface_get_material(i)
+			if not (m is StandardMaterial3D):
+				continue
+			var name := String(m.resource_name)
+			if name != "shirt" and name != "band":
+				continue
+			var dup := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+			dup.albedo_color = color if name == "shirt" else color.darkened(0.12)
+			mi.set_surface_override_material(i, dup)
 
 
 func _input(event: InputEvent) -> void:
@@ -140,7 +137,10 @@ func _physics_process(delta: float) -> void:
 		else:
 			facing = Vector2i(0, signi(int(sign(dir.y))))
 		walk_phase += delta * 12.0
-		_nose.rotation.y = _facing_angle()
+		_body_mesh.rotation.y = _facing_angle()
+		_body_mesh.position.y = absf(sin(walk_phase)) * 0.025
+	else:
+		_body_mesh.position.y = 0.0
 
 	# ---- impulso ----------------------------------------------------------
 	if _dash_pressed and dash_cd <= 0.0 and dir != Vector2.ZERO:
@@ -196,7 +196,7 @@ func tile_y() -> int:
 func teleport(tx: int, ty: int, face := Vector2i(0, -1)) -> void:
 	position = Vector3(tx + 0.5, 0.0, ty + 0.5)
 	facing = face
-	_nose.rotation.y = _facing_angle()
+	_body_mesh.rotation.y = _facing_angle()
 
 
 func _facing_angle() -> float:

@@ -125,6 +125,7 @@ mesas de clasificar en la 4, mostrador de acopio en (12–13, 5–6), camión ab
 
 **Sí:**
 - Escena 3D con cámara fija en ángulo (estilo Overcooked), luces y sombras.
+- Personaje low-poly (`assets/chef.glb`, generado por script) con color por jugador.
 - Movimiento con colisión, impulso y orientación por eje (interacciones predecibles).
 - Acción contextual de una sola tecla + aviso en pantalla de lo que haría.
 - Canales de trabajo (clasificar / lavar) con progreso **que no se pierde** al soltar.
@@ -142,8 +143,39 @@ mesas de clasificar en la 4, mostrador de acopio en (12–13, 5–6), camión ab
 - Fuego / extintor.
 - Recibir ítems lanzados por otro jugador (catch).
 - Cintas, marea, tablones móviles.
-- Animación de personajes, sonido, partículas.
+- Animación de personajes (caminar/clasificar), sonido, partículas.
 - Progresión de niveles y guardado.
+
+---
+
+## 6 bis. Arte: el personaje low-poly
+
+El asset (`assets/chef.glb`) no está modelado a mano: lo genera
+`tools/make_chef.py` con la API de Blender, en headless, y se importa como GLB.
+
+**Reglas de estilo que se copiaron de Overcooked:**
+
+| Regla | Por qué |
+|---|---|
+| Cabeza ≈ 40 % de la altura total | El personaje se lee a 40 px de tamaño en pantalla |
+| Cuerpo más ancho que alto | Da la silueta "juguete" y evita que parezca humano realista |
+| Sin cuello | La cabeza se apoya en los hombros: más caricatura, menos anatomía |
+| Extremidades cortas y gruesas | Se leen como formas, no como huesos |
+| Manos = guantes blancos | Punto de color que marca dónde está "la acción" |
+| Sombrero ancho | Reemplaza al gorro de chef: da silueta desde arriba |
+| Color del jugador en remera **y cinta del sombrero** | Desde la cámara alta la remera no se ve: la cinta sí |
+
+**Presupuesto:** ~3.000 triángulos, 9 materiales, sin texturas (color plano +
+rugosidad). Todo el modelo cabe en 100 KB de GLB.
+
+**Trampa de color que costó una iteración:** los colores de material en Blender
+son **lineales**; escribirlos como floats "a ojo" (0.87, 0.64, 0.46) da un
+durazno casi blanco al renderizar. El script define los colores en **hex sRGB** y
+los convierte con la curva estándar antes de asignarlos.
+
+**Cámara:** el juego usa cámara fija a ~65° de inclinación. A ese ángulo el
+sombrero tapa la cara: por eso la identidad del jugador vive en la cinta del
+sombrero y en el anillo del piso, no en la remera.
 
 ---
 

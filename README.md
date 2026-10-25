@@ -50,6 +50,7 @@ la caja de arena (sin reloj ni gaviotas).
 ```
 project.godot          configuración (escena principal, renderer, ventana)
 scenes/Main.tscn       escena raíz mínima: todo se construye por código
+assets/chef.glb        personaje low-poly (asset generado, ver abajo)
 scripts/config.gd      TODOS los números del juego (tuning)
 scripts/levels.gd      mapa en texto + props + segundos del sandbox
 scripts/grid_world.gd  mapa de texto -> geometría 3D y semántica de celdas
@@ -61,10 +62,32 @@ scripts/main.gd        reglas: fuentes, buffers, validación, entrega, estados
 scripts/orders.gd      pedidos, paciencia, propina por rapidez
 scripts/gulls.gd       gaviotas (el "ratón" de Overcooked)
 scripts/hud.gd         HUD y pantallas, dibujados a mano
+tools/make_chef.py     generador del personaje (Blender headless -> GLB)
 tests/headless_test.gd 24 comprobaciones de reglas (headless)
 tests/shot.gd          capturas automáticas para verificación visual
 DESIGN.md              ingeniería inversa de mecánicas + mapeo + números + roadmap
 ```
+
+## El personaje (asset low-poly)
+
+![modelo](docs/modelo-preview.png)
+
+`assets/chef.glb` se genera por script (no está modelado a mano): proporciones de
+Overcooked —cabeza grande, cuerpo chico, sombrero ancho— en ~3.000 triángulos y
+9 materiales (`skin`, `shirt`, `shorts`, `hat`, `band`, `gloves`, `boots`,
+`eyes`, `mouth`). La remera **y la cinta del sombrero** se tiñen con el color de
+cada jugador, que es lo que los distingue desde la cámara alta.
+
+Regenerarlo (requiere Blender 4+):
+
+```bash
+xvfb-run -a blender --background --python tools/make_chef.py
+```
+
+Eso reescribe `assets/chef.glb` y `docs/modelo-preview.png`. Los colores del
+script se escriben en **hex sRGB** y se convierten a lineal: si se pasan floats
+"a ojo", Blender los interpreta como lineales y el personaje sale casi blanco.
+
 
 ## Tests
 
