@@ -63,6 +63,22 @@ func _build_body() -> void:
 	_body_mesh.add_child(model)
 	_tint_shirt(model)
 	_add_outline(model)
+	_unshadow_hat(model)
+
+
+## El ala del sombrero proyecta sombra sobre la cara y la deja ilegible a 45 px:
+## el gorro no proyecta sombra. (La referencia tiene la cara iluminada.)
+func _unshadow_hat(root: Node) -> void:
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var mesh: Mesh = mi.mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var mat := mesh.surface_get_material(i)
+			if mat and String(mat.resource_name) == "hat":
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				break
 
 
 ## Contorno por casco invertido: es la firma del look low-poly de referencia.

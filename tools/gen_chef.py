@@ -33,9 +33,9 @@ DEFAULTS = {
     "id": "chef",
     "body": {
         "preset": "v1_frozen",
-        "head_z": 0.825,
+        "head_z": 0.965,
         "head_r": 0.255,
-        "head_top": 1.08,
+        "head_top": 1.22,
         "lean_deg": 0.0,
     },
     "hat": {
@@ -230,29 +230,29 @@ def build_body(P):
     legs = Part("legs", "legs")
     feet = Part("boots", "boots")
     for side in (-1, 1):
-        cylinder(legs, 0.072, 0.26, (side * 0.098, 0, 0.24), pants, vertices=8)
-        box(feet, (0.17, 0.30, 0.10), (side * 0.098, -0.035, 0.055), shoes, bevel=0.02)
-        box(feet, (0.175, 0.30, 0.035), (side * 0.098, -0.035, 0.017), sole, bevel=0.012)
+        cylinder(legs, 0.078, 0.34, (side * 0.100, 0, 0.30), pants, vertices=8)
+        box(feet, (0.17, 0.30, 0.11), (side * 0.100, -0.035, 0.075), shoes, bevel=0.022)
+        box(feet, (0.175, 0.30, 0.04), (side * 0.100, -0.035, 0.022), sole, bevel=0.012)
 
     # --- torso: remera corta, más ancha arriba ----------------------------
     torso = Part("torso", "torso")
-    body = cylinder(torso, 0.185, 0.30, (0, 0, 0.475), shirt, vertices=10, top=0.205)
+    body = cylinder(torso, 0.190, 0.300, (0, 0, 0.585), shirt, vertices=10, top=0.210)
     body.scale = (1.06, 0.88, 1.0)
-    sphere(torso, 0.205, (0, 0, 0.625), shirt, scale=(1.06, 0.88, 0.55), segments=12, rings=6)
+    sphere(torso, 0.210, (0, 0, 0.730), shirt, scale=(1.06, 0.88, 0.52), segments=12, rings=6)
 
     # --- brazos en A con manga corta y guante segmentado -------------------
     arms = Part("arms", "arms")
     hands = Part("hands", "hands")
     for side in (-1, 1):
-        shoulder = (side * 0.195, 0.0, 0.585)
-        elbow = (side * 0.315, -0.005, 0.455)
-        wrist = (side * 0.360, -0.010, 0.330)
+        shoulder = (side * 0.200, 0.0, 0.695)
+        elbow = (side * 0.325, -0.005, 0.560)
+        wrist = (side * 0.372, -0.010, 0.425)
         limb(arms, shoulder, elbow, 0.072, shirt, vertices=8)      # manga
         limb(arms, elbow, wrist, 0.052, skin, vertices=8)            # antebrazo
         # guante: tres bloques, como la referencia
         sphere(hands, 0.080, wrist, gloves, scale=(1.0, 1.05, 1.0), segments=9, rings=6)
-        sphere(hands, 0.058, (side * 0.375, -0.055, 0.292), gloves, segments=8, rings=5)
-        sphere(hands, 0.052, (side * 0.352, 0.045, 0.300), gloves, segments=8, rings=5)
+        sphere(hands, 0.058, (side * 0.387, -0.055, 0.387), gloves, segments=8, rings=5)
+        sphere(hands, 0.052, (side * 0.364, 0.045, 0.395), gloves, segments=8, rings=5)
 
     # --- cabeza ancha, sin cuello, con orejas -----------------------------
     head = Part("head", "head")
@@ -274,10 +274,8 @@ def build_body(P):
     nose = cylinder(face, 0.050, 0.085, (0, -0.285, hz - 0.020), skin,
                     vertices=6, smooth=False, top=0.030)
     nose.rotation_euler = (math.radians(90), 0, 0)
-    # sonrisa: tres segmentos formando una curva suave
-    for i, (dx, dz, ang) in enumerate([(-0.040, 0.004, 12), (0.0, -0.006, 0), (0.040, 0.004, -12)]):
-        box(face, (0.048, 0.014, 0.016), (dx, -0.272, hz - 0.118 + dz),
-            mouth, rotation=(0, 0, math.radians(ang)), bevel=0.005, smooth=False)
+    # boca: una línea fina y ancha (a 45 px tres segmentos se funden en un manchón)
+    box(face, (0.100, 0.016, 0.014), (0, -0.272, hz - 0.118), mouth, bevel=0.005, smooth=False)
 
     parts.update({"legs": legs, "boots": feet, "torso": torso,
                   "arms": arms, "hands": hands, "head": head, "face": face})

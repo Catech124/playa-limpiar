@@ -168,9 +168,9 @@ func _tint(root: Node, color: Color) -> void:
 
 
 func _process(delta: float) -> void:
-	angle += delta * 0.6
+	angle += delta * 0.35
 	for holder in spinners:
-		holder.rotation.y = angle
+		holder.rotation.y = angle - 0.35   # arranca casi de frente
 
 
 func _unhandled_input(event: InputEvent) -> void:
