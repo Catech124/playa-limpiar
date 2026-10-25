@@ -1,0 +1,8 @@
+# Godot
+.godot/
+export/
+*.translation
+
+# Sistema
+.DS_Store
+*.log

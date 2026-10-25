@@ -1,0 +1,29 @@
+; Engine configuration file.
+; Proyecto: Playa Limpia — prototipo de mecánicas 3D (estructura de Overcooked).
+
+config_version=5
+
+[application]
+
+config/name="Playa Limpia"
+config/description="Prototipo de mecánicas co-op de recolección de basura en una playa, en 3D."
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
+
+[physics]
+
+common/physics_ticks_per_second=60
