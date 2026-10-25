@@ -62,6 +62,31 @@ func _build_body() -> void:
 	var model := _chef().instantiate()
 	_body_mesh.add_child(model)
 	_tint_shirt(model)
+	_add_outline(model)
+
+
+## Contorno por casco invertido: es la firma del look low-poly de referencia.
+## Se prueba si el renderer lo soporta; si no, no se nota y no rompe nada.
+func _add_outline(root: Node) -> void:
+	var outline := StandardMaterial3D.new()
+	outline.albedo_color = Color(0.05, 0.05, 0.06)
+	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	outline.cull_mode = BaseMaterial3D.CULL_FRONT
+	outline.grow = true
+	outline.grow_amount = 0.012
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var mesh: Mesh = mi.mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var mat := mi.get_surface_override_material(i)
+			if mat == null:
+				mat = mesh.surface_get_material(i)
+			if mat is StandardMaterial3D:
+				var dup := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+				dup.next_pass = outline
+				mi.set_surface_override_material(i, dup)
 
 	# anillo en el piso (legibilidad)
 	var ring := TorusMesh.new()
