@@ -50,6 +50,7 @@ la caja de arena (sin reloj ni gaviotas).
 ```
 project.godot          configuración (escena principal, renderer, ventana)
 scenes/Main.tscn       escena raíz mínima: todo se construye por código
+scenes/ModelViewer.tscn visor del personaje (3 copias girando)
 assets/chef.glb        personaje low-poly (asset generado, ver abajo)
 scripts/config.gd      TODOS los números del juego (tuning)
 scripts/levels.gd      mapa en texto + props + segundos del sandbox
@@ -62,6 +63,7 @@ scripts/main.gd        reglas: fuentes, buffers, validación, entrega, estados
 scripts/orders.gd      pedidos, paciencia, propina por rapidez
 scripts/gulls.gd       gaviotas (el "ratón" de Overcooked)
 scripts/hud.gd         HUD y pantallas, dibujados a mano
+scripts/model_viewer.gd visor standalone del asset
 tools/make_chef.py     generador del personaje (Blender headless -> GLB)
 tests/headless_test.gd 24 comprobaciones de reglas (headless)
 tests/shot.gd          capturas automáticas para verificación visual
@@ -77,6 +79,12 @@ Overcooked —cabeza grande, cuerpo chico, sombrero ancho— en ~3.000 triángul
 9 materiales (`skin`, `shirt`, `shorts`, `hat`, `band`, `gloves`, `boots`,
 `eyes`, `mouth`). La remera **y la cinta del sombrero** se tiñen con el color de
 cada jugador, que es lo que los distingue desde la cámara alta.
+
+Verlo girando, con las dos variantes de color:
+
+```bash
+godot --path . scenes/ModelViewer.tscn
+```
 
 Regenerarlo (requiere Blender 4+):
 
