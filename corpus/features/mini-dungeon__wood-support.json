@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "wood-support",
+ "verts": 72,
+ "tris": 104,
+ "bbox": [
+  1.088,
+  0.238,
+  1.0
+ ],
+ "aspect_wh": 1.088,
+ "aspect_wd": 4.571,
+ "mass_bands": [
+  0.111,
+  0.0,
+  0.0,
+  0.0,
+  0.056,
+  0.0,
+  0.056,
+  0.389,
+  0.056,
+  0.333
+ ],
+ "components": 7,
+ "aabb_overlap": 12,
+ "symmetry": 0.0,
+ "hull_ratio": 15.4,
+ "flat_ratio": 0.583,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

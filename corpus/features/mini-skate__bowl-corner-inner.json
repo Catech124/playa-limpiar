@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "bowl-corner-inner",
+ "verts": 77,
+ "tris": 150,
+ "bbox": [
+  1.0,
+  1.0,
+  0.8
+ ],
+ "aspect_wh": 1.25,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.234,
+  0.091,
+  0.091,
+  0.0,
+  0.0,
+  0.091,
+  0.0,
+  0.091,
+  0.091,
+  0.312
+ ],
+ "components": 1,
+ "aabb_overlap": 0,
+ "symmetry": 0.2961,
+ "hull_ratio": 16.2,
+ "flat_ratio": 0.2,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

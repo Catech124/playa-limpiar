@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "plant",
+ "verts": 84,
+ "tris": 156,
+ "bbox": [
+  0.396,
+  0.43,
+  0.192
+ ],
+ "aspect_wh": 2.065,
+ "aspect_wd": 0.921,
+ "mass_bands": [
+  0.107,
+  0.036,
+  0.071,
+  0.071,
+  0.119,
+  0.119,
+  0.179,
+  0.143,
+  0.071,
+  0.083
+ ],
+ "components": 3,
+ "aabb_overlap": 3,
+ "symmetry": 0.2888,
+ "hull_ratio": 17.8,
+ "flat_ratio": 0.321,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

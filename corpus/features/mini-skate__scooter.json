@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "scooter",
+ "verts": 224,
+ "tris": 410,
+ "bbox": [
+  0.325,
+  0.688,
+  0.44
+ ],
+ "aspect_wh": 0.739,
+ "aspect_wd": 0.472,
+ "mass_bands": [
+  0.125,
+  0.25,
+  0.25,
+  0.125,
+  0.0,
+  0.0,
+  0.0,
+  0.009,
+  0.125,
+  0.116
+ ],
+ "components": 10,
+ "aabb_overlap": 8,
+ "symmetry": 0.0,
+ "hull_ratio": 16.2,
+ "flat_ratio": 0.395,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

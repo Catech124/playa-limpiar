@@ -1,0 +1,33 @@
+{
+ "pack": "mini-characters",
+ "model": "wheelchair-power-deluxe",
+ "verts": 466,
+ "tris": 920,
+ "bbox": [
+  0.48,
+  0.511,
+  0.625
+ ],
+ "aspect_wh": 0.768,
+ "aspect_wd": 0.939,
+ "mass_bands": [
+  0.262,
+  0.283,
+  0.18,
+  0.137,
+  0.026,
+  0.034,
+  0.017,
+  0.009,
+  0.03,
+  0.021
+ ],
+ "components": 15,
+ "aabb_overlap": 12,
+ "symmetry": 0.001,
+ "hull_ratio": 14.4,
+ "flat_ratio": 0.369,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.349
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "character-archer",
+ "verts": 366,
+ "tris": 598,
+ "bbox": [
+  1.902,
+  2.0,
+  2.0
+ ],
+ "aspect_wh": 0.951,
+ "aspect_wd": 0.951,
+ "mass_bands": [
+  0.016,
+  0.0,
+  0.027,
+  0.0,
+  0.0,
+  0.175,
+  0.306,
+  0.303,
+  0.15,
+  0.022
+ ],
+ "components": 21,
+ "aabb_overlap": 58,
+ "symmetry": 0.0095,
+ "hull_ratio": 12.9,
+ "flat_ratio": 0.383,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

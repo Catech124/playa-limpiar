@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "rocks",
+ "verts": 112,
+ "tris": 190,
+ "bbox": [
+  1.0,
+  1.0,
+  0.5
+ ],
+ "aspect_wh": 2.0,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.25,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.643,
+  0.107
+ ],
+ "components": 6,
+ "aabb_overlap": 5,
+ "symmetry": 0.0855,
+ "hull_ratio": 18.0,
+ "flat_ratio": 0.509,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

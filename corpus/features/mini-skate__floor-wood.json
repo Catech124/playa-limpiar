@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "floor-wood",
+ "verts": 34,
+ "tris": 32,
+ "bbox": [
+  1.0,
+  1.0,
+  0.025
+ ],
+ "aspect_wh": 40.0,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.706,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.118,
+  0.0,
+  0.0,
+  0.0,
+  0.176
+ ],
+ "components": 6,
+ "aabb_overlap": 5,
+ "symmetry": 4.6483,
+ "hull_ratio": 189.1,
+ "flat_ratio": 0.694,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

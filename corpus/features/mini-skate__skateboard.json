@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "skateboard",
+ "verts": 236,
+ "tris": 432,
+ "bbox": [
+  0.316,
+  0.69,
+  0.18
+ ],
+ "aspect_wh": 1.749,
+ "aspect_wd": 0.458,
+ "mass_bands": [
+  0.136,
+  0.153,
+  0.169,
+  0.119,
+  0.237,
+  0.068,
+  0.051,
+  0.025,
+  0.017,
+  0.025
+ ],
+ "components": 7,
+ "aabb_overlap": 6,
+ "symmetry": 0.0,
+ "hull_ratio": 15.7,
+ "flat_ratio": 0.365,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-characters",
+ "model": "character-female-d",
+ "verts": 518,
+ "tris": 877,
+ "bbox": [
+  1.902,
+  2.0,
+  2.0
+ ],
+ "aspect_wh": 0.951,
+ "aspect_wd": 0.951,
+ "mass_bands": [
+  0.012,
+  0.0,
+  0.019,
+  0.0,
+  0.0,
+  0.278,
+  0.359,
+  0.197,
+  0.124,
+  0.012
+ ],
+ "components": 25,
+ "aabb_overlap": 56,
+ "symmetry": 0.0048,
+ "hull_ratio": 12.9,
+ "flat_ratio": 0.42,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.349
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-characters",
+ "model": "character-male-c",
+ "verts": 544,
+ "tris": 873,
+ "bbox": [
+  1.902,
+  2.0,
+  2.0
+ ],
+ "aspect_wh": 0.951,
+ "aspect_wd": 0.951,
+ "mass_bands": [
+  0.011,
+  0.0,
+  0.018,
+  0.0,
+  0.0,
+  0.301,
+  0.338,
+  0.204,
+  0.116,
+  0.011
+ ],
+ "components": 30,
+ "aabb_overlap": 73,
+ "symmetry": 0.0057,
+ "hull_ratio": 12.9,
+ "flat_ratio": 0.425,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.349
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "weapon-sword",
+ "verts": 51,
+ "tris": 80,
+ "bbox": [
+  0.233,
+  0.108,
+  0.448
+ ],
+ "aspect_wh": 0.52,
+ "aspect_wd": 2.153,
+ "mass_bands": [
+  0.314,
+  0.0,
+  0.275,
+  0.235,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.118,
+  0.059
+ ],
+ "components": 3,
+ "aabb_overlap": 2,
+ "symmetry": 0.0,
+ "hull_ratio": 15.6,
+ "flat_ratio": 0.46,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

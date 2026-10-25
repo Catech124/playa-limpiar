@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "vehicle",
+ "verts": 480,
+ "tris": 908,
+ "bbox": [
+  1.422,
+  0.99,
+  0.877
+ ],
+ "aspect_wh": 1.621,
+ "aspect_wd": 1.436,
+ "mass_bands": [
+  0.1,
+  0.167,
+  0.283,
+  0.183,
+  0.121,
+  0.067,
+  0.0,
+  0.0,
+  0.054,
+  0.025
+ ],
+ "components": 12,
+ "aabb_overlap": 11,
+ "symmetry": 0.0594,
+ "hull_ratio": 15.4,
+ "flat_ratio": 0.432,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

@@ -1,0 +1,19 @@
+{
+  "base": {
+    "hat": { "banda": "fina", "color": "#D9B36A" }
+  },
+  "variants": [
+    { "id": "g01", "hat": { "tipo": "toque", "copa_h": 0.10, "lobulos": 3 } },
+    { "id": "g02", "hat": { "tipo": "toque", "copa_h": 0.14, "lobulos": 4 } },
+    { "id": "g03", "hat": { "tipo": "toque", "copa_h": 0.18, "lobulos": 4 } },
+    { "id": "g04", "hat": { "tipo": "toque", "copa_h": 0.14, "lobulos": 3 } },
+    { "id": "g05", "hat": { "tipo": "paja", "copa_h": 0.08, "ala": 0.16 } },
+    { "id": "g06", "hat": { "tipo": "paja", "copa_h": 0.08, "ala": 0.26 } },
+    { "id": "g07", "hat": { "tipo": "paja", "copa_h": 0.14, "ala": 0.26 } },
+    { "id": "g08", "hat": { "tipo": "paja", "copa_h": 0.05, "ala": 0.34 } },
+    { "id": "g09", "hat": { "tipo": "gorra", "copa_h": 0.10, "ala": 0.16 } },
+    { "id": "g10", "hat": { "tipo": "gorra", "copa_h": 0.14, "ala": 0.24 } },
+    { "id": "g11", "hat": { "tipo": "toque", "copa_h": 0.18, "lobulos": 3 } },
+    { "id": "g12", "hat": { "tipo": "paja", "copa_h": 0.14, "ala": 0.16 } }
+  ]
+}

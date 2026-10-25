@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "rail-slope-smooth",
+ "verts": 172,
+ "tris": 286,
+ "bbox": [
+  0.11,
+  1.001,
+  0.45
+ ],
+ "aspect_wh": 0.244,
+ "aspect_wd": 0.11,
+ "mass_bands": [
+  0.488,
+  0.0,
+  0.0,
+  0.0,
+  0.081,
+  0.093,
+  0.058,
+  0.081,
+  0.128,
+  0.07
+ ],
+ "components": 7,
+ "aabb_overlap": 6,
+ "symmetry": 0.0,
+ "hull_ratio": 26.0,
+ "flat_ratio": 0.4,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "flag",
+ "verts": 92,
+ "tris": 162,
+ "bbox": [
+  0.432,
+  0.156,
+  0.75
+ ],
+ "aspect_wh": 0.576,
+ "aspect_wd": 2.764,
+ "mass_bands": [
+  0.087,
+  0.0,
+  0.13,
+  0.0,
+  0.0,
+  0.022,
+  0.304,
+  0.065,
+  0.174,
+  0.217
+ ],
+ "components": 5,
+ "aabb_overlap": 3,
+ "symmetry": 0.0745,
+ "hull_ratio": 18.4,
+ "flat_ratio": 0.506,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

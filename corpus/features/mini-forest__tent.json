@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "tent",
+ "verts": 436,
+ "tris": 847,
+ "bbox": [
+  1.262,
+  1.075,
+  1.0
+ ],
+ "aspect_wh": 1.262,
+ "aspect_wd": 1.174,
+ "mass_bands": [
+  0.138,
+  0.22,
+  0.202,
+  0.112,
+  0.085,
+  0.05,
+  0.055,
+  0.025,
+  0.03,
+  0.083
+ ],
+ "components": 11,
+ "aabb_overlap": 14,
+ "symmetry": 0.0136,
+ "hull_ratio": 16.5,
+ "flat_ratio": 0.385,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

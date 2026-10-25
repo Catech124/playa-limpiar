@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "half-pipe",
+ "verts": 48,
+ "tris": 84,
+ "bbox": [
+  1.0,
+  1.0,
+  0.8
+ ],
+ "aspect_wh": 1.25,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.333,
+  0.083,
+  0.083,
+  0.0,
+  0.0,
+  0.083,
+  0.0,
+  0.083,
+  0.083,
+  0.25
+ ],
+ "components": 1,
+ "aabb_overlap": 0,
+ "symmetry": 0.0,
+ "hull_ratio": 16.2,
+ "flat_ratio": 0.305,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

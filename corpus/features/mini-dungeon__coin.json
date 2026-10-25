@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "coin",
+ "verts": 88,
+ "tris": 172,
+ "bbox": [
+  0.415,
+  0.167,
+  0.417
+ ],
+ "aspect_wh": 0.996,
+ "aspect_wd": 2.49,
+ "mass_bands": [
+  0.045,
+  0.045,
+  0.182,
+  0.045,
+  0.182,
+  0.136,
+  0.091,
+  0.091,
+  0.136,
+  0.045
+ ],
+ "components": 1,
+ "aabb_overlap": 0,
+ "symmetry": 0.0,
+ "hull_ratio": 13.2,
+ "flat_ratio": 0.419,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

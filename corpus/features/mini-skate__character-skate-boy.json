@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "character-skate-boy",
+ "verts": 480,
+ "tris": 802,
+ "bbox": [
+  1.902,
+  2.0,
+  2.0
+ ],
+ "aspect_wh": 0.951,
+ "aspect_wd": 0.951,
+ "mass_bands": [
+  0.013,
+  0.0,
+  0.021,
+  0.0,
+  0.0,
+  0.35,
+  0.3,
+  0.183,
+  0.121,
+  0.013
+ ],
+ "components": 25,
+ "aabb_overlap": 60,
+ "symmetry": 0.0052,
+ "hull_ratio": 12.9,
+ "flat_ratio": 0.411,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

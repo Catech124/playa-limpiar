@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "fence",
+ "verts": 112,
+ "tris": 184,
+ "bbox": [
+  1.0,
+  0.11,
+  0.35
+ ],
+ "aspect_wh": 2.857,
+ "aspect_wd": 9.091,
+ "mass_bands": [
+  0.571,
+  0.0,
+  0.0,
+  0.071,
+  0.0,
+  0.036,
+  0.036,
+  0.036,
+  0.179,
+  0.071
+ ],
+ "components": 5,
+ "aabb_overlap": 6,
+ "symmetry": 0.0,
+ "hull_ratio": 19.2,
+ "flat_ratio": 0.415,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

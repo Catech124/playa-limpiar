@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "barrel",
+ "verts": 80,
+ "tris": 148,
+ "bbox": [
+  0.518,
+  0.518,
+  0.476
+ ],
+ "aspect_wh": 1.087,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.1,
+  0.1,
+  0.1,
+  0.1,
+  0.0,
+  0.0,
+  0.1,
+  0.1,
+  0.2,
+  0.2
+ ],
+ "components": 3,
+ "aabb_overlap": 2,
+ "symmetry": 0.0,
+ "hull_ratio": 14.0,
+ "flat_ratio": 0.505,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "pallet",
+ "verts": 60,
+ "tris": 108,
+ "bbox": [
+  0.5,
+  0.5,
+  0.158
+ ],
+ "aspect_wh": 3.156,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.133,
+  0.0,
+  0.133,
+  0.0,
+  0.15,
+  0.117,
+  0.0,
+  0.267,
+  0.0,
+  0.2
+ ],
+ "components": 2,
+ "aabb_overlap": 1,
+ "symmetry": 0.0009,
+ "hull_ratio": 21.9,
+ "flat_ratio": 0.587,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

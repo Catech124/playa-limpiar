@@ -1,0 +1,33 @@
+{
+ "pack": "mini-characters",
+ "model": "aid-crutch",
+ "verts": 80,
+ "tris": 144,
+ "bbox": [
+  0.196,
+  0.187,
+  0.31
+ ],
+ "aspect_wh": 0.632,
+ "aspect_wd": 1.048,
+ "mass_bands": [
+  0.05,
+  0.05,
+  0.0,
+  0.05,
+  0.037,
+  0.138,
+  0.125,
+  0.25,
+  0.25,
+  0.05
+ ],
+ "components": 4,
+ "aabb_overlap": 3,
+ "symmetry": 0.0019,
+ "hull_ratio": 16.6,
+ "flat_ratio": 0.519,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.349
+}

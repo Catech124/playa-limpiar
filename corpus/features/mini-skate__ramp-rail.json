@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "ramp-rail",
+ "verts": 156,
+ "tris": 240,
+ "bbox": [
+  1.0,
+  1.0,
+  0.55
+ ],
+ "aspect_wh": 1.818,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.064,
+  0.0,
+  0.103,
+  0.09,
+  0.038,
+  0.487,
+  0.115,
+  0.0,
+  0.013,
+  0.09
+ ],
+ "components": 10,
+ "aabb_overlap": 14,
+ "symmetry": 0.0,
+ "hull_ratio": 17.0,
+ "flat_ratio": 0.475,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}

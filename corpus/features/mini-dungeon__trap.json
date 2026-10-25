@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "trap",
+ "verts": 224,
+ "tris": 408,
+ "bbox": [
+  0.79,
+  0.79,
+  0.189
+ ],
+ "aspect_wh": 4.185,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.143,
+  0.0,
+  0.286,
+  0.0,
+  0.143,
+  0.0,
+  0.0,
+  0.286,
+  0.0,
+  0.143
+ ],
+ "components": 8,
+ "aabb_overlap": 4,
+ "symmetry": 0.0,
+ "hull_ratio": 23.2,
+ "flat_ratio": 0.43,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

@@ -1,0 +1,33 @@
+{
+ "pack": "mini-dungeon",
+ "model": "chair",
+ "verts": 130,
+ "tris": 208,
+ "bbox": [
+  0.347,
+  0.375,
+  0.477
+ ],
+ "aspect_wh": 0.726,
+ "aspect_wd": 0.924,
+ "mass_bands": [
+  0.246,
+  0.308,
+  0.0,
+  0.0,
+  0.169,
+  0.169,
+  0.031,
+  0.0,
+  0.0,
+  0.077
+ ],
+ "components": 6,
+ "aabb_overlap": 5,
+ "symmetry": 0.0009,
+ "hull_ratio": 15.6,
+ "flat_ratio": 0.459,
+ "hues": 34,
+ "val_range": 1.0,
+ "sat_mean": 0.345
+}

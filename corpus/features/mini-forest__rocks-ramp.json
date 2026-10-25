@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "rocks-ramp",
+ "verts": 130,
+ "tris": 234,
+ "bbox": [
+  1.0,
+  1.0,
+  0.5
+ ],
+ "aspect_wh": 2.0,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.231,
+  0.0,
+  0.115,
+  0.015,
+  0.138,
+  0.0,
+  0.185,
+  0.008,
+  0.254,
+  0.054
+ ],
+ "components": 6,
+ "aabb_overlap": 5,
+ "symmetry": 0.172,
+ "hull_ratio": 18.3,
+ "flat_ratio": 0.511,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

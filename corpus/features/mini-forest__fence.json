@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "fence",
+ "verts": 175,
+ "tris": 330,
+ "bbox": [
+  1.096,
+  0.246,
+  0.4
+ ],
+ "aspect_wh": 2.74,
+ "aspect_wd": 4.458,
+ "mass_bands": [
+  0.091,
+  0.034,
+  0.069,
+  0.074,
+  0.189,
+  0.006,
+  0.171,
+  0.183,
+  0.0,
+  0.183
+ ],
+ "components": 5,
+ "aabb_overlap": 6,
+ "symmetry": 0.0103,
+ "hull_ratio": 18.8,
+ "flat_ratio": 0.396,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

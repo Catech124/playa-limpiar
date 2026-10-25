@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "weapon-arrow",
+ "verts": 36,
+ "tris": 58,
+ "bbox": [
+  0.119,
+  0.456,
+  0.119
+ ],
+ "aspect_wh": 1.0,
+ "aspect_wd": 0.261,
+ "mass_bands": [
+  0.111,
+  0.056,
+  0.222,
+  0.056,
+  0.056,
+  0.056,
+  0.056,
+  0.222,
+  0.056,
+  0.111
+ ],
+ "components": 3,
+ "aabb_overlap": 2,
+ "symmetry": 0.0,
+ "hull_ratio": 13.3,
+ "flat_ratio": 0.588,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

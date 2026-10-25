@@ -1,0 +1,33 @@
+{
+ "pack": "mini-forest",
+ "model": "rocks-high",
+ "verts": 100,
+ "tris": 186,
+ "bbox": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "aspect_wh": 1.0,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.32,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.2,
+  0.48
+ ],
+ "components": 4,
+ "aabb_overlap": 3,
+ "symmetry": 0.0204,
+ "hull_ratio": 16.0,
+ "flat_ratio": 0.482,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.346
+}

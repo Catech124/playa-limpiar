@@ -1,0 +1,33 @@
+{
+ "pack": "mini-skate",
+ "model": "obstacle-middle",
+ "verts": 32,
+ "tris": 60,
+ "bbox": [
+  1.0,
+  1.0,
+  0.3
+ ],
+ "aspect_wh": 3.333,
+ "aspect_wd": 1.0,
+ "mass_bands": [
+  0.25,
+  0.125,
+  0.125,
+  0.0,
+  0.0,
+  0.125,
+  0.0,
+  0.125,
+  0.0,
+  0.25
+ ],
+ "components": 1,
+ "aabb_overlap": 0,
+ "symmetry": 0.0,
+ "hull_ratio": 24.5,
+ "flat_ratio": 0.422,
+ "hues": 35,
+ "val_range": 1.0,
+ "sat_mean": 0.337
+}
