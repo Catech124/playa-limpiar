@@ -41,14 +41,14 @@ DEFAULTS = {
     },
     "hat": {
         "tipo": "paja",       # toque | paja | gorra
-        "copa_h": 0.135,        # altura de la copa sobre la banda
+        "copa_h": 0.150,        # altura de la copa sobre la banda
         "lobulos": 4,
-        "ala": 0.192,           # ala corta: con 0.18 el ala tapa la cara a 68°
+        "brim_r": 0.370,           # ala corta: con 0.18 el ala tapa la cara a 68°
         "banda": "fina",
         "color": "#DDBE86",    # paja: ΔE ≈ 27 contra la arena (la paja daba 8)
         "tilt_deg": 0.0,
         "brim_front_short": 0.0,
-        "hat_drop": 0.070,
+        "hat_drop": 0.030,
     },
     "palette": {
         "skin": "#E39F7C",
@@ -302,7 +302,7 @@ def head_point(P, direction, t=1.0):
 # forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano.
 # La lámina tiene la cabeza MÁS ANCHA QUE ALTA (0.74 de ancho x 0.57 de alto).
 # --------------------------------------------------------------------------- #
-HEAD_SCALE = (1.06, 1.05, 1.00)
+HEAD_SCALE = (1.19, 1.08, 1.00)
 
 # Medidas tomadas de la lámina de referencia (tools/ref_metrics.py), en
 # fracciones de la altura total H del personaje:
@@ -331,7 +331,7 @@ def head_point(P, direction, t=1.0):
 # --------------------------------------------------------------------------- #
 # forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano
 # --------------------------------------------------------------------------- #
-HEAD_SCALE = (1.06, 1.05, 1.00)
+HEAD_SCALE = (1.19, 1.08, 1.00)
 
 # Medidas tomadas de la lámina (tools/ref_metrics.py), en fracciones de la
 # altura total H del personaje:
@@ -387,8 +387,8 @@ def build_body(P):
     for side, tag in ((-1, "l"), (1, "r")):
         leg = Part(f"leg_{tag}", "legs")
         foot = Part(f"boot_{tag}", "boots")
-        cylinder(leg, 0.050, 0.295, (side * 0.068, 0, 0.228), pants, vertices=12, top=0.058)
-        cylinder(leg, 0.062, 0.028, (side * 0.068, 0, 0.096), pants, vertices=12)   # ruedo
+        cylinder(leg, 0.052, 0.295, (side * 0.068, 0, 0.228), pants, vertices=12, top=0.060)
+        cylinder(leg, 0.068, 0.028, (side * 0.068, 0, 0.096), pants, vertices=12)   # ruedo
         box(foot, (0.124, 0.178, 0.056), (side * 0.068, -0.022, 0.050), white, bevel=0.024)
         sphere(foot, 0.055, (side * 0.068, -0.090, 0.045), white,
                scale=(1.0, 0.92, 0.66), segments=10, rings=6)
@@ -404,11 +404,11 @@ def build_body(P):
         (0.160, 0.030),
         (0.159, 0.090),
         (0.158, 0.150),
-        (0.155, 0.190),
-        (0.146, 0.212),
-        (0.126, 0.230),
-        (0.100, 0.242),
-        (0.082, 0.248),
+        (0.152, 0.190),
+        (0.140, 0.214),
+        (0.118, 0.232),
+        (0.094, 0.242),
+        (0.080, 0.249),
         (0.080, 0.256),
     ], (0, 0, 0.318), shirt, segments=30)
     tee.scale = (1.0, 0.88, 1.0)
@@ -443,8 +443,8 @@ def build_body(P):
             glove = (side * 0.364, 0.000, 0.457)
             thumb = (side * 0.347, -0.060, 0.483)
             cuff_rot = (0, math.radians(90), 0)
-        limb(arms, sh, sl, 0.060, shirt, vertices=12, taper=0.94)          # manga
-        limb(arms, sl, wr, 0.044, skin, vertices=10)
+        limb(arms, sh, sl, 0.066, shirt, vertices=12, taper=0.94)          # manga
+        limb(arms, sl, wr, 0.050, skin, vertices=10)
         g_scale = (1.00, 1.02, 1.28) if pose == "down" else (1.28, 1.02, 1.00)
         sphere(hands, 0.078, glove, white, scale=g_scale, segments=12, rings=8)
 
@@ -458,28 +458,28 @@ def build_body(P):
     for v in skull.data.vertices:
         k = v.co.z / (hr * 1.05)
         if k < 0:      # mandíbula: se angosta hacia el mentón
-            f = 1.0 - 0.22 * (min(-k, 1.0) ** 1.8)
+            f = 1.0 - 0.18 * (min(-k, 1.0) ** 2.0)
         else:          # frente: se angosta hacia arriba (huevo, no óvalo)
-            f = 1.0 - 0.16 * (min(k, 1.0) ** 2.0)
+            f = 1.0 - 0.24 * (min(k, 1.0) ** 1.8)
         v.co.x *= f
         v.co.y *= f
     for side in (-1, 1):
-        ear = head_point(P, (side * 1.0, -0.01, -0.06), t=0.96)
-        sphere(head, 0.098, ear, skin, scale=(0.50, 0.92, 1.02), segments=12, rings=9)
+        ear = head_point(P, (side * 1.0, -0.01, -0.06), t=0.93)
+        sphere(head, 0.086, ear, skin, scale=(0.52, 0.94, 1.02), segments=12, rings=9)
 
     # --- cara: ojos grandes, cejas gruesas, nariz de cuña y boca de omega ---
     face = Part("face", "face")
     for side in (-1, 1):
-        sphere(face, 0.031, head_point(P, (side * 0.200, -1.0, 0.08), t=0.940),
+        sphere(face, 0.031, head_point(P, (side * 0.205, -1.0, 0.02), t=0.940),
                dark, segments=10, rings=7)
-        box(face, (0.046, 0.012, 0.012), head_point(P, (side * 0.195, -0.95, 0.26), t=0.985),
+        box(face, (0.046, 0.012, 0.012), head_point(P, (side * 0.200, -0.95, 0.20), t=0.985),
             dark, rotation=(0, math.radians(side * 4), 0), bevel=0.005, smooth=True)
-    nose = cylinder(face, 0.050, 0.068, head_point(P, (0, -1.0, -0.06), t=1.03),
+    nose = cylinder(face, 0.050, 0.068, head_point(P, (0, -1.0, -0.10), t=1.03),
                     skin, vertices=8, top=0.019)
     nose.rotation_euler = (math.radians(90), 0, 0)
     nose.scale = (1.0, 0.72, 1.0)
     for sx_ in (-1, 1):
-        arc(face, 0.016, 0.0042, head_point(P, (sx_ * 0.036, -1.0, -0.24), t=0.976),
+        arc(face, 0.016, 0.0042, head_point(P, (sx_ * 0.036, -1.0, -0.28), t=0.976),
             dark, rotation=(math.radians(90), 0, 0), segments=10)
 
     parts.update({"torso": torso, "neck": neck, "head": head, "face": face})
@@ -490,70 +490,73 @@ def build_body(P):
 # gorro (paramétrico: es lo único que se barre)
 # --------------------------------------------------------------------------- #
 def build_hat(P):
-    """Fedora de paja de la lámina, construido como UNA superficie de revolución:
-    copa con la cima redondeada, base de la copa más ancha, ala que sube desde
-    el borde y cinta rosa-malva en la base."""
+    """Fedora de paja construido con el PERFIL MEDIDO en la lámina.
+
+    Medido con `tools/ref_metrics.py` + conteo de filas sobre docs/referencia.png
+    (fracciones de la altura total H del personaje):
+      - copa: diámetro 0.45 H, alto 0.10 H, con la pared apenas abombada y la
+        cima redondeada (la fila del tope mide 0.17 H: no es un disco plano)
+      - ala: diámetro 0.74 H, espesor 0.05 H y el borde 0.03 H MÁS BAJO que la
+        base de la copa (por eso no se lee como un plato)
+    """
     h = P["hat"]
     pal = P["palette"]
     head_r = P["body"]["head_r"]
     head_top = P["body"]["head_z"] + head_r * HEAD_SCALE[2]
 
-    # el sombrero se hunde en el cráneo (en la lámina el ala corta la cabeza
-    # bastante por debajo de la coronilla)
-    base_z = head_top - float(h.get("hat_drop", 0.10))
+    base_z = head_top - float(h.get("hat_drop", 0.030))
 
     hat_mat = material("hat", h["color"], 0.80)
     band_mat = material("band", pal["band"], 0.82)
     part = Part("hat", "hat")
 
-    crown_r = head_r * 0.62
-    brim_r = crown_r + float(h["ala"])
-    copa = float(h["copa_h"])
+    # radios absolutos medidos (H≈1.32): copa 0.222, ala 0.370
+    crown_r = head_r * 1.02
+    brim_r = float(h.get("brim_r", 0.370))
+    copa = float(h.get("copa_h", 0.136))
 
-    # perfil del fedora (r, z relativo al plano del ala)
     profile = [
-        (0.000, -0.030),
-        (0.200, -0.028),
-        (0.330, -0.024),
-        (brim_r - 0.034, -0.078),
-        (brim_r - 0.014, -0.070),
-        (brim_r - 0.003, -0.056),
-        (brim_r, -0.038),
-        (brim_r - 0.003, -0.020),
-        (brim_r - 0.014, -0.008),
-        (brim_r - 0.034, -0.001),
-        (0.360, 0.008),
-        (0.300, 0.012),
-        (crown_r, 0.014),
-        (crown_r - 0.006, 0.030),
-        (crown_r - 0.014, 0.070),
-        (crown_r - 0.022, 0.105),
-        (crown_r - 0.030, copa),
-        (crown_r * 0.86, copa + 0.018),
-        (crown_r * 0.66, copa + 0.030),
-        (crown_r * 0.42, copa + 0.038),
-        (crown_r * 0.18, copa + 0.044),
-        (0.000, copa + 0.044),
+        # ala: del borde hacia adentro por la cara de abajo
+        (0.000, -0.052),
+        (crown_r * 0.55, -0.052),
+        (brim_r - 0.055, -0.048),
+        (brim_r - 0.018, -0.042),
+        (brim_r - 0.004, -0.036),
+        (brim_r, -0.026),          # canto redondeado
+        (brim_r - 0.004, -0.014),
+        (brim_r - 0.020, -0.006),
+        (brim_r - 0.060, -0.002),
+        (crown_r + 0.055, 0.000),
+        # copa: pared apenas abombada
+        (crown_r, 0.004),
+        (crown_r + 0.004, 0.030),
+        (crown_r + 0.006, 0.060),
+        (crown_r + 0.002, 0.090),
+        (crown_r - 0.012, 0.112),
+        (crown_r - 0.045, 0.126),
+        (crown_r - 0.095, 0.133),
+        (crown_r - 0.150, copa - 0.002),
+        (crown_r - 0.190, copa),
+        (0.000, copa),
     ]
     cap = lathe(part, profile, (0, 0, base_z), hat_mat, segments=32)
 
-    # el ala ondula (en la lámina el borde no es un círculo perfecto)
+    # el ala ondula apenas en los costados (la lámina no es un círculo perfecto)
     for v in cap.data.vertices:
         rr = math.hypot(v.co.x, v.co.y)
-        if rr > brim_r - 0.05 and v.co.z < 0.02:
+        if rr > brim_r - 0.06:
             ang = math.atan2(v.co.y, v.co.x)
-            k = (rr - (brim_r - 0.05)) / 0.05          # 0 en la copa, 1 en el borde
-            v.co.z -= 0.020 * abs(math.sin(ang)) * k    # cae en los costados
+            k = (rr - (brim_r - 0.06)) / 0.06
+            v.co.z -= 0.008 * abs(math.sin(ang)) * k
 
-
-    # cinta: sigue la pared de la copa
-    cylinder(part, crown_r + 0.004, 0.046, (0, 0, base_z + 0.030), band_mat,
-             vertices=32, top=crown_r + 0.001, smooth=True)
+    # cinta: sigue la pared de la copa, ancha como en la lámina
+    cylinder(part, crown_r + 0.006, 0.030, (0, 0, base_z + 0.026), band_mat,
+             vertices=32, top=crown_r + 0.009, smooth=True)
 
     return part
 
 
-# --------------------------------------------------------------------------- # # # # #
+# --------------------------------------------------------------------------- # # # # # #
 # escena y render
 # --------------------------------------------------------------------------- #
 def setup_world():
