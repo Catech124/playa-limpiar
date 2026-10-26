@@ -111,21 +111,24 @@ func _add_outline(root: Node) -> void:
 				dup.next_pass = outline
 				mi.set_surface_override_material(i, dup)
 
-	# anillo en el piso (legibilidad)
-	var ring := TorusMesh.new()
-	ring.inner_radius = 0.27
-	ring.outer_radius = 0.34
-	ring.rings = 20
+	# Sombra de contacto: antes había un aro con emisión que, con la cámara
+	# nueva, se leía como una argolla invertida debajo del personaje.
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.30
+	disc.bottom_radius = 0.30
+	disc.height = 0.006
+	disc.radial_segments = 20
 	var rm := MeshInstance3D.new()
-	rm.mesh = ring
-	var rmat := ItemVisuals.material(color.darkened(0.1))
-	rmat.emission_enabled = true
-	rmat.emission = color
-	rmat.emission_energy_multiplier = 0.18
+	rm.mesh = disc
+	var rmat := StandardMaterial3D.new()
+	rmat.albedo_color = Color(0.05, 0.06, 0.08, 0.22)
+	rmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rmat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	rm.material_override = rmat
-	rm.rotation_degrees = Vector3(90, 0, 0)
-	rm.position = Vector3(0, 0.03, 0)
-	_body_mesh.add_child(rm)
+	rm.position = Vector3(0, 0.012, 0)
+	rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(rm)
 
 	carry_anchor = Node3D.new()
 	carry_anchor.position = Vector3(0, 0.62, 0.34)   # a la altura de las manos
