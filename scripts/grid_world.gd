@@ -108,6 +108,15 @@ func _make_tile(x: int, y: int, ch: String) -> CellData:
 			_set_station(t, "pile", ["vidrio"])
 		"T":
 			_set_station(t, "sort")
+		"1":
+			_set_station(t, "bin")
+			t.bin = "pet"
+		"2":
+			_set_station(t, "bin")
+			t.bin = "lata"
+		"3":
+			_set_station(t, "bin")
+			t.bin = "vidrio"
 		"B":
 			_set_station(t, "bags")
 		"W":
@@ -241,6 +250,15 @@ func _build_decor() -> void:
 
 func _build_visual(t: CellData) -> void:
 	match t.kind:
+		"water":
+			var wbox := BoxMesh.new()
+			wbox.size = Vector3(1.0, 0.06, 1.0)
+			var wm := MeshInstance3D.new()
+			wm.mesh = wbox
+			wm.material_override = ItemVisuals.material(COLORS["ocean"])
+			wm.position = Vector3(t.x + 0.5, 0.03, t.y + 0.5)
+			wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(wm)
 		"rock":
 			var box := BoxMesh.new()
 			box.size = Vector3(0.96, 0.8, 0.96)
@@ -258,6 +276,8 @@ func _build_visual(t: CellData) -> void:
 func _build_station(t: CellData) -> void:
 	var height := float(GameConfig.STATION_HEIGHT.get(t.station, 0.7))
 	var color: Color = GameConfig.STATION_COLOR.get(t.station, Color(0.5, 0.5, 0.5))
+	if t.station == "bin":
+		color = GameConfig.BIN_COLOR.get(t.bin, color)
 
 	var box := BoxMesh.new()
 	box.size = Vector3(0.94, height, 0.94)
@@ -294,6 +314,8 @@ func _build_station(t: CellData) -> void:
 		return
 
 	var label_text: String = GameConfig.STATION_LABEL.get(t.station, "")
+	if t.station == "bin":
+		label_text = GameConfig.BIN_LABEL.get(t.bin, "CONTENEDOR")
 	if t.station == "pile" and not t.pool.is_empty():
 		label_text = String(GameConfig.RESIDUES[t.pool[0]]["label"])
 	if label_text == "":
@@ -313,13 +335,10 @@ func _build_station(t: CellData) -> void:
 
 
 func _build_collider(t: CellData) -> void:
-	var height := 1.0
-	if t.kind == "station":
-		height = float(GameConfig.STATION_HEIGHT.get(t.station, 0.8))
-	elif t.kind == "rock":
-		height = 0.8
-	else:
-		height = 0.6
+	# Todos los sólidos llevan una pared ALTA: con la altura real (0.55 a 0.95)
+	# la cápsula del jugador se trepaba al borde y quedaba "encima de todo".
+	# La altura visual la da el mesh; el collider es una pared invisible.
+	var height := 2.0
 
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()

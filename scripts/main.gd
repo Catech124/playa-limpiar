@@ -264,6 +264,7 @@ func _process(delta: float) -> void:
 		toast(Vector3(world.w * 0.5, 1.8, 3.0), "¡Pedido perdido!", "bad")
 
 	gulls.tick(delta)
+	_tick_sinks(delta)
 	_update_flying(delta)
 	_update_toasts(delta)
 	mismatch = maxf(0.0, mismatch - delta)
@@ -311,6 +312,47 @@ func player_use(p: Player, tile: CellData) -> void:
 			toast(p.position + Vector3(0, 1.7, 0), "Trae una bolsa", "bad")
 		return
 
+	# 1b. contenedor de reciclaje: se TIRA el residuo (no se etiqueta)
+	if st == "bin":
+		if held == null:
+			toast(tile.center() + Vector3(0, 0.9, 0), "Traé un residuo", "bad")
+			return
+		if not held.is_residue():
+			toast(tile.center() + Vector3(0, 0.9, 0), "Acá va la basura, no la bolsa", "bad")
+			return
+		if held.type != tile.bin:
+			mismatch = 0.5
+			toast(tile.center() + Vector3(0, 0.9, 0), "Ese no va en %s" % GameConfig.BIN_LABEL.get(tile.bin, "este"), "bad")
+			return
+		score += GameConfig.SCORE_BIN
+		stats["classified"] = int(stats.get("classified", 0)) + 1
+		p.carrying = null
+		destroy_item(held)
+		toast(tile.center() + Vector3(0, 0.9, 0), "+%d reciclado" % GameConfig.SCORE_BIN, "good")
+		return
+
+	# 2b. lavadero: dejar la bolsa sucia (pila) o retirar una limpia de la repisa
+	if st == "wash":
+		if held != null and held.is_bag() and not held.clean:
+			if tile.items.size() >= GameConfig.SINK_CAPACITY:
+				toast(tile.center() + Vector3(0, 0.9, 0), "El lavadero está lleno", "bad")
+				return
+			p.carrying = null
+			held.progress = 0.0
+			tile.items.append(held)
+			parent_item(_item_node(held), world.items_root)
+			_update_sink_visual(tile)
+			return
+		if held == null:
+			var clean_bag := _take_clean(tile)
+			if clean_bag != null:
+				move_item_to_player(clean_bag, p)
+			else:
+				toast(tile.center() + Vector3(0, 0.9, 0), "No hay bolsas limpias todavía", "bad")
+			return
+		toast(tile.center() + Vector3(0, 0.9, 0), "Lavá la bolsa, no la guardes", "bad")
+		return
+
 	# 2. manos vacías: fuentes y recogida
 	if held == null:
 		if st == "pile":
@@ -343,26 +385,8 @@ func player_channel(p: Player, tile: CellData, delta: float) -> bool:
 	if item == null:
 		return false
 
-	if tile.station == "sort" and item.is_residue() and not item.classified:
-		item.progress += delta / GameConfig.CLASSIFY_TIME
-		if item.progress >= 1.0:
-			item.progress = 0.0
-			item.classified = true
-			ItemVisuals.rebuild(item)
-			toast(p.position + Vector3(0, 2.1, 0), "Clasificado", "good")
-		return true
-
-	if tile.station == "wash" and item.is_bag() and not item.clean:
-		item.progress += delta / GameConfig.WASH_TIME
-		if item.progress >= 1.0:
-			item.progress = 0.0
-			item.clean = true
-			item.contents.clear()
-			ItemVisuals.rebuild(item)
-			stats["washed"] += 1
-			toast(p.position + Vector3(0, 2.1, 0), "Bolsa limpia", "good")
-		return true
-
+	# El clasificado y el lavado ya no se "sostienen": tirar en el contenedor es
+	# instantáneo y el lavadero trabaja solo (ver _tick_sinks).
 	return false
 
 
@@ -397,9 +421,6 @@ func try_place(tile: CellData, item: CarryItem) -> bool:
 func fill_bag(bag: CarryItem, residue: CarryItem) -> bool:
 	if not bag.clean:
 		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "La bolsa está sucia", "bad")
-		return false
-	if not residue.classified:
-		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "Clasifícalo primero", "bad")
 		return false
 	if not bag.has_room():
 		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "Bolsa llena", "bad")
@@ -538,9 +559,9 @@ func item_blocker(item: CarryItem, on: bool) -> void:
 		var cs := CollisionShape3D.new()
 		var cyl := CylinderShape3D.new()
 		cyl.radius = 0.30
-		cyl.height = 0.9
+		cyl.height = 1.8
 		cs.shape = cyl
-		cs.position = Vector3(0, 0.45, 0)
+		cs.position = Vector3(0, 0.9, 0)
 		body.add_child(cs)
 		item.node.add_child(body)
 	elif not on and node != null:
@@ -557,6 +578,77 @@ func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 	item.node.position = world.item_position(tile)
 	item.node.rotation = Vector3.ZERO
 	item.node.scale = Vector3.ONE
+
+
+## Nodo visual del ítem (se crea si todavía no existe).
+func _item_node(item: CarryItem) -> Node3D:
+	if item.node == null:
+		ItemVisuals.build(item)
+	return item.node
+
+
+## Acomoda las bolsas del lavadero: las sucias a la izquierda, las limpias
+## apiladas en la repisa de la derecha.
+func _update_sink_visual(tile: CellData) -> void:
+	var dirty := 0
+	var clean := 0
+	for it in tile.items:
+		if not it.is_bag():
+			continue
+		var node := _item_node(it)
+		parent_item(node, world.items_root)
+		var slot: int
+		if it.clean:
+			slot = clean
+			node.position = tile.center() + Vector3(0.26, 0.10 + slot * 0.13, 0.0)
+			clean += 1
+		else:
+			slot = dirty
+			node.position = tile.center() + Vector3(-0.24, 0.06, -0.10 + slot * 0.12)
+			node.rotation = Vector3(0, 0.4 * slot, 0)
+			dirty += 1
+		node.scale = Vector3(0.75, 0.75, 0.75)
+
+
+func _take_clean(tile: CellData) -> CarryItem:
+	for i in tile.items.size():
+		var it: CarryItem = tile.items[i]
+		if it.is_bag() and it.clean:
+			tile.items.remove_at(i)
+			_update_sink_visual(tile)
+			return it
+	return null
+
+
+## Lavado automático: cada WASH_TIME sale una bolsa limpia a la repisa.
+func _tick_sinks(delta: float) -> void:
+	for row in world.tiles:
+		for t in row:
+			if t.station != "wash":
+				continue
+			var has_dirty := false
+			var clean_count := 0
+			for it in t.items:
+				if it.is_bag() and not it.clean:
+					has_dirty = true
+				elif it.is_bag() and it.clean:
+					clean_count += 1
+			if not has_dirty:
+				t.wash_t = 0.0
+				continue
+			t.wash_t += delta
+			if t.wash_t >= GameConfig.WASH_TIME:
+				t.wash_t = 0.0
+				if clean_count < GameConfig.TRAY_CAPACITY:
+					for it in t.items:
+						if it.is_bag() and not it.clean:
+							it.clean = true
+							it.contents.clear()
+							it.progress = 0.0
+							ItemVisuals.rebuild(it)
+							stats["washed"] += 1
+							break
+				_update_sink_visual(t)
 
 
 func move_item_to_player(item: CarryItem, p: Player) -> void:
@@ -610,7 +702,7 @@ func interaction_hint(p: Player) -> String:
 			if held != null and held.is_bag() and not held.clean:
 				return "Esa bolsa está sucia: hay que lavarla"
 			if held != null:
-				return "Solo bolsas con residuos clasificados"
+				return "Solo bolsas con basura"
 			return "Camión de reciclaje"
 		"pile":
 			if held == null:
@@ -622,15 +714,25 @@ func interaction_hint(p: Player) -> String:
 			if count_bags() >= GameConfig.BAG_STOCK:
 				return "Sin bolsas: hay que lavar"
 			return "[%s] Tomar bolsa (%d/%d)" % [key, count_bags(), GameConfig.BAG_STOCK]
+		"bin":
+			var nombre: String = GameConfig.BIN_LABEL.get(tile.bin, "CONTENEDOR")
+			if held == null:
+				return "Contenedor de %s" % nombre
+			if not held.is_residue():
+				return "Acá va la basura, no la bolsa"
+			if held.type != tile.bin:
+				return "Ese no va en %s" % nombre
+			return "[%s] Tirar en %s" % [key, nombre]
 		"sort":
-			if held != null and held.is_residue() and not held.classified:
-				return "[MANTÉN] Clasificar"
-			if held != null and held.is_residue():
-				return "Ya está clasificado"
 			return "Mesa de clasificación"
 		"wash":
 			if held != null and held.is_bag() and not held.clean:
-				return "[MANTÉN] Lavar bolsa"
+				return "[%s] Dejar en el lavadero" % key
+			if held == null:
+				for it in tile.items:
+					if it.is_bag() and it.clean:
+						return "[%s] Tomar bolsa limpia" % key
+				return "Lavadero (lavá solo)"
 			return "Lavadero"
 		"return":
 			if held == null and tile.item != null:

@@ -52,6 +52,22 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 
+	if "--carry" in args:
+		# con una bolsa en la mano: verifica que el ítem va a las manos y no a la cabeza
+		main.start_game(2)
+		await get_tree().process_frame
+		var bag := CarryItem.bag(true, ["pet"])
+		ItemVisuals.build(bag)
+		main.move_item_to_player(bag, main.players[0])
+		main.players[0].teleport(11, 8, Vector2i(0, 1))
+		main.players[1].teleport(13, 8, Vector2i(0, 1))
+		await get_tree().create_timer(1.4).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out_path)
+		print("shot -> ", out_path)
+		get_tree().quit()
+		return
+
 	if "--facing" in args:
 		# mira la cámara: sirve para verificar que el personaje NO camina de espaldas
 		main.start_game(2)

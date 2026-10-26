@@ -44,8 +44,8 @@ const SCORE_SPEED_BONUS := 30
 const SCORE_EXPIRED_PENALTY := 15
 
 # --- gaviotas ------------------------------------------------------------
-const GULL_FIRST_DELAY := 24.0
-const GULL_INTERVAL := 22.0
+const GULL_FIRST_DELAY := 14.0
+const GULL_INTERVAL := 18.0
 const GULL_SPEED := 3.2
 
 # --- estrellas por nivel -------------------------------------------------
@@ -67,6 +67,7 @@ const STATION_HEIGHT := {
 	"wash": 0.70,
 	"delivery": 0.95,
 	"return": 0.60,
+	"bin": 0.78,
 }
 
 const STATION_COLOR := {
@@ -77,6 +78,7 @@ const STATION_COLOR := {
 	"wash": Color(0.16, 0.60, 0.71),
 	"delivery": Color(0.28, 0.31, 0.36),
 	"return": Color(0.47, 0.35, 0.24),
+	"bin": Color(0.20, 0.52, 0.36),
 }
 
 const STATION_LABEL := {
@@ -87,7 +89,23 @@ const STATION_LABEL := {
 	"wash": "LAVAR",
 	"delivery": "ENTREGA",
 	"return": "SUCIAS",
+	"bin": "CONTENEDOR",
 }
+
+# contenedores de reciclaje: uno por tipo, como en la vida real
+const BIN_LABEL := {
+	"pet": "PET",
+	"lata": "LATAS",
+	"vidrio": "VIDRIO",
+}
+const BIN_COLOR := {
+	"pet": Color(0.22, 0.58, 0.34),
+	"lata": Color(0.62, 0.64, 0.68),
+	"vidrio": Color(0.20, 0.46, 0.72),
+}
+const SCORE_BIN := 4               # puntos por tirar un residuo en el contenedor correcto
+const SINK_CAPACITY := 3           # bolsas sucias que entran en el lavadero
+const TRAY_CAPACITY := 3           # bolsas limpias que quedan en la repisa
 
 # --- controles -----------------------------------------------------------
 # physical_keycode de Godot (teclas físicas: funciona igual en cualquier layout)

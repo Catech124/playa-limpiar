@@ -4,6 +4,7 @@ extends RefCounted
 ##
 ##   ~  agua (sólida, decorativa)      P  montón PET     (fuente)
 ##   #  roca (sólida)                  L  montón LATAS   (fuente)
+##   1  contenedor PET   2  LATAS   3  VIDRIO
 ##   .  arena (caminable)              Q  montón VIDRIO  (fuente)
 ##   S  aparición                      T  mesa de clasificar (canal)
 ##   =  mostrador (guarda cosas)       B  dispensador de bolsas
@@ -20,7 +21,7 @@ const MAP := [
 	"~~~~~~~~~~~~~~~~~~~~~~~~",
 	"#..P.L.Q.B....W........#",
 	"#......................#",
-	"#.....T.T.T............#",
+	"#.....1.2.3............#",
 	"#...........==.........#",
 	"#...........==.........#",
 	"#......................#",

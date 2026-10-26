@@ -128,8 +128,8 @@ func _add_outline(root: Node) -> void:
 	_body_mesh.add_child(rm)
 
 	carry_anchor = Node3D.new()
-	carry_anchor.position = Vector3(0, 1.44, 0)
-	add_child(carry_anchor)
+	carry_anchor.position = Vector3(0, 0.62, 0.34)   # a la altura de las manos
+	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 
 ## Pinta la remera y la cinta del sombrero con el color del jugador.
@@ -235,6 +235,13 @@ func move_step(dir: Vector2) -> void:
 	else:
 		velocity = Vector3(dir.x, 0.0, dir.y) * speed
 	move_and_slide()
+	# El suelo es plano y el personaje no salta: se lo deja siempre a nivel del
+	# piso y dentro del mapa. Sin esto, al empujar contra el agua el motor lo
+	# "trepaba" (quedaba en y=0.55 y se podía salir del mapa).
+	position.y = 0.0
+	if world != null:
+		position.x = clampf(position.x, 1.05, float(world.w) - 1.05)
+		position.z = clampf(position.z, 1.05, float(world.h) - 1.05)
 
 
 func front_tile() -> CellData:

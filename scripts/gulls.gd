@@ -1,8 +1,9 @@
 class_name Gulls
 extends RefCounted
 ## Gaviotas: el análogo de las ratas de Overcooked.
-## No quitan puntos: rompen la comodidad de "clasifico todo y lo dejo en el
-## mostrador". Roban un residuo YA clasificado, lo sueltan en la arena y se van.
+## No quitan puntos: castigan dejar cosas tiradas. Roban una BOLSA LIMPIA de la
+## repisa del lavadero (o un residuo del piso), la ensucian y la tiran en la
+## arena: hay que volver a lavarla.
 
 var game
 var world: GridWorld
@@ -42,7 +43,12 @@ func spawn() -> void:
 	var targets: Array = []
 	for row in world.tiles:
 		for t in row:
-			if t.item != null and t.item.is_residue() and t.item.classified:
+			if t.station == "wash":
+				for it in t.items:
+					if it.is_bag() and it.clean:
+						targets.append(t)
+						break
+			elif t.item != null and t.item.is_residue():
 				targets.append(t)
 	if targets.is_empty():
 		return
@@ -108,6 +114,31 @@ func _advance(g: Gull, delta: float) -> void:
 			var to_target := Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5)
 			_move(g, to_target, delta * GameConfig.GULL_SPEED)
 			if g.pos.distance_to(to_target) < 0.15:
+				# 1) bolsa limpia en la repisa del lavadero → la ensucia
+				if g.target.station == "wash":
+					var clean_bag: CarryItem = null
+					for it in g.target.items:
+						if it.is_bag() and it.clean:
+							clean_bag = it
+							break
+					if clean_bag == null:
+						g.phase = "exit"
+						return
+					g.target.items.erase(clean_bag)
+					clean_bag.clean = false
+					clean_bag.contents.clear()
+					ItemVisuals.rebuild(clean_bag)
+					game._update_sink_visual(g.target)
+					g.carry = clean_bag
+					game.parent_item(clean_bag.node, g.node)
+					clean_bag.node.position = Vector3(0, -0.2, 0)
+					clean_bag.node.scale = Vector3(0.7, 0.7, 0.7)
+					var floors_sink := world.free_floors_near(g.target.x, g.target.y, 6)
+					g.drop = floors_sink[randi() % floors_sink.size()] if not floors_sink.is_empty() else null
+					game.toast(Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5), "¡Gaviota!", "bad")
+					g.phase = "drop" if g.drop != null else "exit"
+					return
+				# 2) residuo tirado en el piso
 				if g.target.item != null and g.target.item.is_residue():
 					g.carry = g.target.item
 					g.target.item = null
