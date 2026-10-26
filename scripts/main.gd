@@ -17,6 +17,8 @@ var orders: OrderBook
 var gulls: Gulls
 var hud: Hud
 var camera: Camera3D
+var _cam_target := Vector3(12, 0, 8)
+var _cam_dist := 14.0
 
 var time_left := 0.0
 var level_seconds := GameConfig.ROUND_SECONDS
@@ -87,9 +89,10 @@ func _build_environment() -> void:
 	add_child(sun)
 
 	camera = Camera3D.new()
-	camera.fov = 34.0
+	camera.fov = 38.0
+	_cam_setup()
 	add_child(camera)
-	camera.look_at_from_position(Vector3(12, 24.0, 17.5), Vector3(12, 0, 8.0), Vector3.UP)
+	camera.look_at_from_position(Vector3(12, 15.5, 26.0), Vector3(12, 0, 7.5), Vector3.UP)
 
 
 # ------------------------------------------------------------------ estados
@@ -204,9 +207,49 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 # ------------------------------------------------------------------ bucle
+## Cámara de cooperativo: mira el punto medio entre jugadores con una
+## inclinación de ~42° (se ve la cara, como en Overcooked) y se aleja lo justo
+## para que ninguno quede fuera de cuadro.
+func _cam_setup() -> void:
+	_cam_target = Vector3(world.w * 0.5, 0.0, world.h * 0.5)
+	camera.look_at_from_position(_cam_pos_for(_cam_target, _cam_dist), _cam_target + Vector3(0, 0.6, 0), Vector3.UP)
+
+
+func _cam_pos_for(target: Vector3, dist: float) -> Vector3:
+	var el := deg_to_rad(42.0)
+	return target + Vector3(0.0, sin(el) * dist, cos(el) * dist)
+
+
+func _cam_dist_for(spread: float) -> float:
+	# 14 unidades alcanzan para una pantalla de ~10 celdas de alto; si se
+	# separan, se abre hasta 30
+	return clampf(12.5 + spread * 1.9, 12.5, 30.0)
+
+
+func _update_camera(delta: float) -> void:
+	if players.is_empty():
+		return
+	var mid := Vector3.ZERO
+	for p in players:
+		mid += p.position
+	mid /= float(players.size())
+	var spread := 0.0
+	for p in players:
+		spread = maxf(spread, mid.distance_to(p.position))
+	var target := Vector3(mid.x, 0.0, mid.z)
+	target.x = clampf(target.x, 5.0, maxf(5.0, world.w - 5.0))
+	target.z = clampf(target.z, 4.0, maxf(4.0, world.h - 4.0))
+	_cam_target = _cam_target.lerp(target, minf(1.0, delta * 3.0))
+	_cam_dist = lerpf(_cam_dist, _cam_dist_for(spread), minf(1.0, delta * 2.0))
+	camera.look_at_from_position(_cam_pos_for(_cam_target, _cam_dist),
+		_cam_target + Vector3(0, 0.6, 0), Vector3.UP)
+
+
 func _process(delta: float) -> void:
 	if state != State.PLAYING:
 		return
+
+	_update_camera(delta)
 
 	time_left = maxf(0.0, time_left - delta)
 
@@ -478,10 +521,33 @@ func parent_item(node: Node3D, new_parent: Node) -> void:
 		node.reparent(new_parent, false)
 
 
+## Un ítem en el piso ocupa la celda: sin esto el jugador lo atraviesa (en
+## Overcooked no se puede caminar por encima de una bolsa).
+func item_blocker(item: CarryItem, on: bool) -> void:
+	if item.node == null:
+		return
+	var node := item.node.get_node_or_null("Blocker")
+	if on and node == null:
+		var body := StaticBody3D.new()
+		body.name = "Blocker"
+		var cs := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.30
+		cyl.height = 0.9
+		cs.shape = cyl
+		cs.position = Vector3(0, 0.45, 0)
+		body.add_child(cs)
+		item.node.add_child(body)
+	elif not on and node != null:
+		item.node.remove_child(node)   # queue_free solo lo saca al fin del frame
+		node.queue_free()
+
+
 func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 	tile.item = item
 	if item.node == null:
 		return
+	item_blocker(item, true)
 	parent_item(item.node, world.items_root)
 	item.node.position = world.item_position(tile)
 	item.node.rotation = Vector3.ZERO
@@ -492,6 +558,7 @@ func move_item_to_player(item: CarryItem, p: Player) -> void:
 	p.carrying = item
 	if item.node == null:
 		return
+	item_blocker(item, false)
 	parent_item(item.node, p.carry_anchor)
 	item.node.position = Vector3.ZERO
 	item.node.rotation = Vector3.ZERO

@@ -223,6 +223,40 @@ func _run() -> void:
 	await frames(2)
 	check("R reinicia la partida", main.is_playing() and main.score == 0)
 
+	# --- colisiones contra el mobiliario -----------------------------------
+	var pc = main.players[0]
+	# mesa de clasificar en (6,4): me paro al lado y empujo hacia ella
+	pc.teleport(5, 4, Vector2i(1, 0))
+	await frames(2)
+	var x0: float = pc.position.x
+	for i in 40:
+		pc.velocity = Vector3(4.0, 0.0, 0.0)
+		pc.move_and_slide()
+		await get_tree().physics_frame
+	check("no atraviesa una mesa", pc.position.x < 6.02,
+		"x %.2f -> %.2f (la celda sólida empieza en 6.00)" % [x0, pc.position.x])
+	check("se queda pegado a la mesa", pc.position.x > 5.55, "x=%.2f" % pc.position.x)
+
+	# --- un ítem en el piso bloquea el paso -------------------------------
+	var pitem = main.players[0]
+	var floor_tile: CellData = main.world.tile_at(8, 12)
+	pitem.teleport(7, 12, Vector2i(1, 0))
+	await frames(2)
+	var bolsa := CarryItem.bag(true)
+	ItemVisuals.build(bolsa)          # el nodo visual es el que lleva el collider
+	main.move_item_to_tile(bolsa, floor_tile)
+	await frames(2)
+	check("el ítem del piso tiene collider", bolsa.node != null and bolsa.node.get_node_or_null("Blocker") != null)
+	for i in 40:
+		pitem.velocity = Vector3(4.0, 0.0, 0.0)
+		pitem.move_and_slide()
+		await get_tree().physics_frame
+	check("no atraviesa la bolsa del piso", pitem.position.x < 8.02,
+		"x=%.2f (la bolsa está en la celda 8)" % pitem.position.x)
+	main.move_item_to_player(bolsa, pitem)
+	check("al levantarla se libera el paso", bolsa.node.get_node_or_null("Blocker") == null)
+	pitem.carrying = null
+
 	# --- rig y animación ---------------------------------------------------
 	var p2 = main.players[0]
 	var hinges: Dictionary = p2._hinges

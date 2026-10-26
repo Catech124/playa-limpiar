@@ -301,10 +301,12 @@ func _animate(delta: float) -> void:
 
 
 func _facing_angle() -> float:
+	# el modelo mira a +Z (en Blender la cara está en -Y y glTF pasa -Y a +Z):
+	# yaw 0 = +Z, +PI/2 = +X. Antes estaba invertido y se caminaba de espaldas.
 	if facing.x > 0:
-		return -PI * 0.5
-	if facing.x < 0:
 		return PI * 0.5
+	if facing.x < 0:
+		return -PI * 0.5
 	if facing.y > 0:
-		return PI
-	return 0.0
+		return 0.0
+	return PI

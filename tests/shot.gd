@@ -52,6 +52,19 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 
+	if "--facing" in args:
+		# mira la cámara: sirve para verificar que el personaje NO camina de espaldas
+		main.start_game(2)
+		await get_tree().process_frame
+		main.players[0].teleport(10, 9, Vector2i(0, 1))
+		main.players[1].teleport(13, 9, Vector2i(1, 0))
+		await get_tree().create_timer(1.6).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(out_path)
+		print("shot -> ", out_path)
+		get_tree().quit()
+		return
+
 	if "--demo" in args or "--demo2" in args:
 		main.start_game(2 if "--demo2" in args else 1)
 		await get_tree().process_frame
