@@ -1,0 +1,8 @@
+{
+  "_comment": "Dos variantes del personaje: 't' reproduce la lámina de referencia (hoja de turnaround) y 'down' es la pose del juego (brazos caídos). El juego usa chef_game.glb.",
+  "base": {},
+  "variants": [
+    { "id": "chef", "body": { "pose": "t" } },
+    { "id": "chef_game", "body": { "pose": "down" } }
+  ]
+}
