@@ -92,7 +92,6 @@ func _build_environment() -> void:
 	camera.fov = 38.0
 	_cam_setup()
 	add_child(camera)
-	camera.look_at_from_position(Vector3(12, 15.5, 26.0), Vector3(12, 0, 7.5), Vector3.UP)
 
 
 # ------------------------------------------------------------------ estados
@@ -153,6 +152,7 @@ func start_game(count: int, is_sandbox := false) -> void:
 	level_seconds = Levels.SANDBOX_SECONDS if sandbox else GameConfig.ROUND_SECONDS
 	time_left = level_seconds
 	state = State.PLAYING
+	_cam_setup()
 
 
 func _toggle_pause() -> void:
@@ -211,7 +211,12 @@ func _unhandled_input(event: InputEvent) -> void:
 ## inclinación de ~42° (se ve la cara, como en Overcooked) y se aleja lo justo
 ## para que ninguno quede fuera de cuadro.
 func _cam_setup() -> void:
-	_cam_target = Vector3(world.w * 0.5, 0.0, world.h * 0.5)
+	# ojo: en _ready() todavía no hay mundo (la cámara se crea antes que el nivel)
+	var center := Vector3(12, 0, 8)
+	if world != null:
+		center = Vector3(world.w * 0.5, 0.0, world.h * 0.5)
+	_cam_target = center
+	_cam_dist = 20.0
 	camera.look_at_from_position(_cam_pos_for(_cam_target, _cam_dist), _cam_target + Vector3(0, 0.6, 0), Vector3.UP)
 
 
