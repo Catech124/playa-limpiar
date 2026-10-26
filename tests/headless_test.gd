@@ -222,3 +222,37 @@ func _run() -> void:
 	main.start_game(1)
 	await frames(2)
 	check("R reinicia la partida", main.is_playing() and main.score == 0)
+
+	# --- rig y animación ---------------------------------------------------
+	var p2 = main.players[0]
+	var hinges: Dictionary = p2._hinges
+	check("el modelo trae las 6 bisagras", hinges.size() == 6,
+		"hay %d: %s" % [hinges.size(), hinges.keys()])
+
+	# caminando: una pierna adelante y la otra atrás
+	p2.walk_phase = PI * 0.5
+	p2.velocity = Vector3(0, 0, 1) * 2.0
+	p2._animate(0.016)
+	var l1: float = hinges["leg_l"].rotation.x
+	var r1: float = hinges["leg_r"].rotation.x
+	check("caminar mueve las piernas en oposición",
+		absf(l1) > 0.2 and absf(r1) > 0.2 and signf(l1) != signf(r1),
+		"leg_l=%.2f leg_r=%.2f" % [l1, r1])
+
+	# en reposo: piernas rectas, cabeza respirando
+	p2.velocity = Vector3.ZERO
+	p2._animate(0.016)
+	check("quieto deja las piernas rectas",
+		absf(hinges["leg_l"].rotation.x) < 0.001 and absf(hinges["leg_r"].rotation.x) < 0.001,
+		"leg_l=%.3f" % hinges["leg_l"].rotation.x)
+	check("quieto igual mueve la cabeza", absf(hinges["head"].rotation.z) > 0.0001,
+		"head.z=%.4f" % hinges["head"].rotation.z)
+
+	# llevando una caja: los brazos van adelante
+	var before: float = hinges["arm_l"].rotation.x
+	p2.carrying = CarryItem.bag(true)
+	p2._animate(0.016)
+	check("llevando algo los brazos van adelante",
+		hinges["arm_l"].rotation.x < before - 0.5,
+		"brazo %.2f -> %.2f" % [before, hinges["arm_l"].rotation.x])
+	p2.carrying = null

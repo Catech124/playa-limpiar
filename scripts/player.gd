@@ -35,6 +35,9 @@ var _act_pressed := false
 var _throw_pressed := false
 var _dash_pressed := false
 var _body_mesh: Node3D
+# bisagras del GLB (el generador las crea como nodos vacíos): permiten animar
+# brazos/piernas/cabeza sin esqueleto ni animaciones importadas
+var _hinges := {}
 
 
 func setup(idx: int, km: Dictionary, grid: GridWorld, g) -> void:
@@ -64,6 +67,10 @@ func _build_body() -> void:
 	_tint_shirt(model)
 	_add_outline(model)
 	_unshadow_hat(model)
+	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
+		var node := model.find_child(hinge, true, false)
+		if node is Node3D:
+			_hinges[hinge] = node
 
 
 ## El ala del sombrero proyecta sombra sobre la cara y la deja ilegible a 45 px:
@@ -163,6 +170,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_animate(delta)
 	if not active:
 		return
 
@@ -247,6 +255,49 @@ func teleport(tx: int, ty: int, face := Vector2i(0, -1)) -> void:
 	position = Vector3(tx + 0.5, 0.0, ty + 0.5)
 	facing = face
 	_body_mesh.rotation.y = _facing_angle()
+
+
+## Animación procedural sobre las bisagras del GLB.
+##   idle  → respiración (cabeza y brazos meciéndose)
+##   mover → ciclo de caminata: piernas y brazos alternados, cuerpo que sube
+##   llevar→ los brazos van adelante sosteniendo la caja
+func _animate(delta: float) -> void:
+	if _hinges.is_empty():
+		return
+	var moving := velocity.length() > 0.05
+	var t := walk_phase
+	var carry := carrying != null
+	var arm_l: Node3D = _hinges.get("arm_l")
+	var arm_r: Node3D = _hinges.get("arm_r")
+	var leg_l: Node3D = _hinges.get("leg_l")
+	var leg_r: Node3D = _hinges.get("leg_r")
+	var head: Node3D = _hinges.get("head")
+	var breath := sin(Time.get_ticks_msec() / 1000.0 * 2.2)
+
+	if carry:
+		# brazos adelante y un poco abiertos, como sosteniendo la caja
+		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, 0.35)
+		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, -0.35)
+	else:
+		var swing := 0.0
+		if moving:
+			swing = sin(t) * 0.55
+		if arm_l: arm_l.rotation = Vector3(swing, 0.0, -0.06 + breath * 0.02)
+		if arm_r: arm_r.rotation = Vector3(-swing, 0.0, 0.06 - breath * 0.02)
+
+	if moving:
+		if leg_l: leg_l.rotation = Vector3(-sin(t) * 0.62, 0.0, 0.0)
+		if leg_r: leg_r.rotation = Vector3(sin(t) * 0.62, 0.0, 0.0)
+	else:
+		if leg_l: leg_l.rotation = Vector3(0.0, 0.0, 0.0)
+		if leg_r: leg_r.rotation = Vector3(0.0, 0.0, 0.0)
+
+	if head:
+		# cabeceo al caminar + respiración en reposo; mirando un poco adelante
+		head.rotation = Vector3(
+			-0.04 + (0.02 * sin(t * 2.0) if moving else breath * 0.015),
+			0.0,
+			(0.03 * sin(t) if moving else breath * 0.02))
 
 
 func _facing_angle() -> float:

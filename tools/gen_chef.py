@@ -35,13 +35,13 @@ DEFAULTS = {
         "preset": "v1_frozen",
         "pose": "t",          # t = hoja de referencia · down = pose de juego
         "head_z": 0.882,
-        "head_r": 0.290,
+        "head_r": 0.278,
         "head_top": 1.320,
         "lean_deg": 0.0,
     },
     "hat": {
         "tipo": "paja",       # toque | paja | gorra
-        "copa_h": 0.115,        # altura de la copa sobre la banda
+        "copa_h": 0.135,        # altura de la copa sobre la banda
         "lobulos": 4,
         "ala": 0.192,           # ala corta: con 0.18 el ala tapa la cara a 68°
         "banda": "fina",
@@ -302,7 +302,7 @@ def head_point(P, direction, t=1.0):
 # forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano.
 # La lámina tiene la cabeza MÁS ANCHA QUE ALTA (0.74 de ancho x 0.57 de alto).
 # --------------------------------------------------------------------------- #
-HEAD_SCALE = (1.13, 1.07, 0.99)
+HEAD_SCALE = (1.06, 1.05, 1.00)
 
 # Medidas tomadas de la lámina de referencia (tools/ref_metrics.py), en
 # fracciones de la altura total H del personaje:
@@ -331,7 +331,7 @@ def head_point(P, direction, t=1.0):
 # --------------------------------------------------------------------------- #
 # forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano
 # --------------------------------------------------------------------------- #
-HEAD_SCALE = (1.13, 1.07, 0.99)
+HEAD_SCALE = (1.06, 1.05, 1.00)
 
 # Medidas tomadas de la lámina (tools/ref_metrics.py), en fracciones de la
 # altura total H del personaje:
@@ -356,6 +356,21 @@ def head_point(P, direction, t=1.0):
     return (d.x * k * t, d.y * k * t, hz + d.z * k * t)
 
 
+def hinge(objs, pivot, name):
+    """Cuelga objetos de un nodo vacío ubicado en la bisagra (hombro, cadera,
+    cuello). Rotar ese nodo en Godot mueve la extremidad alrededor del pivote
+    correcto, no alrededor del origen del modelo."""
+    from mathutils import Matrix, Vector
+    e = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(e)
+    e.location = Vector(pivot)
+    e.empty_display_size = 0.04
+    for o in objs:
+        o.parent = e
+        o.matrix_parent_inverse = Matrix.Translation(-Vector(pivot))
+    return e
+
+
 def build_body(P):
     """Cuerpo según la lámina: T-pose, cabeza enorme, cuello corto, torso
     angosto con cuello de camiseta, pantalón holgado con cintura y ruedos, y
@@ -368,33 +383,34 @@ def build_body(P):
     dark = material("dark", pal["eyes"], 0.55)
     parts = {}
 
-    # --- zapatillas: bajas, con puntera redondeada y suela -----------------
-    legs = Part("legs", "legs")
-    feet = Part("boots", "boots")
-    for side in (-1, 1):
-        cylinder(legs, 0.053, 0.270, (side * 0.077, 0, 0.216), pants, vertices=12, top=0.063)
-        cylinder(legs, 0.068, 0.030, (side * 0.077, 0, 0.098), pants, vertices=12)   # ruedo
-        box(feet, (0.136, 0.188, 0.060), (side * 0.090, -0.022, 0.054), white, bevel=0.026)
-        sphere(feet, 0.059, (side * 0.090, -0.095, 0.048), white,
+    # --- piernas y zapatillas, UNA por lado (se animan por separado) ------
+    for side, tag in ((-1, "l"), (1, "r")):
+        leg = Part(f"leg_{tag}", "legs")
+        foot = Part(f"boot_{tag}", "boots")
+        cylinder(leg, 0.050, 0.295, (side * 0.068, 0, 0.228), pants, vertices=12, top=0.058)
+        cylinder(leg, 0.062, 0.028, (side * 0.068, 0, 0.096), pants, vertices=12)   # ruedo
+        box(foot, (0.124, 0.178, 0.056), (side * 0.068, -0.022, 0.050), white, bevel=0.024)
+        sphere(foot, 0.055, (side * 0.068, -0.090, 0.045), white,
                scale=(1.0, 0.92, 0.66), segments=10, rings=6)
-        box(feet, (0.144, 0.202, 0.018), (side * 0.090, -0.026, 0.009), white, bevel=0.007)
-    # cadera: el pantalón es una masa, no dos tubos sueltos
+        box(foot, (0.132, 0.190, 0.016), (side * 0.068, -0.026, 0.008), white, bevel=0.006)
+        parts[f"leg_{tag}"] = leg
+        parts[f"boot_{tag}"] = foot
 
     # --- torso: camiseta corta, cuello de camiseta y hombros que bajan -----
     torso = Part("torso", "torso")
     tee = lathe(torso, [
         (0.000, 0.002),
-        (0.166, 0.000),
-        (0.165, 0.030),
-        (0.162, 0.090),
-        (0.159, 0.140),
-        (0.153, 0.180),
-        (0.140, 0.206),
-        (0.122, 0.224),
-        (0.100, 0.236),
-        (0.084, 0.244),
-        (0.081, 0.254),
-    ], (0, 0, 0.318), shirt, segments=28)
+        (0.160, 0.000),
+        (0.160, 0.030),
+        (0.159, 0.090),
+        (0.158, 0.150),
+        (0.155, 0.190),
+        (0.146, 0.212),
+        (0.126, 0.230),
+        (0.100, 0.242),
+        (0.082, 0.248),
+        (0.080, 0.256),
+    ], (0, 0, 0.318), shirt, segments=30)
     tee.scale = (1.0, 0.88, 1.0)
     # sin aro de cuello: el remate de la camiseta ya lo da el perfil
 
@@ -403,33 +419,34 @@ def build_body(P):
     cylinder(neck, 0.066, 0.100, (0, 0, 0.570), skin, vertices=12)
 
     # --- brazos en T: manga corta con puño, brazo de piel y guante de box --
-    arms = Part("arms", "arms")
-    hands = Part("hands", "hands")
     pose = str(P["body"].get("pose", "t"))
-    for side in (-1, 1):
+    for side, tag in ((-1, "l"), (1, "r")):
+        arms = Part(f"arm_{tag}", "arms")
+        hands = Part(f"hand_{tag}", "hands")
+        parts[f"arm_{tag}"] = arms
+        parts[f"hand_{tag}"] = hands
         if pose == "down":
             # brazos caídos: es la pose del JUEGO (la lámina es una hoja de
             # turnaround, con T-pose; el personaje jugable no va en cruz)
-            sh = (side * 0.112, 0.000, 0.500)
-            sl = (side * 0.170, 0.000, 0.416)
+            sh = (side * 0.075, 0.000, 0.505)
+            sl = (side * 0.168, 0.000, 0.418)
             wr = (side * 0.188, -0.012, 0.292)
             cuff = (side * 0.190, -0.012, 0.268)
             glove = (side * 0.192, -0.014, 0.222)
             thumb = (side * 0.166, -0.058, 0.238)
             cuff_rot = (0, 0, 0)
         else:
-            sh = (side * 0.110, 0.000, 0.482)
-            sl = (side * 0.196, 0.000, 0.467)
+            sh = (side * 0.075, 0.000, 0.487)
+            sl = (side * 0.192, 0.000, 0.470)
             wr = (side * 0.288, 0.000, 0.461)
             cuff = (side * 0.296, 0.000, 0.460)
             glove = (side * 0.364, 0.000, 0.457)
             thumb = (side * 0.347, -0.060, 0.483)
             cuff_rot = (0, math.radians(90), 0)
-        limb(arms, sh, sl, 0.060, shirt, vertices=12)
         limb(arms, sh, sl, 0.060, shirt, vertices=12, taper=0.94)          # manga
         limb(arms, sl, wr, 0.044, skin, vertices=10)
-        sphere(hands, 0.088, glove, white,
-               scale=(1.10, 1.00, 1.04), segments=12, rings=8)
+        g_scale = (1.00, 1.02, 1.28) if pose == "down" else (1.28, 1.02, 1.00)
+        sphere(hands, 0.078, glove, white, scale=g_scale, segments=12, rings=8)
 
     # --- cabeza enorme, orejas a la altura de los ojos ---------------------
     head = Part("head", "head")
@@ -447,26 +464,25 @@ def build_body(P):
         v.co.x *= f
         v.co.y *= f
     for side in (-1, 1):
-        ear = head_point(P, (side * 1.0, -0.01, -0.07), t=0.92)
-        sphere(head, 0.078, ear, skin, scale=(0.58, 0.90, 1.00), segments=12, rings=9)
+        ear = head_point(P, (side * 1.0, -0.01, -0.06), t=0.96)
+        sphere(head, 0.098, ear, skin, scale=(0.50, 0.92, 1.02), segments=12, rings=9)
 
     # --- cara: ojos grandes, cejas gruesas, nariz de cuña y boca de omega ---
     face = Part("face", "face")
     for side in (-1, 1):
-        sphere(face, 0.029, head_point(P, (side * 0.190, -1.0, 0.08), t=0.940),
+        sphere(face, 0.031, head_point(P, (side * 0.200, -1.0, 0.08), t=0.940),
                dark, segments=10, rings=7)
-        box(face, (0.042, 0.011, 0.011), head_point(P, (side * 0.195, -0.95, 0.26), t=0.985),
+        box(face, (0.046, 0.012, 0.012), head_point(P, (side * 0.195, -0.95, 0.26), t=0.985),
             dark, rotation=(0, math.radians(side * 4), 0), bevel=0.005, smooth=True)
-    nose = cylinder(face, 0.056, 0.070, head_point(P, (0, -1.0, -0.06), t=1.05),
+    nose = cylinder(face, 0.050, 0.068, head_point(P, (0, -1.0, -0.06), t=1.03),
                     skin, vertices=8, top=0.019)
     nose.rotation_euler = (math.radians(90), 0, 0)
     nose.scale = (1.0, 0.72, 1.0)
     for sx_ in (-1, 1):
-        arc(face, 0.014, 0.0040, head_point(P, (sx_ * 0.036, -1.0, -0.24), t=0.976),
+        arc(face, 0.016, 0.0042, head_point(P, (sx_ * 0.036, -1.0, -0.24), t=0.976),
             dark, rotation=(math.radians(90), 0, 0), segments=10)
 
-    parts.update({"legs": legs, "boots": feet, "torso": torso, "neck": neck,
-                  "arms": arms, "hands": hands, "head": head, "face": face})
+    parts.update({"torso": torso, "neck": neck, "head": head, "face": face})
     return parts
 
 
@@ -499,24 +515,24 @@ def build_hat(P):
         (0.000, -0.030),
         (0.200, -0.028),
         (0.330, -0.024),
-        (brim_r - 0.026, -0.044),
-        (brim_r - 0.010, -0.040),
-        (brim_r - 0.002, -0.030),
-        (brim_r, -0.016),
-        (brim_r - 0.002, -0.002),
-        (brim_r - 0.010, 0.008),
-        (brim_r - 0.024, 0.011),
-        (0.360, 0.006),
-        (0.300, 0.010),
+        (brim_r - 0.034, -0.078),
+        (brim_r - 0.014, -0.070),
+        (brim_r - 0.003, -0.056),
+        (brim_r, -0.038),
+        (brim_r - 0.003, -0.020),
+        (brim_r - 0.014, -0.008),
+        (brim_r - 0.034, -0.001),
+        (0.360, 0.008),
+        (0.300, 0.012),
         (crown_r, 0.014),
-        (crown_r - 0.002, 0.030),
-        (crown_r - 0.004, 0.060),
-        (crown_r - 0.006, 0.090),
-        (crown_r - 0.010, copa),
-        (crown_r * 0.90, copa + 0.016),
-        (crown_r * 0.74, copa + 0.028),
-        (crown_r * 0.50, copa + 0.036),
-        (crown_r * 0.22, copa + 0.043),
+        (crown_r - 0.006, 0.030),
+        (crown_r - 0.014, 0.070),
+        (crown_r - 0.022, 0.105),
+        (crown_r - 0.030, copa),
+        (crown_r * 0.86, copa + 0.018),
+        (crown_r * 0.66, copa + 0.030),
+        (crown_r * 0.42, copa + 0.038),
+        (crown_r * 0.18, copa + 0.044),
         (0.000, copa + 0.044),
     ]
     cap = lathe(part, profile, (0, 0, base_z), hat_mat, segments=32)
@@ -628,6 +644,7 @@ def build_only(P, with_hat=True):
     if with_hat:
         parts["hat"] = build_hat(P)
     set_object_ids(parts)
+    rig_limbs(parts, P)
 
     # sombreado por ángulo: el corpus low-poly tiene ~45% de aristas duras y
     # nosotros estábamos en 9% (todo suave = se veía "plastilina")
@@ -640,6 +657,27 @@ def build_only(P, with_hat=True):
         bpy.ops.object.shade_auto_smooth(angle=math.radians(38))
 
     return parts
+
+
+def rig_limbs(parts, P):
+    """Cuelga brazos, piernas y cabeza de vacíos en sus bisagras.
+
+    Godot después solo rota esos nodos: `arm_l`, `arm_r`, `leg_l`, `leg_r`,
+    `head`. Sin esto las extremidades giran alrededor del origen del modelo y
+    la animación se ve como un muñeco desarmándose.
+    """
+    down = str(P["body"].get("pose", "t")) == "down"
+    sh_z = 0.500 if down else 0.487
+    for tag, sx in (("l", -1), ("r", 1)):
+        hinge([o for p in (parts[f"arm_{tag}"], parts[f"hand_{tag}"]) for o in p.objs],
+              (sx * 0.075, 0.0, sh_z), f"arm_{tag}")
+        hinge([o for p in (parts[f"leg_{tag}"], parts[f"boot_{tag}"]) for o in p.objs],
+              (sx * 0.068, 0.0, 0.375), f"leg_{tag}")
+    hinge([o for p in (parts["head"], parts["face"]) for o in p.objs],
+          (0.0, 0.0, 0.600), "head")
+    # el gorro acompaña a la cabeza
+    if "hat" in parts:
+        hinge(parts["hat"].objs, (0.0, 0.0, 0.600), "hat")
 
 
 def build_variant(P, out_dir, export=False, with_hat=True, tag=None):
@@ -657,6 +695,8 @@ def build_variant(P, out_dir, export=False, with_hat=True, tag=None):
         for part in parts.values():
             for o in part.objs:
                 o.select_set(True)
+                if o.parent is not None:
+                    o.parent.select_set(True)      # los vacíos de bisagra
         bpy.ops.export_scene.gltf(
             filepath=os.path.join(out_dir, f"{vid}.glb"),
             export_format="GLB",
