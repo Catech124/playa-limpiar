@@ -70,23 +70,26 @@ otro barre la arena, así que la presión puede ser mayor.
 - **El cuerpo gira hacia donde va**, no hacia el eje cardinal: caminando en
   diagonal el personaje mira en diagonal. Para interactuar se sigue usando el eje
   dominante (el aviso del piso es coherente con lo que se ve).
-- **Impulso casi sin espera**: 0,35 s entre uno y otro (antes 1 s). Cada impulso
-  levanta **polvo** en la arena y **salpicadura** en el agua: es lo que hace que
-  la carrera se sienta rápida.
+- **Impulso casi sin espera**: 0,35 s entre uno y otro (antes 1 s). Al pique el
+  personaje **se inclina, tira los brazos atrás y alarga el paso**, y levanta
+  **polvo** (o salpicadura en el agua): es lo que hace que la carrera se sienta
+  rápida.
 
 ## El mapa
 
 La playa está **conectada a la ciudad**: detrás del paseo hay edificios bajos con
-ventanas, faroles, una baranda y el cartel «PLAYA LIMPIA». No es una ciudad
+ventanas, faroles, una baranda y el cartel «BALNEARIO LA GAVIOTA». No es una ciudad
 entera, solo lo justo para que el lugar no se sienta una isla perdida.
 
 - **Arena continua**: no hay cuadrícula. La textura son manchas de duna (elipses
   planas de tonos apenas distintos) y la orilla de arena mojada.
 - **Rocas naturales**: el borde son grupos de piedras superpuestas de distinto
   tamaño y tono (antes era un cubo gris por celda).
-- **Mar animado**: una sola lámina con shader. Ondula con `TIME`, cambia de
-  turquesa a azul según la profundidad y deja ver el fondo (alfa). La espuma de
-  la orilla son segmentos que avanzan y retroceden como la rompiente.
+- **Mar animado y OPACO**: una sola lámina con shader. Ondula con `TIME`, tiene
+  **tres franjas duras** de turquesa a azul (aire de dibujo), rayas de luz que
+  corren y espuma que late en la orilla. No es transparente a propósito: el
+  cuerpo del nadador queda **cortado por la superficie**, que es lo que hace que
+  se lea "está en el agua".
 
 Puntos de referencia (todos con primitivas):
 
@@ -128,13 +131,15 @@ palmera ni debajo del muelle.
 
 ## El mar y el tiburón (Fase 3)
 
-- **Se entra al agua nadando**: el personaje queda **hundido hasta el pecho**
-  (el agua está a 0,30 y el cuerpo a 0,21), se acuesta sobre la lámina, rola con
-  la brazada, deja estela de espuma y salpica al avanzar. Nadar es **más lento** que caminar
+- **Se entra al agua nadando**: el personaje se acuesta sobre la lámina con la
+  cabeza afuera, **flota como un corcho** (sube y baja), rola con la brazada y
+  deja **ondas que se abren** alrededor, estela y salpicaduras. Nadar es **más lento** que caminar
   (2,5 contra 4,6) y el impulso en el agua también es más corto (4,2 contra 9,2).
 - **A los 3 s** de estar en el agua aparece la **aleta** (un triángulo oscuro que
-  rodea al jugador). **A los 6 s** muerde: −3, **suelta lo que lleva** (queda en
-  la orilla) y vuelve a la arena.
+  rodea al jugador) y **a los 6 s muerde**. Cuanto más tiempo pasás en el agua,
+  más se calienta: la aleta y la mordida llegan antes (hasta la mitad de tiempo).
+- La mordida **no quita puntos**: te deja **5 s fuera de juego** y reaparecés en
+  la arena. Lo que llevabas queda en la orilla (no se pierde).
 - La **basura flotante** aparece en cualquier fila del agua (una de cada tres,
   mar adentro) y **suma doble a la cuota**: es el premio por el riesgo.
 - La basura del agua **se hunde a los 10 s** si no se rescata.
@@ -146,6 +151,10 @@ palmera ni debajo del muelle.
 | Basura flotante | se hunde a los **10 s** | aro + «Se hundió» (−2) |
 | Vidrio en la arena | se rompe a los **14 s** | aro + «Vidrio roto» (−2) |
 | Gaviota | roba un residuo del piso y se lo lleva | «¡Gaviota!» (−2) |
+
+**Las penalizaciones son solo de puntos.** Tirar basura en el contenedor
+equivocado **no** castiga: el contenedor la rechaza y te avisa. Y morir por el
+tiburón tampoco descuenta: cuesta 5 segundos de espera.
 
 - El **aro de cuenta atrás** se cierra y pasa de ámbar a rojo. Solo lo llevan las
   basuras que vencen: es el aviso de que esa basura se pierde.

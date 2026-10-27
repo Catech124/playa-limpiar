@@ -34,8 +34,12 @@ var walk_phase := 0.0
 var carry_anchor: Node3D
 var swimming := false
 var water_time := 0.0       # segundos seguidos en el agua (lo usa el tiburón)
+var shark_heat := 0.0      # 0..1: cuanto más tiempo en el agua, más rápido vuelve
+var down_time := 0.0       # mordido: segundos que tarda en reaparecer
+var respawn_tile := Vector2i(-1, -1)
 var fin: Node3D = null      # aleta que avisa la mordida
 var wake: MeshInstance3D = null   # espuma alrededor del nadador
+var ripples: Array = []           # ondas que se abren al nadar
 var _swim_blend := 0.0
 var _splash_cd := 0.0
 var _act_pressed := false
@@ -184,6 +188,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# mordido: no se mueve ni interactúa hasta reaparecer (lo lleva main)
+	if down_time > 0.0:
+		velocity = Vector3.ZERO
+		_act_pressed = false
+		_throw_pressed = false
+		_dash_pressed = false
+		return
 	_update_swim(delta)
 	_animate(delta)
 	if not active:
@@ -285,6 +296,16 @@ func _update_swim(delta: float) -> void:
 		var k := 0.9 + 0.12 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
 		wake.scale = Vector3(k, 1.0, k)
 
+	# ondas que se abren desde el nadador: es lo que más se lee desde arriba
+	for rp in ripples:
+		rp["ph"] = fmod(float(rp["ph"]) + delta * 0.75, 1.0)
+		var n: MeshInstance3D = rp["node"]
+		var ph: float = rp["ph"]
+		var s2 := 0.7 + 1.2 * ph
+		n.scale = Vector3(s2, 1.0, s2)
+		(n.material_override as StandardMaterial3D).albedo_color.a = (1.0 - ph) * 0.55
+		n.visible = _swim_blend > 0.4
+
 	# salpicaduras al avanzar: el movimiento en el agua tiene que verse
 	_splash_cd = maxf(0.0, _splash_cd - delta)
 	if swimming and velocity.length() > 0.2 and _splash_cd <= 0.0:
@@ -314,6 +335,47 @@ func _ensure_wake() -> void:
 	wake.visible = false
 	add_child(wake)
 
+	# dos anillos de onda desfasados
+	for i in 2:
+		var ring := MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.42
+		torus.outer_radius = 0.50
+		torus.rings = 20
+		torus.ring_segments = 5
+		ring.mesh = torus
+		var rm := StandardMaterial3D.new()
+		rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		rm.albedo_color = Color(0.96, 1.0, 1.0, 0.5)
+		ring.material_override = rm
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.position = Vector3(0, GameConfig.WATER_LEVEL + 0.014, 0.16)
+		ring.visible = false
+		add_child(ring)
+		ripples.append({"node": ring, "ph": 0.5 * float(i)})
+
+
+## El tiburón lo mordió: desaparece del agua y vuelve a la arena en `seconds`.
+func keep_down(seconds: float, at: CellData) -> void:
+	down_time = seconds
+	if at != null:
+		respawn_tile = Vector2i(at.x, at.y)
+	else:
+		respawn_tile = Vector2i(tile_x(), tile_y())
+	_body_mesh.visible = false
+	velocity = Vector3.ZERO
+	if wake != null:
+		wake.visible = false
+
+
+func revive() -> void:
+	down_time = 0.0
+	if respawn_tile.x >= 0:
+		teleport(respawn_tile.x, respawn_tile.y, Vector2i(0, -1))
+	respawn_tile = Vector2i(-1, -1)
+	_body_mesh.visible = true
+
 
 func front_tile() -> CellData:
 	var fx := position.x + facing.x * 0.62
@@ -337,74 +399,73 @@ func teleport(tx: int, ty: int, face := Vector2i(0, -1)) -> void:
 
 
 ## Animación procedural sobre las bisagras del GLB.
-##   idle  → respiración (cabeza y brazos meciéndose)
-##   mover → ciclo de caminata: piernas y brazos alternados, cuerpo que sube
-##   llevar→ los brazos van adelante sosteniendo la caja
+##   idle   → respiración
+##   mover  → ciclo de caminata
+##   llevar → brazos adelante
+##   pique  → cuerpo inclinado y brazos atrás
+##   nadar  → acostado, brazada alternada y rolido
 func _animate(delta: float) -> void:
 	if _hinges.is_empty():
 		return
 	var moving := velocity.length() > 0.05
 	var t := walk_phase
 	var carry := carrying != null
+	var swim := _swim_blend
+	var dash := clampf(dash_left / maxf(0.01, GameConfig.DASH_TIME), 0.0, 1.0)
 	var arm_l: Node3D = _hinges.get("arm_l")
 	var arm_r: Node3D = _hinges.get("arm_r")
 	var leg_l: Node3D = _hinges.get("leg_l")
 	var leg_r: Node3D = _hinges.get("leg_r")
 	var head: Node3D = _hinges.get("head")
 	var breath := sin(Time.get_ticks_msec() / 1000.0 * 2.2)
+	var now := Time.get_ticks_msec() / 1000.0
 
-	var swim := _swim_blend
 	if swim > 0.35:
-		# nadando: brazadas alternadas (el cuerpo va acostado, ver abajo)
-		var stroke := sin(Time.get_ticks_msec() / 1000.0 * 6.0)
-		if carry:
-			if arm_l: arm_l.rotation = Vector3(-1.35, 0.0, 0.35)
-			if arm_r: arm_r.rotation = Vector3(-1.35, 0.0, -0.35)
-		else:
-			# brazada abierta: los brazos salen a los costados y reman alternados,
-			# que desde la cámara alta es lo que se lee como nadar
-			# brazos abiertos a los costados (el ala del sombrero tapa los
-			# hombros: si la brazada no sale de costado, no se ve)
-			if arm_l: arm_l.rotation = Vector3(-1.0 + stroke * 0.55, 0.0, 1.25)
-			if arm_r: arm_r.rotation = Vector3(-1.0 - stroke * 0.55, 0.0, -1.25)
+		# Nadando: brazada alternada que pasa POR DELANTE de la cara. El ala del
+		# sombrero tapa los hombros, así que si el brazo no sale adelante no se ve.
+		var stroke := sin(now * 7.0)
+		# el brazo pasa de "adentro del agua" a "afuera" en cada brazada
+		if arm_l: arm_l.rotation = Vector3(-1.6 + stroke * 1.0, 0.0, 0.55)
+		if arm_r: arm_r.rotation = Vector3(-1.6 - stroke * 1.0, 0.0, -0.55)
+	elif dash > 0.05 and not carry:
+		# pique: brazos atrás y cuerpo estirado, como saliendo disparado
+		if arm_l: arm_l.rotation = Vector3(1.15 * dash, 0.0, 0.35)
+		if arm_r: arm_r.rotation = Vector3(1.15 * dash, 0.0, -0.35)
 	elif carry:
 		# brazos adelante y un poco abiertos, como sosteniendo la caja
 		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, 0.35)
 		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, -0.35)
 	else:
-		var swing := 0.0
-		if moving:
-			swing = sin(t) * 0.55
+		var swing := sin(t) * 0.55 if moving else 0.0
 		if arm_l: arm_l.rotation = Vector3(swing, 0.0, -0.06 + breath * 0.02)
 		if arm_r: arm_r.rotation = Vector3(-swing, 0.0, 0.06 - breath * 0.02)
 
 	if swim > 0.35:
-		# pataleo corto y rápido
-		var kick := sin(Time.get_ticks_msec() / 1000.0 * 9.0) * (0.35 if moving else 0.12)
+		var kick := sin(now * 9.0) * (0.45 if moving else 0.15)
 		if leg_l: leg_l.rotation = Vector3(kick, 0.0, 0.0)
 		if leg_r: leg_r.rotation = Vector3(-kick, 0.0, 0.0)
 	elif moving:
-		if leg_l: leg_l.rotation = Vector3(-sin(t) * 0.62, 0.0, 0.0)
-		if leg_r: leg_r.rotation = Vector3(sin(t) * 0.62, 0.0, 0.0)
+		var stride := 0.62 + 0.40 * dash
+		if leg_l: leg_l.rotation = Vector3(-sin(t) * stride, 0.0, 0.0)
+		if leg_r: leg_r.rotation = Vector3(sin(t) * stride, 0.0, 0.0)
 	else:
-		if leg_l: leg_l.rotation = Vector3(0.0, 0.0, 0.0)
-		if leg_r: leg_r.rotation = Vector3(0.0, 0.0, 0.0)
+		if leg_l: leg_l.rotation = Vector3.ZERO
+		if leg_r: leg_r.rotation = Vector3.ZERO
 
 	if head:
-		# cabeceo al caminar + respiración en reposo; mirando un poco adelante
 		head.rotation = Vector3(
-			-0.04 + (0.02 * sin(t * 2.0) if moving else breath * 0.015),
+			-0.04 + (0.02 * sin(t * 2.0) if moving else breath * 0.015) - 0.12 * swim,
 			0.0,
 			(0.03 * sin(t) if moving else breath * 0.02))
 
-	# el cuerpo se acuesta en el agua y flota: inclinado hacia adelante, un poco
-	# corrido para que quede centrado en la celda (el origen del modelo son los pies)
-	_body_mesh.rotation.x = swim * 1.42
-	# el cuerpo rola con la brazada: es lo que hace que se lea el estilo libre
-	_body_mesh.rotation.z = sin(Time.get_ticks_msec() / 1000.0 * 6.0) * 0.22 * swim
-	_body_mesh.position.z = -0.34 * swim
-	var target_y := (GameConfig.WATER_LEVEL - 0.09) * swim
-	if moving and swim < 0.35:
+	# postura del cuerpo: acostado en el agua, inclinado en el pique
+	_body_mesh.rotation.x = swim * 1.15 - 0.30 * dash * (1.0 - swim)
+	_body_mesh.rotation.z = sin(now * 7.0) * 0.20 * swim
+	_body_mesh.position.z = -0.26 * swim
+	var target_y := (GameConfig.WATER_LEVEL - 0.13) * swim
+	if swim > 0.35:
+		target_y += sin(now * 5.0) * 0.03        # flota como un corcho
+	elif moving:
 		target_y += absf(sin(t)) * 0.025
 	_body_mesh.position.y = lerpf(_body_mesh.position.y, target_y, minf(1.0, delta * 12.0))
 

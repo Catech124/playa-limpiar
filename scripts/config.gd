@@ -41,7 +41,9 @@ const SWIM_DASH_SPEED := 4.2
 ## A los 3 s aparece la aleta; a los 6 s, la mordida.
 const SHARK_FIN_TIME := 3.0
 const SHARK_BITE_TIME := 6.0
-const SHARK_BITE_PENALTY := 3
+## La mordida NO descuenta puntos: te deja fuera de juego unos segundos y
+## reaparecés en la arena.
+const SHARK_RESPAWN_TIME := 5.0
 
 # --- presión (Fase 2) ----------------------------------------------------
 ## Basura flotante: se hunde si nadie la recoge. El tiro hasta la orilla es

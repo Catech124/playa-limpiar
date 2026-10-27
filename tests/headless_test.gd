@@ -191,7 +191,7 @@ func _run() -> void:
 	await tp(9, 2, Vector2i(0, -1))   # contenedor de LATAS
 	use()
 	check("el contenedor equivocado no lo acepta", p.carrying == wrong)
-	check("y penaliza", int(main.stats["penalties"]) == penalties_before + 1,
+	check("y no castiga: solo bloquea", int(main.stats["penalties"]) == penalties_before,
 		"penalizaciones %d" % int(main.stats["penalties"]))
 	take_away()
 
@@ -331,14 +331,27 @@ func _run() -> void:
 	p.water_time = GameConfig.SHARK_FIN_TIME
 	main._tick_water(0.05)
 	check("a los 3 s aparece la aleta", p.fin != null)
-	for i in 60:
+	var score_antes: int = main.score
+	for i in 80:
 		main._tick_water(0.1)      # se queda en el agua hasta la mordida
-		if p.tile_y() <= 10:
+		if p.down_time > 0.0:
 			break
-	check("a los 6 s el tiburón muerde y devuelve a la arena",
-		p.tile_y() <= 10, "y=%d" % p.tile_y())
+	check("a los 6 s el tiburón muerde", p.down_time > 0.0, "%.1f" % p.down_time)
+	check("la mordida no descuenta puntos", main.score == score_antes,
+		"%d -> %d" % [score_antes, main.score])
+	check("mientras está mordido no se mueve ni se ve", not p._body_mesh.visible)
 	check("la mordida hace soltar lo que llevaba", p.carrying == null)
 	check("la aleta desaparece después de la mordida", p.fin == null)
+
+	# reaparece en la arena recién a los 5 s
+	for i in 3:
+		main._tick_water(1.0)
+	check("a los 3 s todavía no reapareció", p.down_time > 0.0)
+	for i in 3:
+		main._tick_water(1.0)
+	check("a los 5 s reaparece en la arena", p.down_time == 0.0 and p.tile_y() <= 10,
+		"y=%d" % p.tile_y())
+	check("reaparece visible", p._body_mesh.visible)
 
 	# --- gaviotas ---------------------------------------------------------
 	main.start_game(1)

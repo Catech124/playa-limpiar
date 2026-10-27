@@ -333,22 +333,34 @@ func _process(delta: float) -> void:
 ## corre por jugador: nadie puede quedarse tranquilo en el agua.
 func _tick_water(delta: float) -> void:
 	for p in players:
+		# mordido: cuenta atrás para reaparecer
+		if p.down_time > 0.0:
+			p.down_time = maxf(0.0, float(p.down_time) - delta)
+			if p.down_time <= 0.0:
+				_respawn(p)
+			continue
+
 		if p.swimming:
 			p.water_time += delta
-			if p.fin == null and p.water_time >= GameConfig.SHARK_FIN_TIME:
+			# Cuanto más se queda en el agua, más se calienta el tiburón: la
+			# aleta sale antes y la mordida también.
+			p.shark_heat = minf(1.0, float(p.shark_heat) + delta * 0.035)
+			var fin_t: float = GameConfig.SHARK_FIN_TIME * (1.0 - 0.5 * float(p.shark_heat))
+			var bite_t: float = GameConfig.SHARK_BITE_TIME * (1.0 - 0.40 * float(p.shark_heat))
+			if p.fin == null and p.water_time >= fin_t:
 				p.fin = _make_fin()
 				world.items_root.add_child(p.fin)
 				toast(p.position + Vector3(0, 1.4, 0), "¡Aleta!", "bad")
 			if p.fin != null:
-				# la aleta rodea al jugador: cuanto más tiempo, más cerca
 				var a: float = float(p.water_time) * 1.7
-				var r: float = maxf(0.55, 1.5 - (float(p.water_time) - GameConfig.SHARK_FIN_TIME) * 0.25)
+				var r: float = maxf(0.55, 1.5 - (float(p.water_time) - fin_t) * 0.25)
 				p.fin.position = p.position + Vector3(cos(a) * r, GameConfig.WATER_LEVEL - 0.02, sin(a) * r)
 				p.fin.rotation.y = -a
-			if p.water_time >= GameConfig.SHARK_BITE_TIME:
+			if p.water_time >= bite_t:
 				_bite(p)
 		else:
 			p.water_time = 0.0
+			p.shark_heat = maxf(0.0, float(p.shark_heat) - delta * 0.02)
 			_clear_fin(p)
 
 
@@ -391,9 +403,10 @@ func _clear_fin(p: Player) -> void:
 
 ## Mordida: −3, suelta lo que llevaba y vuelve a la arena. La basura que soltó
 ## queda en la orilla (no se pierde en el fondo: ya sería castigo doble).
+## La mordida no quita puntos: te saca del agua y tardás 5 s en volver.
 func _bite(p: Player) -> void:
-	penalty("Tiburón", p.position + Vector3(0, 1.5, 0), GameConfig.SHARK_BITE_PENALTY)
-	spawn_puff(p.position, Color(0.95, 0.99, 1.0), 12, 1.6)
+	spawn_puff(p.position + Vector3(0, GameConfig.WATER_LEVEL, 0), Color(0.97, 1.0, 1.0), 14, 1.8)
+	toast(p.position + Vector3(0, 1.5, 0), "¡Mordida! Volvés en %d s" % int(GameConfig.SHARK_RESPAWN_TIME), "bad")
 	var dest := _nearest_sand(p)
 	if p.carrying != null:
 		var item := p.carrying
@@ -402,10 +415,16 @@ func _bite(p: Player) -> void:
 			move_item_to_tile(item, dest)
 		else:
 			destroy_item(item)
-	if dest != null:
-		p.teleport(dest.x, dest.y, Vector2i(0, -1))
+	p.keep_down(GameConfig.SHARK_RESPAWN_TIME, dest)
 	p.water_time = 0.0
+	p.shark_heat = minf(1.0, float(p.shark_heat) + 0.25)
 	_clear_fin(p)
+
+
+func _respawn(p: Player) -> void:
+	spawn_puff(p.position + Vector3(0, 0.1, 0), Color(0.85, 0.92, 1.0), 8, 1.2)
+	p.revive()
+	spawn_puff(p.position, Color(0.88, 0.82, 0.66), 8, 1.0)
 
 
 func _nearest_sand(p: Player) -> CellData:
@@ -754,7 +773,8 @@ func _use_bin(p: Player, tile: CellData, held: CarryItem) -> void:
 		# El tipo se comprueba ANTES que la bolsa: tirar vidrio en el de latas es
 		# un error del jugador y tiene que castigarse aunque no haya bolsa.
 		if held.type != tile.bin:
-			penalty("Ese no va en %s" % bin_name, at)
+			# no es un castigo: el contenedor simplemente no lo acepta
+			toast(at, "Ese no va en %s" % bin_name, "bad")
 			return
 		if tile.bag == null:
 			toast(at, "Falta la bolsa en %s" % bin_name, "bad")

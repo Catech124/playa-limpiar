@@ -76,7 +76,7 @@ para rescatarlo.
 La playa tiene **palmeras, sombrillas con toalla, la torre del guardavidas y un
 muelle** sobre el agua. Los props grandes bloquean el paso y reservan su celda:
 la basura no aparece dentro de ellos. Detrás del paseo se ve la **ciudad**
-(edificios, faroles y el cartel de la playa): el lugar no es una isla perdida.
+(edificios, faroles y el cartel del balneario): el lugar no es una isla perdida.
 La arena no tiene cuadrícula y el **mar es una lámina animada** con shader que
 ondula y cambia de color según la profundidad.
 
@@ -107,7 +107,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   96 comprobaciones de reglas (headless)
+tests/headless_test.gd   101 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -152,7 +152,7 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**96 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**101 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
@@ -181,8 +181,10 @@ contenedor con bolsa → camión), reloj de 24 h, HUD con las 3 barras, fin de d
 con estrellas y la presión de la Fase 2 (se hunde, se rompe, gaviota, aros y tope
 de castigos). Funciona la cooperación de 2 jugadores en el mismo teclado.
 
-La **Fase 3** agrega el mar: se entra nadando (más lento), a los 3 s aparece la
-aleta y a los 6 s el tiburón muerde. La basura flotante suma doble a la cuota.
+La **Fase 3** agrega el mar: se entra nadando (más lento), aparece la aleta y
+después el tiburón muerde: no quita puntos, te deja **5 s fuera de juego** y
+reaparecés en la arena. Cuanto más te quedás en el agua, antes vuelve. La basura
+flotante suma doble a la cuota.
 
 ![nadando](docs/captura-nadar.png)
 

@@ -88,7 +88,7 @@ Decisiones de implementación:
 | # | Paso | Estado |
 |---|---|---|
 | 3.1 | Zona de agua transitable con profundidad | ✅ |
-| 3.2 | Aleta a los 3 s, mordida a los 6 s (−3 y te devuelve a la arena) | ✅ |
+| 3.2 | Aleta a los 3 s, mordida a los 6 s y 5 s para reaparecer (sin puntos) | ✅ |
 | 3.3 | Basura flotante que vale más | ✅ suma doble a la cuota |
 
 Decisiones de implementación:
@@ -105,8 +105,12 @@ Decisiones de implementación:
   uno puede cubrir la orilla mientras el otro nada.
 - **La basura del mar suma doble a la cuota** (no solo puntos): si no, el riesgo
   de nadar no se pagaba en la condición de victoria.
-- **La mordida no destruye lo que llevabas**: lo deja en la orilla. Perder la
-  basura además de 3 puntos ya era castigo doble.
+- **La mordida no destruye lo que llevabas**: lo deja en la orilla.
+- **Las penalizaciones son solo de puntos**: la mordida del tiburón no descuenta,
+  cuesta 5 s de espera; el contenedor equivocado no castiga, solo rechaza.
+- **El tiburón se calienta**: cuanto más tiempo seguís en el agua, antes aparece
+  la aleta y antes muerde (hasta la mitad del tiempo). Después de una mordida
+  arranca más caliente todavía.
 
 ## Fase 4 — Mundo y vida
 

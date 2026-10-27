@@ -233,7 +233,7 @@ func _build_city() -> void:
 	_box_mesh(Vector3(2.8, 0.46, 0.10), Color(0.16, 0.44, 0.33),
 		Vector3(w * 0.5, prom_y + 1.30, -0.52))
 	var sign_label := Label3D.new()
-	sign_label.text = "PLAYA LIMPIA"
+	sign_label.text = "BALNEARIO LA GAVIOTA"
 	sign_label.font_size = 56
 	sign_label.pixel_size = 0.006
 	sign_label.modulate = Color(1, 1, 1)
