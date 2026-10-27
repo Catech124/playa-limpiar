@@ -6,12 +6,10 @@ var x := 0
 var y := 0
 var ch := "."
 var kind := "floor"      # floor | water | rock | station
-var station := ""        # "" | counter | pile | sort | bags | wash | delivery | return
-var pool: Array = []     # tipos que entrega un montón
-var item: CarryItem = null
+var station := ""        # "" | bags | bin | delivery
+var item: CarryItem = null   # ítem apoyado en la celda (suelo)
 var bin: String = ""     # tipo de residuo que acepta un contenedor (pet/lata/vidrio)
-var items: Array = []    # pila de la estación (lavadero: sucias + limpias)
-var wash_t: float = 0.0  # progreso del lavado automático
+var bag: CarryItem = null    # bolsa colgada en la boca de un contenedor
 
 
 func is_solid() -> bool:
@@ -19,8 +17,8 @@ func is_solid() -> bool:
 
 
 func can_hold() -> bool:
-	# mostradores y arena: sí. Estaciones con oficio (montón, contenedor, camión...): no.
-	return station == "counter" or kind == "floor"
+	# solo la arena sostiene cosas: estaciones y agua tienen su propio oficio
+	return kind == "floor"
 
 
 func top_y() -> float:

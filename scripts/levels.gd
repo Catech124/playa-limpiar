@@ -1,44 +1,80 @@
 class_name Levels
 extends RefCounted
-## Mapas como texto: se itera el layout en segundos, sin editor.
+## Datos de los niveles: mapa en texto + ritmo de la jornada.
 ##
-##   ~  agua (sólida, decorativa)      P  montón PET     (fuente)
-##   #  roca (sólida)                  L  montón LATAS   (fuente)
-##   1  contenedor PET   2  LATAS   3  VIDRIO
-##   .  arena (caminable)              Q  montón VIDRIO  (fuente)
-##   S  aparición                      T  mesa de clasificar (canal)
-##   =  mostrador (guarda cosas)       B  dispensador de bolsas
-##                                     W  lavadero (canal)
-##                                     D  camión de entrega
-##                                     R  punto de bolsas sucias
+##   ~  mar (por ahora sólido; en la Fase 3 se entra a la orilla)
+##   #  roca / muro del paseo
+##   1  contenedor PET   2  LATAS   3  VIDRIO   (boca para colgar la bolsa)
+##   B  dispensador de bolsas          D  camión (entrega de la cuota)
+##   .  arena (caminable)   S  aparición de jugadores
 ##
-## Circuito pensado para ~4-5 s por residuo:
-##   montón (fila 2) -> clasificar (fila 4) -> mostrador (x12) -> camión
-
+## Circuito: RECOGER (arena) -> EMBOLSAR (contenedor) -> ENTREGAR (camión).
+## La basura ya no sale de montones: aparece tirada por la playa.
 
 const MAP := [
-	"~~~~~~~~~~~~~~~~~~~~~~~~",
-	"~~~~~~~~~~~~~~~~~~~~~~~~",
-	"#..P.L.Q.B....W........#",
+	"########################",
+	"#..B...1.2.3.......DD..#",
 	"#......................#",
-	"#.....1.2.3............#",
-	"#...........==.........#",
-	"#...........==.........#",
 	"#......................#",
 	"#......................#",
 	"#......................#",
 	"#..S......S............#",
 	"#......................#",
-	"##########DD####R#######",
+	"#......................#",
+	"#......................#",
+	"#......................#",
+	"~~~~~~~~~~~~~~~~~~~~~~~~",
+	"~~~~~~~~~~~~~~~~~~~~~~~~",
 	"~~~~~~~~~~~~~~~~~~~~~~~~",
 ]
 
-const SANDBOX_SECONDS := 999.0
+## Jornadas. `spawn_rows` limita la franja de arena donde cae la basura:
+## cuanto más abajo (lejos del paseo), más carrera para el jugador.
+const LEVELS := [
+	{
+		"name": "Día 1 · La orilla",
+		"seconds": 180.0,
+		"quota": {"pet": 6, "vidrio": 4, "lata": 4},
+		"spawn_initial": 3,
+		"spawn_interval": 3.6,
+		"spawn_max": 6,
+		"spawn_rows": [3, 10],
+	},
+	{
+		"name": "Día 2 · Marea alta",
+		"seconds": 240.0,
+		"quota": {"pet": 9, "vidrio": 6, "lata": 6},
+		"spawn_initial": 3,
+		"spawn_interval": 3.0,
+		"spawn_max": 7,
+		"spawn_rows": [4, 10],
+	},
+	{
+		"name": "Día 3 · Último día",
+		"seconds": 300.0,
+		"quota": {"pet": 12, "vidrio": 8, "lata": 8},
+		"spawn_initial": 4,
+		"spawn_interval": 2.4,
+		"spawn_max": 8,
+		"spawn_rows": [5, 10],
+	},
+]
 
-## Props decorativos (sin colisión) pegados a los bordes, para que la arena
-## no quede vacía. Formato: [x, y, tipo]
+## Caja de arena: sin reloj, sin gaviotas y sin cuota (para probar mecánicas).
+const SANDBOX := {
+	"name": "Caja de arena",
+	"seconds": 999.0,
+	"quota": {},
+	"spawn_initial": 5,
+	"spawn_interval": 4.0,
+	"spawn_max": 8,
+	"spawn_rows": [2, 10],
+}
+
+## Props decorativos (sin colisión) para que la arena no quede vacía.
+## Formato: [x, y, tipo]
 const DECOR := [
-	[2, 5, "rock"], [21, 6, "seaweed"], [2, 8, "seaweed"], [21, 9, "shell"],
-	[4, 11, "shell"], [19, 11, "rock"], [6, 7, "starfish"], [17, 7, "starfish"],
-	[3, 6, "shell"], [20, 4, "rock"],
+	[2, 9, "rock"], [21, 9, "rock"], [5, 8, "seaweed"], [17, 8, "shell"],
+	[8, 10, "shell"], [14, 10, "starfish"], [3, 4, "starfish"], [20, 4, "seaweed"],
+	[6, 5, "shell"], [18, 6, "rock"], [12, 2, "shell"], [2, 7, "seaweed"],
 ]

@@ -1,8 +1,11 @@
 extends Node
 ## Autotest de mecánicas. Se lanza con:
 ##   godot --headless --path . -- --test
-## Ejercita las MISMAS funciones que usa el input real (player_use,
-## player_channel, throw_item), teleportando al jugador entre estaciones.
+## Ejercita las MISMAS funciones que usa el input real (player_use, throw_item),
+## teleportando al jugador entre estaciones.
+##
+## Cubre el bucle de la v2: basura tirada -> bolsa en la boca del contenedor ->
+## camión -> cuota del día. Se lanza con `godot --headless -- --test`.
 
 var main
 var results: Array = []
@@ -44,36 +47,35 @@ func use() -> void:
 	main.player_use(p, p.front_tile())
 
 
-func hold(seconds: float) -> void:
+## Se para en una celda caminable vecina y mira la celda indicada.
+func face_tile(t: CellData) -> void:
 	var p = main.players[0]
-	var tile: CellData = p.front_tile()
-	var t := 0.0
-	while t < seconds:
-		var d: float = get_physics_process_delta_time()
-		main.player_channel(p, tile, d)
-		await get_tree().physics_frame
-		t += d
+	for d in [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]:
+		var n: CellData = main.world.tile_at(t.x + d.x, t.y + d.y)
+		if n != null and not n.is_solid():
+			p.teleport(n.x, n.y, Vector2i(-d.x, -d.y))
+			await get_tree().physics_frame
+			return
 
 
-func make_order(vidrio := 2, petals := 0) -> void:
-	var o := OrderBook.Order.new()
-	o.id = 999
-	o.need = {}
-	var parts: Array = []
-	for i in vidrio:
-		o.need["vidrio"] = int(o.need.get("vidrio", 0)) + 1
-		parts.append("vidrio")
-	for i in petals:
-		o.need["pet"] = int(o.need.get("pet", 0)) + 1
-		parts.append("pet")
-	o.items = parts.size()
-	o.patience = GameConfig.ORDER_PATIENCE
-	o.patience_max = GameConfig.ORDER_PATIENCE
-	parts.sort()
-	o.signature = "+".join(parts)
-	main.orders.list.clear()
-	main.orders.list.append(o)
-	main.orders.timer = 999.0
+func free_tile(y := 8) -> CellData:
+	for x in range(2, main.world.w - 2):
+		var t: CellData = main.world.tile_at(x, y)
+		if t != null and t.can_hold() and t.item == null:
+			return t
+	return main.world.tile_at(2, 8)
+
+
+func give(item: CarryItem) -> void:
+	ItemVisuals.build(item)
+	main.move_item_to_player(item, main.players[0])
+
+
+func take_away() -> void:
+	var p = main.players[0]
+	if p.carrying != null:
+		main.destroy_item(p.carrying)
+		p.carrying = null
 
 
 # ------------------------------------------------------------------ tests
@@ -83,7 +85,35 @@ func _run() -> void:
 	var p = main.players[0]
 
 	check("arranca en juego", main.is_playing(), "estado=%d" % main.state)
-	check("aparece en el spawn (3,10)", p.tile_x() == 3 and p.tile_y() == 10, "%d,%d" % [p.tile_x(), p.tile_y()])
+	check("aparece en el spawn (3,6)", p.tile_x() == 3 and p.tile_y() == 6, "%d,%d" % [p.tile_x(), p.tile_y()])
+
+	# --- nivel y reloj ----------------------------------------------------
+	check("el día 1 arranca a las 06:00", main.clock_text() == "06:00", main.clock_text())
+	check("la cuota del día 1 es 6/4/4",
+		int(main.quota["pet"]) == 6 and int(main.quota["vidrio"]) == 4 and int(main.quota["lata"]) == 4,
+		str(main.quota))
+	check("el HUD tiene 3 barras de cuota", main.quota_rows().size() == 3)
+	# --- los niveles se pueden ganar --------------------------------------
+	# La basura sale de a una cada `spawn_interval`: si el tiempo no alcanza
+	# para que aparezca la cuota completa, el nivel es imposible por diseño
+	# (y no por jugar mal), que es el peor bug de balance que existe.
+	for lvl in Levels.LEVELS:
+		var need := 0
+		for t in lvl["quota"].keys():
+			need += int(lvl["quota"][t])
+		var burst := int(lvl["spawn_initial"])
+		var t_spawn := float(maxi(0, need - burst)) * float(lvl["spawn_interval"])
+		check("el nivel «%s» puede llenar su cuota a tiempo" % String(lvl["name"]),
+			t_spawn < float(lvl["seconds"]) * 0.6,
+			"%.0f s de aparición para %.0f s de jornada" % [t_spawn, float(lvl["seconds"])])
+
+	check("la playa amanece con basura", main.spawner.count_on_ground() == 3,
+		"%d tiradas" % main.spawner.count_on_ground())
+
+	main.time_left = main.level_seconds * 0.5
+	check("a mitad de jornada el reloj va por la tarde", main.clock_text() == "14:00", main.clock_text())
+	main.time_left = main.level_seconds
+	check("el avance del día se mide de 0 a 1", absf(main.day_progress()) < 0.001)
 
 	# --- movimiento -------------------------------------------------------
 	var start_x: float = p.position.x
@@ -92,201 +122,254 @@ func _run() -> void:
 		await get_tree().physics_frame
 	check("se mueve a la derecha", p.position.x > start_x + 0.8, "x %.2f -> %.2f" % [start_x, p.position.x])
 
-	await tp(3, 3, Vector2i(0, -1))
+	await tp(7, 2, Vector2i(0, -1))
 	for i in 30:
 		p.move_step(Vector2(0, -1))
 		await get_tree().physics_frame
-	check("la estación bloquea (no atraviesa)", p.position.z > 2.9, "z=%.2f" % p.position.z)
+	check("el contenedor bloquea (no atraviesa)", p.position.z > 2.25, "z=%.2f" % p.position.z)
 
-	# --- recoger del montón ------------------------------------------------
-	await tp(7, 3, Vector2i(0, -1))   # montón de vidrio
+	# --- spawner ----------------------------------------------------------
+	var trash: CarryItem = main.spawner.spawn_one("pet")
+	var tt: CellData = null
+	if trash != null and trash.node != null:
+		tt = main.world.tile_at(int(floor(trash.node.position.x)), int(floor(trash.node.position.z)))
+	check("el spawner tira basura nueva", trash != null and main.spawner.count_on_ground() == 4,
+		"%d tiradas" % main.spawner.count_on_ground())
+	check("la basura cae en una celda de arena", tt != null and tt.kind == "floor")
+	check("el tipo pedido es el que sale", trash != null and trash.type == "pet")
+	check("el spawner elige tipos válidos",
+		main.spawner.pick_type() in ["pet", "vidrio", "lata"])
+
+	# --- recoger del piso -------------------------------------------------
+	await face_tile(tt)
 	use()
-	check("recoge un residuo del montón", p.carrying != null and p.carrying.is_residue() and p.carrying.type == "vidrio",
+	check("recoge la basura del piso", p.carrying == trash,
 		p.carrying.label() if p.carrying else "nada")
 
-	# --- contenedores: el residuo se TIRA, no se etiqueta -----------------
-	var score_bin: int = main.score
-	await tp(10, 3, Vector2i(0, 1))    # contenedor VIDRIO
+	# --- contenedor sin bolsa --------------------------------------------
+	await tp(7, 2, Vector2i(0, -1))
 	use()
-	check("tirar en el contenedor correcto suma", main.score > score_bin and p.carrying == null,
-		"%d -> %d" % [score_bin, main.score])
+	var bin_pet: CellData = main.world.tile_at(7, 1)
+	check("sin bolsa el contenedor no acepta basura", p.carrying == trash)
 
-	# residuo equivocado: no entra y penaliza
-	await tp(3, 3, Vector2i(0, -1))    # montón PET
-	use()
-	await tp(10, 3, Vector2i(0, 1))    # contenedor VIDRIO
-	var score_bad: int = main.score
-	use()
-	check("el contenedor equivocado no lo acepta", p.carrying != null,
-		"sigue con %s" % (p.carrying.type if p.carrying else "nada"))
-	check("y penaliza", main.score <= score_bad, "%d -> %d" % [score_bad, main.score])
+	# --- dispensador de bolsas -------------------------------------------
+	var drop_tile := free_tile(8)
+	main.move_item_to_tile(trash, drop_tile)
 	p.carrying = null
-
-	# --- mostrador: soltar, bolsa, fusionar (sin clasificar) --------------
-	await tp(7, 3, Vector2i(0, -1))    # otro vidrio
+	await tp(3, 2, Vector2i(0, -1))
 	use()
-	await tp(12, 4, Vector2i(0, 1))
+	check("toma una bolsa del dispensador", p.carrying != null and p.carrying.is_bag())
+	var bag: CarryItem = p.carrying
+
+	# --- colgar la bolsa en el contenedor --------------------------------
+	await tp(7, 2, Vector2i(0, -1))
 	use()
-	check("deja el residuo en el mostrador", main.world.tile_at(12, 5).item != null and p.carrying == null)
+	check("la bolsa queda colgada en el contenedor",
+		p.carrying == null and bin_pet.bag == bag)
+	check("la bolsa colgada tiene nodo en escena",
+		bag.node != null and bag.node.get_parent() == main.world.items_root)
+	check("la bolsa arranca vacía", bag.contents.is_empty())
 
-	await tp(9, 3, Vector2i(0, -1))    # dispensador de bolsas
+	# --- tirar basura en la bolsa ----------------------------------------
+	await face_tile(drop_tile)
 	use()
-	check("toma una bolsa limpia", p.carrying != null and p.carrying.is_bag() and p.carrying.clean)
-
-	await tp(13, 4, Vector2i(0, 1))
+	check("vuelve a levantar la basura", p.carrying == trash)
+	await tp(7, 2, Vector2i(0, -1))
 	use()
-	var bag_tile: CellData = main.world.tile_at(13, 5)
-	check("deja la bolsa en el mostrador", bag_tile.item != null and bag_tile.item.is_bag() and p.carrying == null)
+	check("tirar en el contenedor correcto llena la bolsa",
+		p.carrying == null and bag.contents.size() == 1,
+		"%d en la bolsa" % bag.contents.size())
+	check("la basura desaparece de la mano", p.carrying == null)
 
-	await tp(12, 4, Vector2i(0, 1))
-	use()   # coger el vidrio
-	await tp(13, 4, Vector2i(0, 1))
-	use()   # meterlo en la bolsa
-	check("fusiona el residuo en la bolsa", bag_tile.item != null and bag_tile.item.contents.size() == 1,
-		str(bag_tile.item.contents if bag_tile.item else []))
-
-	# segundo vidrio, ciclo completo
-	await tp(7, 3, Vector2i(0, -1))
+	# --- tipo equivocado --------------------------------------------------
+	var wrong := CarryItem.residue("vidrio")
+	give(wrong)
+	var penalties_before: int = int(main.stats["penalties"])
+	await tp(9, 2, Vector2i(0, -1))   # contenedor de LATAS
 	use()
-	await tp(13, 4, Vector2i(0, 1))
+	check("el contenedor equivocado no lo acepta", p.carrying == wrong)
+	check("y penaliza", int(main.stats["penalties"]) == penalties_before + 1,
+		"penalizaciones %d" % int(main.stats["penalties"]))
+	take_away()
+
+	# --- llenar la bolsa --------------------------------------------------
+	for i in 3:
+		var r := CarryItem.residue("pet")
+		give(r)
+		await tp(7, 2, Vector2i(0, -1))
+		use()
+	check("la bolsa se llena con 4 residuos", bag.contents.size() == 4 and bag.is_full(),
+		"%d/4" % bag.contents.size())
+
+	var extra := CarryItem.residue("pet")
+	give(extra)
+	await tp(7, 2, Vector2i(0, -1))
 	use()
-	check("la bolsa acumula 2 residuos", bag_tile.item != null and bag_tile.item.contents.size() == 2,
-		str(bag_tile.item.contents if bag_tile.item else []))
+	check("la bolsa llena no acepta más", p.carrying == extra)
+	take_away()
 
-	# --- entrega ----------------------------------------------------------
-	make_order(2, 0)
-	await tp(13, 4, Vector2i(0, 1))
-	use()   # coger la bolsa llena
-	check("recoge la bolsa llena", p.carrying != null and p.carrying.is_bag() and p.carrying.contents.size() == 2)
+	# --- retirar la bolsa llena ------------------------------------------
+	await tp(7, 2, Vector2i(0, -1))
+	use()
+	check("retira la bolsa llena del contenedor", p.carrying == bag and bin_pet.bag == null)
+	check("al sacarla se achica al tamaño de la mano", bag.node != null and bag.node.get_parent() == p.carry_anchor)
 
+	# --- entrega en el camión --------------------------------------------
+	var delivered_before: int = int(main.delivered["pet"])
 	var score_before: int = main.score
-	await tp(10, 11, Vector2i(0, 1))
+	await tp(19, 2, Vector2i(0, -1))
 	use()
-	check("entrega el pedido y suma puntos", main.score > score_before and main.stats["served"] == 1,
-		"puntos %d -> %d" % [score_before, main.score])
-	check("la entrega deja una bolsa sucia", main.world.tile_at(16, 12).item != null and not main.world.tile_at(16, 12).item.clean)
+	check("entregar suma a la cuota", int(main.delivered["pet"]) == delivered_before + 4,
+		"%d -> %d" % [delivered_before, int(main.delivered["pet"])])
+	check("la bolsa se va con el camión", p.carrying == null and bag.node == null)
+	check("entregar suma puntos", main.score > score_before, "%d -> %d" % [score_before, main.score])
 
-	# --- entrega que no cuadra --------------------------------------------
-	make_order(0, 0)
-	var o2 := OrderBook.Order.new()
-	o2.need = {"pet": 3}
-	o2.patience = 40.0
-	o2.patience_max = 40.0
-	o2.signature = "pet+pet+pet"
-	main.orders.list.clear()
-	main.orders.list.append(o2)
-
-	var wrong := CarryItem.bag(true, ["lata"])
-	ItemVisuals.build(wrong)
-	main.move_item_to_player(wrong, p)
-	var score2: int = main.score
-	await tp(10, 11, Vector2i(0, 1))
+	# bolsa vacía
+	var empty := CarryItem.bag()
+	give(empty)
+	var total_before: int = main.total_delivered()
+	await tp(19, 2, Vector2i(0, -1))
 	use()
-	check("una bolsa que no cuadra no puntúa", main.score == score2, "puntos %d" % main.score)
+	check("la bolsa vacía no suma", main.total_delivered() == total_before and p.carrying == empty)
+	take_away()
 
-	# --- lavar ------------------------------------------------------------
-	p.carrying = null
-	main.destroy_item(wrong)
-	var dirty := CarryItem.bag(false)
-	ItemVisuals.build(dirty)
-	main.move_item_to_tile(dirty, main.world.tile_at(16, 12))
-
-	await tp(16, 11, Vector2i(0, 1))
+	# basura suelta en el camión
+	var loose := CarryItem.residue("lata")
+	give(loose)
+	await tp(19, 2, Vector2i(0, -1))
 	use()
-	check("recoge la bolsa sucia", p.carrying != null and p.carrying.is_bag() and not p.carrying.clean)
+	check("la basura suelta no se entrega", p.carrying == loose)
+	take_away()
 
-	# dejarla en el lavadero (no se lava en la mano)
-	var wash_tile: CellData = main.world.tile_at(14, 2)
-	await tp(14, 3, Vector2i(0, -1))
+	# --- cumplir la cuota gana -------------------------------------------
+	main.delivered = {"pet": 6, "vidrio": 4, "lata": 3}
+	var last := CarryItem.bag(["lata"])
+	give(last)
+	await tp(19, 2, Vector2i(0, -1))
 	use()
-	check("la bolsa sucia queda en el lavadero", p.carrying == null and not wash_tile.items.is_empty(),
-		"%d en la pila" % wash_tile.items.size())
-	await frames(int(GameConfig.WASH_TIME / get_physics_process_delta_time()) + 12)
-	var clean_ready := false
-	for it in wash_tile.items:
-		if it.is_bag() and it.clean:
-			clean_ready = true
-	check("al terminar el lavado hay una bolsa limpia en la repisa", clean_ready)
-	use()
-	check("y se retira de la repisa", p.carrying != null and p.carrying.is_bag() and p.carrying.clean)
+	check("cumplir la cuota termina el día", main.is_results() and main.won,
+		"estado=%d won=%s" % [main.state, main.won])
+	check("ganando se gana al menos una estrella", main.stars_earned() >= 1,
+		"%d estrellas" % main.stars_earned())
 
-	# --- lanzar -----------------------------------------------------------
-	await tp(7, 3, Vector2i(0, -1))
-	use()   # recoger un vidrio
-	await tp(10, 8, Vector2i(0, -1))
-	main.throw_item(p)
-	check("lanzar saca el ítem de la mano", p.carrying == null and main.flying.size() == 1)
-	await frames(40)
-	check("el ítem aterriza en el suelo", main.flying.is_empty())
-
-	# --- pedidos que expiran ----------------------------------------------
-	var expired_before: int = main.stats["expired"]
-	var o3 := OrderBook.Order.new()
-	o3.need = {"pet": 1}
-	o3.patience = 0.2
-	o3.patience_max = 40.0
-	o3.signature = "pet"
-	main.orders.list.clear()
-	main.orders.list.append(o3)
-	main.orders.timer = 999.0
-	await frames(40)
-	check("el pedido expira y se contabiliza", main.stats["expired"] > expired_before,
-		"%d -> %d" % [expired_before, main.stats["expired"]])
-
-	# --- fin de ronda y reinicio ------------------------------------------
-	main.time_left = 0.05
-	await frames(10)
-	check("al acabar el tiempo pasa a resultados", main.is_results(), "estado=%d" % main.state)
-
+	# --- reinicio ---------------------------------------------------------
 	main.start_game(1)
 	await frames(2)
 	check("R reinicia la partida", main.is_playing() and main.score == 0)
+	check("al reiniciar la cuota vuelve a cero", main.total_delivered() == 0)
 
-	# --- colisiones contra el mobiliario -----------------------------------
-	var pc = main.players[0]
-	# mesa de clasificar en (6,4): me paro al lado y empujo hacia ella
-	pc.teleport(5, 4, Vector2i(1, 0))
+	# --- fin de jornada sin cuota ----------------------------------------
+	main.time_left = 0.05
+	await frames(12)
+	check("si se acaba el día sin cuota, se pierde", main.is_results() and not main.won)
+
+	# --- colisiones -------------------------------------------------------
+	main.start_game(1)
 	await frames(2)
-	var x0: float = pc.position.x
+	p = main.players[0]
+
+	var bag_tile: CellData = main.world.tile_at(8, 8)
+	if bag_tile.item != null:
+		main.destroy_item(bag_tile.item)
+		bag_tile.item = null
+	var floor_bag := CarryItem.bag()
+	ItemVisuals.build(floor_bag)
+	main.move_item_to_tile(floor_bag, bag_tile)
+	p.teleport(7, 8, Vector2i(1, 0))
+	await frames(2)
+	check("la bolsa del piso tiene collider", floor_bag.node.get_node_or_null("Blocker") != null)
 	for i in 40:
-		pc.velocity = Vector3(4.0, 0.0, 0.0)
-		pc.move_and_slide()
+		p.velocity = Vector3(4.0, 0.0, 0.0)
+		p.move_and_slide()
 		await get_tree().physics_frame
-	check("no atraviesa una mesa", pc.position.x < 6.02,
-		"x %.2f -> %.2f (la celda sólida empieza en 6.00)" % [x0, pc.position.x])
-	check("se queda pegado a la mesa", pc.position.x > 5.55, "x=%.2f" % pc.position.x)
+	check("no atraviesa la bolsa del piso", p.position.x < 8.10, "x=%.2f" % p.position.x)
+	main.move_item_to_player(floor_bag, p)
+	check("al levantarla se libera el paso", floor_bag.node.get_node_or_null("Blocker") == null)
+	take_away()
 
-	# --- un ítem en el piso bloquea el paso -------------------------------
-	var pitem = main.players[0]
-	var floor_tile: CellData = main.world.tile_at(8, 12)
-	pitem.teleport(7, 12, Vector2i(1, 0))
+	# una botella tirada NO estorba (solo las bolsas son obstáculo)
+	var can_tile: CellData = main.world.tile_at(10, 8)
+	if can_tile.item != null:
+		main.destroy_item(can_tile.item)
+		can_tile.item = null
+	var floor_can := CarryItem.residue("lata")
+	ItemVisuals.build(floor_can)
+	main.move_item_to_tile(floor_can, can_tile)
+	check("la basura del piso no tiene collider", floor_can.node.get_node_or_null("Blocker") == null)
+	p.teleport(9, 8, Vector2i(1, 0))
 	await frames(2)
-	var bolsa := CarryItem.bag(true)
-	ItemVisuals.build(bolsa)          # el nodo visual es el que lleva el collider
-	main.move_item_to_tile(bolsa, floor_tile)
-	await frames(2)
-	check("el ítem del piso tiene collider", bolsa.node != null and bolsa.node.get_node_or_null("Blocker") != null)
 	for i in 40:
-		pitem.velocity = Vector3(4.0, 0.0, 0.0)
-		pitem.move_and_slide()
+		p.velocity = Vector3(4.0, 0.0, 0.0)
+		p.move_and_slide()
 		await get_tree().physics_frame
-	# tolerancia: el paso discreto del motor deja hasta ~0.07 de penetración
-	check("no atraviesa la bolsa del piso", pitem.position.x < 8.10,
-		"x=%.2f (la bolsa está en la celda 8, centro 8.5)" % pitem.position.x)
-	main.move_item_to_player(bolsa, pitem)
-	check("al levantarla se libera el paso", bolsa.node.get_node_or_null("Blocker") == null)
-	pitem.carrying = null
+	check("se puede caminar por encima de una botella", p.position.x > 10.4, "x=%.2f" % p.position.x)
 
-	# --- gaviotas: roban una bolsa limpia de la repisa --------------------
-	var sink: CellData = main.world.tile_at(14, 2)
-	sink.items.clear()
-	var clean_bag := CarryItem.bag(true)
-	ItemVisuals.build(clean_bag)
-	sink.items.append(clean_bag)
+	# el agua sigue siendo sólida
+	p.teleport(5, 10, Vector2i(0, 1))
+	await frames(2)
+	for i in 40:
+		p.velocity = Vector3(0.0, 0.0, 4.0)
+		p.move_and_slide()
+		await get_tree().physics_frame
+	check("no se entra al mar", p.position.z < 10.85, "z=%.2f" % p.position.z)
+
+	# --- gaviotas ---------------------------------------------------------
+	main.start_game(1)
+	await frames(2)
 	main.gulls.list.clear()
+	main.gulls.timer = 999.0
+	# playa vacía a propósito: la gaviota elige al azar entre lo que hay
+	# tirado, así que la "víctima" tiene que ser la única candidata
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
+	var stolen_before: int = int(main.stats["stolen"])
+	var victim: CarryItem = main.spawner.spawn_one("lata")
 	main.gulls.spawn()
-	check("aparece una gaviota si hay bolsa limpia en la repisa", main.gulls.list.size() == 1,
+	check("aparece una gaviota si hay basura tirada", main.gulls.list.size() == 1,
 		"%d gaviotas" % main.gulls.list.size())
+	for i in 40:
+		main.gulls.tick(0.5)
+	check("la gaviota se lleva la basura", int(main.stats["stolen"]) == stolen_before + 1,
+		"robos %d" % int(main.stats["stolen"]))
+	check("la basura robada desaparece de la playa", victim.node == null)
+
+	main.gulls.list.clear()
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null and t.item.is_residue():
+				main.destroy_item(t.item)
+				t.item = null
+	check("sin basura tirada no viene ninguna gaviota", not main.gulls.spawn())
+
+	# La gaviota llega según cuántos jugadores hay: sola, la playa queda sin
+	# cubrir mientras se embolsa (era imposible ganarle).
+	var solo_wait: float = main.gulls.first_delay()
+	var solo_gap: float = main.gulls.interval()
+	main.start_game(2)
+	await frames(2)
+	var duo_wait: float = main.gulls.first_delay()
+	check("la gaviota tarda más con un solo jugador",
+		solo_wait > duo_wait and solo_wait >= 45.0,
+		"solo %.0f s · dos %.0f s" % [solo_wait, duo_wait])
+	check("entre gaviota y gaviota pasa más de medio minuto con un jugador",
+		solo_gap >= 40.0, "cada %.0f s" % solo_gap)
+
+	# --- avisos contextuales ---------------------------------------------
+	main.start_game(1)
+	await frames(2)
+	p = main.players[0]
+	await tp(7, 2, Vector2i(0, -1))
+	check("el aviso del contenedor pide la bolsa",
+		"bolsa" in main.interaction_hint(p).to_lower(), main.interaction_hint(p))
+	await tp(3, 2, Vector2i(0, -1))
+	check("el aviso del dispensador ofrece una bolsa",
+		"bolsa" in main.interaction_hint(p).to_lower(), main.interaction_hint(p))
+	await tp(19, 2, Vector2i(0, -1))
+	check("el aviso del camión explica la entrega",
+		"bolsa" in main.interaction_hint(p).to_lower(), main.interaction_hint(p))
 
 	# --- rig y animación ---------------------------------------------------
 	var p2 = main.players[0]
@@ -294,7 +377,6 @@ func _run() -> void:
 	check("el modelo trae las 6 bisagras", hinges.size() == 6,
 		"hay %d: %s" % [hinges.size(), hinges.keys()])
 
-	# caminando: una pierna adelante y la otra atrás
 	p2.walk_phase = PI * 0.5
 	p2.velocity = Vector3(0, 0, 1) * 2.0
 	p2._animate(0.016)
@@ -304,7 +386,6 @@ func _run() -> void:
 		absf(l1) > 0.2 and absf(r1) > 0.2 and signf(l1) != signf(r1),
 		"leg_l=%.2f leg_r=%.2f" % [l1, r1])
 
-	# en reposo: piernas rectas, cabeza respirando
 	p2.velocity = Vector3.ZERO
 	p2._animate(0.016)
 	check("quieto deja las piernas rectas",
@@ -313,9 +394,8 @@ func _run() -> void:
 	check("quieto igual mueve la cabeza", absf(hinges["head"].rotation.z) > 0.0001,
 		"head.z=%.4f" % hinges["head"].rotation.z)
 
-	# llevando una caja: los brazos van adelante
 	var before: float = hinges["arm_l"].rotation.x
-	p2.carrying = CarryItem.bag(true)
+	p2.carrying = CarryItem.bag()
 	p2._animate(0.016)
 	check("llevando algo los brazos van adelante",
 		hinges["arm_l"].rotation.x < before - 0.5,

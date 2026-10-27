@@ -3,11 +3,12 @@ extends RefCounted
 ## Todos los números del juego en un solo lugar.
 ## Regla del prototipo: si se puede "sentir" jugando, vive acá.
 
-
 const TILE := 1.0
 
-# --- ronda ---------------------------------------------------------------
-const ROUND_SECONDS := 180.0
+# --- jornada -------------------------------------------------------------
+## El reloj de 24 h comprimido: el día va de las 06:00 a las 22:00.
+const DAY_START_MINUTES := 6.0 * 60.0
+const DAY_MINUTES := 16.0 * 60.0
 
 # --- movimiento ----------------------------------------------------------
 const PLAYER_SPEED := 4.6          # celdas/s
@@ -17,79 +18,72 @@ const DASH_SPEED := 9.0
 const DASH_TIME := 0.18
 const DASH_COOLDOWN := 1.0
 
-# --- canales de trabajo --------------------------------------------------
-const CLASSIFY_TIME := 1.2
-const WASH_TIME := 1.5
-
-# --- bolsas (el "plato" de Overcooked) -----------------------------------
+# --- bolsas --------------------------------------------------------------
+## La bolsa entra en la boca del contenedor y allí se llena. Al entregarla
+## en el camión se va con la basura (el dispensador da bolsas infinitas).
 const BAG_CAPACITY := 4
-const BAG_STOCK := 5               # bolsas en circulación: recurso FINITO
 
 # --- lanzamiento ---------------------------------------------------------
 const THROW_RANGE := 3.4
 const THROW_TIME := 0.42
 
-# --- pedidos -------------------------------------------------------------
-const ORDER_FIRST_DELAY := 2.0
-const ORDER_INTERVAL := 15.0
-const ORDER_MAX_ACTIVE := 3
-const ORDER_PATIENCE := 40.0
-const ORDER_MIN_ITEMS := 1
-const ORDER_MAX_ITEMS := 3
-const ORDER_MAX_TYPES := 2
-
 # --- puntuación ----------------------------------------------------------
-const SCORE_BASE := 30
-const SCORE_SPEED_BONUS := 30
-const SCORE_EXPIRED_PENALTY := 15
+const POINTS_PER_BIN := 1          # basura metida en la bolsa del contenedor
+const POINTS_PER_ITEM := 10        # basura entregada en el camión
+const PENALTY := 2                 # castigo (contenedor equivocado, etc.)
 
 # --- gaviotas ------------------------------------------------------------
-const GULL_FIRST_DELAY := 14.0
-const GULL_INTERVAL := 18.0
+## Depende de cuántos jugadores hay: con uno solo no alcanzan las manos para
+## embolsar y cubrir la playa a la vez, así que la gaviota aparece mucho menos.
+## Con dos, uno embolsa cerca del contenedor y el otro barre la arena.
+const GULL_FIRST_DELAY := {1: 55.0, 2: 30.0}
+const GULL_INTERVAL := {1: 50.0, 2: 34.0}
 const GULL_SPEED := 3.2
 
-# --- estrellas por nivel -------------------------------------------------
-const STARS := [160, 320, 480]
-
 # --- residuos ------------------------------------------------------------
+## `order` fija el orden de las barras de cuota en el HUD.
+const RESIDUE_ORDER := ["pet", "vidrio", "lata"]
 const RESIDUES := {
-	"pet": {"label": "PET", "name": "Botella", "color": Color(0.29, 0.72, 0.94)},
-	"lata": {"label": "LATA", "name": "Lata", "color": Color(0.87, 0.88, 0.91)},
-	"vidrio": {"label": "VIDRIO", "name": "Vidrio", "color": Color(0.39, 0.79, 0.48)},
+	"pet": {
+		"label": "PET",
+		"name": "Botella PET",
+		"color": Color(0.29, 0.72, 0.94),
+		"accent": Color(0.96, 0.97, 0.98),      # etiqueta blanca
+		"icon": "pet.png",
+	},
+	"vidrio": {
+		"label": "VIDRIO",
+		"name": "Botella de vidrio",
+		"color": Color(0.31, 0.70, 0.44),
+		"accent": Color(0.94, 0.91, 0.79),      # etiqueta crema
+		"icon": "vidrio.png",
+	},
+	"lata": {
+		"label": "LATAS",
+		"name": "Lata",
+		"color": Color(0.87, 0.88, 0.91),
+		"accent": Color(0.82, 0.26, 0.22),      # banda de la bebida
+		"icon": "lata.png",
+	},
 }
 
 # --- estaciones ----------------------------------------------------------
 const STATION_HEIGHT := {
-	"counter": 0.80,
-	"pile": 0.55,
-	"sort": 0.75,
 	"bags": 0.80,
-	"wash": 0.70,
-	"delivery": 0.95,
-	"return": 0.60,
 	"bin": 0.78,
+	"delivery": 0.95,
 }
 
 const STATION_COLOR := {
-	"counter": Color(0.76, 0.56, 0.34),
-	"pile": Color(0.45, 0.51, 0.33),
-	"sort": Color(0.16, 0.55, 0.50),
 	"bags": Color(0.24, 0.42, 0.70),
-	"wash": Color(0.16, 0.60, 0.71),
-	"delivery": Color(0.28, 0.31, 0.36),
-	"return": Color(0.47, 0.35, 0.24),
 	"bin": Color(0.20, 0.52, 0.36),
+	"delivery": Color(0.28, 0.31, 0.36),
 }
 
 const STATION_LABEL := {
-	"counter": "",
-	"pile": "BASURA",
-	"sort": "CLASIF",
 	"bags": "BOLSAS",
-	"wash": "LAVAR",
-	"delivery": "ENTREGA",
-	"return": "SUCIAS",
 	"bin": "CONTENEDOR",
+	"delivery": "ENTREGA",
 }
 
 # contenedores de reciclaje: uno por tipo, como en la vida real
@@ -103,9 +97,6 @@ const BIN_COLOR := {
 	"lata": Color(0.62, 0.64, 0.68),
 	"vidrio": Color(0.20, 0.46, 0.72),
 }
-const SCORE_BIN := 4               # puntos por tirar un residuo en el contenedor correcto
-const SINK_CAPACITY := 3           # bolsas sucias que entran en el lavadero
-const TRAY_CAPACITY := 3           # bolsas limpias que quedan en la repisa
 
 # --- controles -----------------------------------------------------------
 # physical_keycode de Godot (teclas físicas: funciona igual en cualquier layout)

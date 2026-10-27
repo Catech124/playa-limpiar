@@ -1,14 +1,13 @@
 class_name Gulls
 extends RefCounted
-## Gaviotas: el análogo de las ratas de Overcooked.
-## No quitan puntos: castigan dejar cosas tiradas. Roban una BOLSA LIMPIA de la
-## repisa del lavadero (o un residuo del piso), la ensucian y la tiran en la
-## arena: hay que volver a lavarla.
+## Gaviotas: la presión de dejar basura tirada.
+## Bajan, agarran un residuo de la arena y se lo llevan volando. No lo tiran:
+## la basura que se llevan está perdida (la Fase 2 le suma el castigo de −2).
 
 var game
 var world: GridWorld
 var list: Array = []
-var timer := GameConfig.GULL_FIRST_DELAY
+var timer := 0.0
 
 
 class Gull:
@@ -16,7 +15,6 @@ class Gull:
 	var pos := Vector3.ZERO
 	var phase := "target"
 	var target: CellData = null
-	var drop: CellData = null
 	var carry: CarryItem = null
 	var wobble := 0.0
 	var wing_l: Node3D
@@ -26,12 +24,23 @@ class Gull:
 func _init(g, w: GridWorld) -> void:
 	game = g
 	world = w
+	timer = first_delay()
+
+
+## La paciencia de la gaviota depende de cuántos jugadores hay: sola, la playa
+## queda sin cubrir mientras se embolsa.
+func first_delay() -> float:
+	return float(GameConfig.GULL_FIRST_DELAY.get(int(game.player_count), 50.0))
+
+
+func interval() -> float:
+	return float(GameConfig.GULL_INTERVAL.get(int(game.player_count), 50.0))
 
 
 func tick(delta: float) -> void:
 	timer -= delta
 	if timer <= 0.0:
-		timer = GameConfig.GULL_INTERVAL
+		timer = interval()
 		if game.is_playing():
 			spawn()
 
@@ -39,30 +48,28 @@ func tick(delta: float) -> void:
 		_advance(g, delta)
 
 
-func spawn() -> void:
+func spawn() -> bool:
 	var targets: Array = []
 	for row in world.tiles:
 		for t in row:
-			if t.station == "wash":
-				for it in t.items:
-					if it.is_bag() and it.clean:
-						targets.append(t)
-						break
-			elif t.item != null and t.item.is_residue():
+			if t.item != null and t.item.is_residue():
 				targets.append(t)
 	if targets.is_empty():
-		return
+		return false
 
 	var g := Gull.new()
 	g.target = targets[randi() % targets.size()]
 	g.pos = Vector3(randf_range(2.0, world.w - 2.0), 2.4, -0.6)
-	g.node = _build_gull()
+	g.node = _build_gull(g)
 	g.node.position = g.pos
 	game.add_child(g.node)
 	list.append(g)
+	return true
 
 
-func _build_gull() -> Node3D:
+## Las alas se guardan en el objeto Gull: sin esa referencia el aleteo no tiene
+## a quién mover (era el bug que dejaba la gaviota clavada en "target").
+func _build_gull(g: Gull) -> Node3D:
 	var root := Node3D.new()
 	var body := BoxMesh.new()
 	body.size = Vector3(0.16, 0.14, 0.42)
@@ -98,75 +105,42 @@ func _build_gull() -> Node3D:
 	wr.add_child(wrm)
 	root.add_child(wr)
 
+	g.wing_l = wl
+	g.wing_r = wr
 	return root
 
 
 func _advance(g: Gull, delta: float) -> void:
 	g.wobble += delta * 9.0
-	g.wing_l.rotation.z = sin(g.wobble) * 0.5
-	g.wing_r.rotation.z = -sin(g.wobble) * 0.5
+	if g.wing_l != null:
+		g.wing_l.rotation.z = sin(g.wobble) * 0.5
+	if g.wing_r != null:
+		g.wing_r.rotation.z = -sin(g.wobble) * 0.5
 
 	match g.phase:
 		"target":
-			if g.target == null:
+			if g.target == null or g.target.item == null:
 				g.phase = "exit"
 				return
-			var to_target := Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5)
+			var to_target := Vector3(g.target.x + 0.5, 1.3, g.target.y + 0.5)
 			_move(g, to_target, delta * GameConfig.GULL_SPEED)
 			if g.pos.distance_to(to_target) < 0.15:
-				# 1) bolsa limpia en la repisa del lavadero → la ensucia
-				if g.target.station == "wash":
-					var clean_bag: CarryItem = null
-					for it in g.target.items:
-						if it.is_bag() and it.clean:
-							clean_bag = it
-							break
-					if clean_bag == null:
-						g.phase = "exit"
-						return
-					g.target.items.erase(clean_bag)
-					clean_bag.clean = false
-					clean_bag.contents.clear()
-					ItemVisuals.rebuild(clean_bag)
-					game._update_sink_visual(g.target)
-					g.carry = clean_bag
-					game.parent_item(clean_bag.node, g.node)
-					clean_bag.node.position = Vector3(0, -0.2, 0)
-					clean_bag.node.scale = Vector3(0.7, 0.7, 0.7)
-					var floors_sink := world.free_floors_near(g.target.x, g.target.y, 6)
-					g.drop = floors_sink[randi() % floors_sink.size()] if not floors_sink.is_empty() else null
-					game.toast(Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5), "¡Gaviota!", "bad")
-					g.phase = "drop" if g.drop != null else "exit"
-					return
-				# 2) residuo tirado en el piso
-				if g.target.item != null and g.target.item.is_residue():
-					g.carry = g.target.item
-					g.target.item = null
-					game.parent_item(g.carry.node, g.node)
-					g.carry.node.position = Vector3(0, -0.2, 0)
-					g.carry.node.scale = Vector3(0.7, 0.7, 0.7)
-					var floors := world.free_floors_near(g.target.x, g.target.y, 6)
-					g.drop = floors[randi() % floors.size()] if not floors.is_empty() else null
-					game.toast(Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5), "¡Gaviota!", "bad")
-					g.phase = "drop" if g.drop != null else "exit"
-				else:
-					g.phase = "exit"
-		"drop":
-			var to_drop := Vector3(g.drop.x + 0.5, 0.7, g.drop.y + 0.5)
-			_move(g, to_drop, delta * GameConfig.GULL_SPEED)
-			if g.pos.distance_to(to_drop) < 0.15:
-				if g.carry != null:
-					if g.drop.item == null:
-						g.carry.node.scale = Vector3.ONE
-						game.move_item_to_tile(g.carry, g.drop)
-					else:
-						game.destroy_item(g.carry)
-					g.carry = null
+				# se lleva el residuo: no lo deja caer en otro lado
+				g.carry = g.target.item
+				g.target.item = null
+				game.parent_item(g.carry.node, g.node)
+				g.carry.node.position = Vector3(0, -0.2, 0)
+				g.carry.node.scale = Vector3(0.7, 0.7, 0.7)
+				game.stats["stolen"] = int(game.stats.get("stolen", 0)) + 1
+				game.toast(Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5), "¡Gaviota!", "bad")
 				g.phase = "exit"
 		_:
-			var edge := Vector3(g.pos.x, 3.2, -1.5)
+			var edge := Vector3(g.pos.x, 3.4, -2.0)
 			_move(g, edge, delta * GameConfig.GULL_SPEED * 1.4)
-			if g.pos.z < 0.2:
+			if g.pos.z < -1.2:
+				if g.carry != null:
+					game.destroy_item(g.carry)
+					g.carry = null
 				g.node.queue_free()
 				list.erase(g)
 

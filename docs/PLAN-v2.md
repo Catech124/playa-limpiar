@@ -4,18 +4,42 @@ Decisiones bloqueadas (las recomendadas en `DISENO-v2.md`):
 4 min por nivel · **bolsa primero** · cuota **por tipo** · agua transitable ·
 vidrio roto desaparece · cooperativo 2 jugadores se mantiene.
 
-## Fase 1 — Bucle de cuota (jugable y divertido)
+## Fase 1 — Bucle de cuota (jugable y divertido) — ✅ HECHA
 
-| # | Paso | Archivos |
-|---|---|---|
-| 1.1 | Modo "cuota": nivel con zonas de spawn, 3 contenedores y camión | `levels.gd`, `config.gd` |
-| 1.2 | Basura que aparece tirada (playa y agua) con temporizador de 6 s | `spawner.gd` (nuevo), `carry_item.gd` |
-| 1.3 | Contenedores con boca de bolsa: depositar → la bolsa se llena | `main.gd`, `grid_world.gd` |
-| 1.4 | Camión: entregar la bolsa suma a la cuota por tipo | `main.gd` |
-| 1.5 | HUD: reloj de 24 h + 3 barras de cuota + avisos | `hud.gd` |
-| 1.6 | Fin de nivel: cuota cumplida / tiempo agotado | `main.gd` |
+| # | Paso | Archivos | Estado |
+|---|---|---|---|
+| 1.1 | Modo "cuota": nivel con zonas de spawn, 3 contenedores y camión | `levels.gd`, `config.gd` | ✅ |
+| 1.2 | Basura que aparece tirada (playa y agua) con temporizador de 6 s | `spawner.gd` (nuevo), `carry_item.gd` | ✅ playa · agua en Fase 3 |
+| 1.3 | Contenedores con boca de bolsa: depositar → la bolsa se llena | `main.gd`, `grid_world.gd` | ✅ |
+| 1.4 | Camión: entregar la bolsa suma a la cuota por tipo | `main.gd` | ✅ |
+| 1.5 | HUD: reloj de 24 h + 3 barras de cuota + avisos | `hud.gd` | ✅ |
+| 1.6 | Fin de nivel: cuota cumplida / tiempo agotado | `main.gd` | ✅ |
 
-Todo con tests headless (meta: 45+).
+Tests headless: **60** (meta 45+), incluidos los tres niveles comprobando que el
+ritmo de aparición alcanza para llenar la cuota.
+
+Decisiones que se resolvieron al implementar (no estaban en el plan):
+
+- **El tipo se comprueba antes que la bolsa**: tirar vidrio en el contenedor de
+  latas castiga aunque no haya bolsa colgada. Antes el aviso "falta la bolsa"
+  tapaba el error del jugador (y el castigo nunca se aplicaba).
+- **La bolsa cuelga dentro de la boca** (asoma el borde y el nudo, y sube con lo
+  que lleva): afuera parecía un cono, adentro una bandeja.
+- **El spawner pesa el tipo por lo que falta de la cuota** (mínimo 1 por tipo):
+  el nivel no se puede volver imposible por azar.
+- **La cámara no se abre sin freno** (11 → 15.5 unidades): a 24 los personajes
+  quedaban del tamaño de una uña. Si los jugadores se separan mucho, uno puede
+  quedar al borde de la pantalla, como en Overcooked.
+- **La gaviota se lleva el residuo** (no lo tira en otro lado) y el −2 queda para
+  la Fase 2, junto con el tope de castigos.
+- **Los residuos se modelaron por silueta** (botella PET con etiqueta y tapa,
+  botella de vidrio con cuello largo, lata con banda): un cilindro pelado no se
+  distinguía desde la cámara alta.
+- **La bolsa cuelga expandida como forro** del contenedor (plástico sobre el
+  marco, falda por fuera y basura a la vista adentro). En la mano va más chica y
+  al costado: al pecho tapaba al personaje entero.
+- **La gaviota depende de cuántos jugadores hay** (55 s / cada 50 s solo;
+  30 s / cada 34 s de a dos): con un jugador era imposible cubrir la playa.
 
 ## Fase 2 — Presión
 

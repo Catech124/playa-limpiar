@@ -1,10 +1,10 @@
 class_name Player
 extends CharacterBody3D
 ## Movimiento + interacción. Un solo botón contextual, como Overcooked:
-##   mover · ACCIÓN (recoger / soltar / trabajar) · IMPULSO · LANZAR
+##   mover · ACCIÓN (recoger / colgar bolsa / tirar basura / entregar) · IMPULSO · LANZAR
 ##
-## El trabajo (clasificar / lavar) es MANTENER la acción mirando la estación:
-## soltar la tecla no pierde el avance (queda en el ítem).
+## No hay trabajos sostenidos: cada acción es instantánea (el ritmo lo pone el
+## ir y volver por la basura).
 
 # carga diferida: si el .glb no está importado, el preload rompe el parseo de
 # todo el proyecto (nos pasó al borrar el import viejo para forzar la reimportación)
@@ -131,7 +131,9 @@ func _add_outline(root: Node) -> void:
 	add_child(rm)
 
 	carry_anchor = Node3D.new()
-	carry_anchor.position = Vector3(0, 0.62, 0.34)   # a la altura de las manos
+	# al costado, no al pecho: adelante el ítem quedaba tapado por el sombrero
+	# (y una bolsa llena parecía una bata cubriendo al personaje)
+	carry_anchor.position = Vector3(0.44, 0.58, 0.22)
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 
@@ -218,15 +220,10 @@ func _physics_process(delta: float) -> void:
 			game.throw_item(self)
 			return
 
-	# ---- trabajo sostenido ------------------------------------------------
-	var front := front_tile()
-	var holding := Input.is_physical_key_pressed(keymap["action"])
-	if holding and front != null and game.player_channel(self, front, delta):
-		pass
-
 	# ---- acción puntual ---------------------------------------------------
 	if _act_pressed:
 		_act_pressed = false
+		var front := front_tile()
 		if front != null:
 			game.player_use(self, front)
 

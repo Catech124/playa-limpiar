@@ -49,9 +49,14 @@ func build(map_rows: Array) -> void:
 
 # ------------------------------------------------------------------ consultas
 func tile_at(x: int, y: int) -> CellData:
-	if x < 0 or y < 0 or x >= w or y >= h:
+	# `tiles` se llena fila por fila mientras se construye el mundo: durante
+	# el build puede pedirse una fila que todavía no existe (la de abajo).
+	if x < 0 or y < 0 or x >= w or y >= h or y >= tiles.size():
 		return null
-	return tiles[y][x]
+	var row: Array = tiles[y]
+	if x >= row.size():
+		return null
+	return row[x]
 
 
 func is_solid(x: int, y: int) -> bool:
@@ -100,14 +105,6 @@ func _make_tile(x: int, y: int, ch: String) -> CellData:
 			t.kind = "floor"
 			if ch == "S":
 				spawns.append(Vector2i(x, y))
-		"P":
-			_set_station(t, "pile", ["pet"])
-		"L":
-			_set_station(t, "pile", ["lata"])
-		"Q":
-			_set_station(t, "pile", ["vidrio"])
-		"T":
-			_set_station(t, "sort")
 		"1":
 			_set_station(t, "bin")
 			t.bin = "pet"
@@ -119,24 +116,17 @@ func _make_tile(x: int, y: int, ch: String) -> CellData:
 			t.bin = "vidrio"
 		"B":
 			_set_station(t, "bags")
-		"W":
-			_set_station(t, "wash")
 		"D":
 			_set_station(t, "delivery")
-		"R":
-			_set_station(t, "return")
-		"=":
-			_set_station(t, "counter")
 		_:
 			push_warning("Carácter de mapa desconocido: %s (%d,%d)" % [ch, x, y])
 			t.kind = "floor"
 	return t
 
 
-func _set_station(t: CellData, station: String, pool: Array = []) -> void:
+func _set_station(t: CellData, station: String) -> void:
 	t.kind = "station"
 	t.station = station
-	t.pool = pool
 
 
 func _build_ground() -> void:
@@ -251,14 +241,30 @@ func _build_decor() -> void:
 func _build_visual(t: CellData) -> void:
 	match t.kind:
 		"water":
+			# se mira el MAPA, no `tiles`: durante el build la fila de abajo
+			# todavía no existe
+			var shallow := t.y == 0 or String(map[t.y - 1])[t.x] != "~"
+			# la primera fila es turquesa (baja) y el resto azul profundo:
+			# el degradé es lo que hace que se lea como mar y no como piso
+			var wcol: Color = Color(0.19, 0.60, 0.73) if shallow else COLORS["ocean"]
 			var wbox := BoxMesh.new()
-			wbox.size = Vector3(1.0, 0.06, 1.0)
+			wbox.size = Vector3(1.0, 0.10, 1.0)
 			var wm := MeshInstance3D.new()
 			wm.mesh = wbox
-			wm.material_override = ItemVisuals.material(COLORS["ocean"])
-			wm.position = Vector3(t.x + 0.5, 0.03, t.y + 0.5)
+			wm.material_override = ItemVisuals.material(wcol)
+			wm.position = Vector3(t.x + 0.5, 0.05, t.y + 0.5)
 			wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(wm)
+			if shallow:
+				_foam(t.x, t.y)
+			elif (t.x * 7 + t.y * 13) % 3 == 0:
+				# crestas sueltas mar adentro (deterministas: no titilan al reiniciar)
+				_wave_crest(t.x, t.y)
+		"floor":
+			# arena mojada donde la playa se mete al mar
+			if t.y + 1 < h and String(map[t.y + 1])[t.x] == "~":
+				_box_mesh(Vector3(1.0, 0.02, 0.34), Color(0.74, 0.62, 0.42),
+					Vector3(t.x + 0.5, 0.013, t.y + 0.84 + 0.03 * sin(t.x * 1.3)))
 		"rock":
 			var box := BoxMesh.new()
 			box.size = Vector3(0.96, 0.8, 0.96)
@@ -271,6 +277,26 @@ func _build_visual(t: CellData) -> void:
 			add_child(mi)
 		"station":
 			_build_station(t)
+
+
+## Espuma de la orilla: dos franjas (la rompiente y su estela) en la primera
+## fila de agua. Sin esto el mar se lee como una plancha azul.
+func _foam(x: int, y: int) -> void:
+	# el serrucho de la rompiente: sin esto la orilla es una regla
+	var wob := 0.035 * sin(x * 1.3) + 0.015 * sin(x * 2.9)
+	_box_mesh(Vector3(1.0, 0.03, 0.16 + wob), Color(0.96, 0.99, 0.99),
+		Vector3(x + 0.5, 0.115, y + 0.09 + wob * 0.5))
+	_box_mesh(Vector3(1.0, 0.02, 0.06), Color(0.82, 0.94, 0.96),
+		Vector3(x + 0.5, 0.105, y + 0.32 + wob))
+
+
+## Cresta suelta mar adentro. La posición sale de (x,y): es decorativa pero
+## estable, así el mar no "hierve" cada vez que se reconstruye el mundo.
+func _wave_crest(x: int, y: int) -> void:
+	var ox := float((x * 37 + y * 11) % 40) / 100.0 - 0.20
+	var oz := float((x * 17 + y * 29) % 30) / 100.0 - 0.15
+	_box_mesh(Vector3(0.42, 0.02, 0.06), Color(0.45, 0.79, 0.88),
+		Vector3(x + 0.5 + ox, 0.105, y + 0.5 + oz))
 
 
 func _build_station(t: CellData) -> void:
@@ -287,26 +313,51 @@ func _build_station(t: CellData) -> void:
 	mi.position = Vector3(t.x + 0.5, height * 0.5, t.y + 0.5)
 	add_child(mi)
 
-	# tapa clara: se lee de un vistazo qué es cada estación
-	var top := BoxMesh.new()
-	top.size = Vector3(0.86, 0.06, 0.86)
-	var tm := MeshInstance3D.new()
-	tm.mesh = top
-	tm.material_override = ItemVisuals.material(color.lightened(0.22))
-	tm.position = Vector3(t.x + 0.5, height + 0.02, t.y + 0.5)
-	add_child(tm)
+	if t.station == "bin":
+		# boca abierta: hueco oscuro + borde claro (la bolsa se cuelga ahí)
+		var hole := BoxMesh.new()
+		hole.size = Vector3(0.70, 0.03, 0.70)
+		var hm := MeshInstance3D.new()
+		hm.mesh = hole
+		hm.material_override = ItemVisuals.material(Color(0.10, 0.13, 0.12))
+		hm.position = Vector3(t.x + 0.5, height + 0.005, t.y + 0.5)
+		hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(hm)
+		var rim_mat := ItemVisuals.material(color.lightened(0.35))
+		for off in [Vector3(0, 0, 0.40), Vector3(0, 0, -0.40), Vector3(0.40, 0, 0), Vector3(-0.40, 0, 0)]:
+			var rim := BoxMesh.new()
+			rim.size = Vector3(0.14 if off.x != 0 else 0.94, 0.07, 0.14 if off.z != 0 else 0.94)
+			var rm := MeshInstance3D.new()
+			rm.mesh = rim
+			rm.material_override = rim_mat
+			rm.position = Vector3(t.x + 0.5, height + 0.03, t.y + 0.5) + off
+			rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(rm)
+	else:
+		# tapa clara: se lee de un vistazo qué es cada estación
+		var top := BoxMesh.new()
+		top.size = Vector3(0.86, 0.06, 0.86)
+		var tm := MeshInstance3D.new()
+		tm.mesh = top
+		tm.material_override = ItemVisuals.material(color.lightened(0.22))
+		tm.position = Vector3(t.x + 0.5, height + 0.02, t.y + 0.5)
+		add_child(tm)
 
-	if t.station == "pile":
-		# residuos de muestra encima del montón
-		for i in t.pool.size():
-			var dot := SphereMesh.new()
-			dot.radius = 0.09
-			dot.height = 0.18
-			var dm := MeshInstance3D.new()
-			dm.mesh = dot
-			dm.material_override = ItemVisuals.material(GameConfig.RESIDUES[t.pool[i]]["color"])
-			dm.position = Vector3(t.x + 0.5, height + 0.1, t.y + 0.5)
-			add_child(dm)
+	if t.station == "bags":
+		# bolsas de muestra apiladas en el dispensador
+		for i in 3:
+			var b := BoxMesh.new()
+			b.size = Vector3(0.22, 0.20, 0.16)
+			var bm := MeshInstance3D.new()
+			bm.mesh = b
+			bm.material_override = ItemVisuals.material(Color(0.91, 0.96, 1.0))
+			bm.position = Vector3(t.x + 0.5, height + 0.12 + i * 0.02, t.y + 0.5) + Vector3(-0.18 + i * 0.18, 0, (i % 2) * 0.12 - 0.06)
+			bm.rotation_degrees = Vector3(0, i * 14.0, 0)
+			add_child(bm)
+
+	# el camión se dibuja UNA vez por tramo de `D` (si no, salen dos pegados)
+	if t.station == "delivery" and (t.x == 0 or String(map[t.y])[t.x - 1] != t.ch):
+		_build_truck(t)
 
 	# una sola etiqueta por tramo continuo (si no, "ENTREGAENTREGA").
 	# Se mira el mapa de texto: `tiles` todavía se está construyendo.
@@ -315,9 +366,7 @@ func _build_station(t: CellData) -> void:
 
 	var label_text: String = GameConfig.STATION_LABEL.get(t.station, "")
 	if t.station == "bin":
-		label_text = GameConfig.BIN_LABEL.get(t.bin, "CONTENEDOR")
-	if t.station == "pile" and not t.pool.is_empty():
-		label_text = String(GameConfig.RESIDUES[t.pool[0]]["label"])
+		label_text = String(GameConfig.BIN_LABEL.get(t.bin, "CONTENEDOR"))
 	if label_text == "":
 		return
 
@@ -330,8 +379,62 @@ func _build_station(t: CellData) -> void:
 	label.outline_size = 14
 	label.outline_modulate = Color(0, 0, 0, 0.85)
 	label.modulate = Color(1, 1, 1)
-	label.position = Vector3(t.x + 0.5, height + 0.46, t.y + 0.5)
+	label.position = Vector3(t.x + 0.5, height + 0.52, t.y + 0.5)
 	add_child(label)
+
+
+## Camión de la entrega: chasis, cabina adelante, caja atrás y cuatro ruedas.
+## Se dibuja UNA vez por tramo de `D`: si no, aparecen dos camiones pegados.
+func _build_truck(t: CellData) -> void:
+	var run := 1
+	while t.x + run < w and String(map[t.y])[t.x + run] == t.ch:
+		run += 1
+	var ox := float(t.x)
+	var oz := float(t.y) + 0.5
+	var length := float(run)
+	var base := body_y(t)
+	var bed := 0.16
+	var body: Color = GameConfig.STATION_COLOR["delivery"]
+
+	_box_mesh(Vector3(length - 0.06, bed, 0.98), body.darkened(0.25),
+		Vector3(ox + length * 0.5, base + bed * 0.5, oz))
+	_box_mesh(Vector3(length - 0.72, 0.58, 0.94), body.lightened(0.10),
+		Vector3(ox + 0.72 + (length - 0.72) * 0.5, base + bed + 0.29, oz))
+	_box_mesh(Vector3(0.66, 0.70, 0.90), Color(0.86, 0.42, 0.22),
+		Vector3(ox + 0.36, base + bed + 0.35, oz))
+	# parabrisas: desde el aire es lo que dice "esto es un camión"
+	_box_mesh(Vector3(0.52, 0.05, 0.72), Color(0.16, 0.24, 0.32),
+		Vector3(ox + 0.36, base + bed + 0.71, oz))
+
+	var wheel := CylinderMesh.new()
+	wheel.top_radius = 0.17
+	wheel.bottom_radius = 0.17
+	wheel.height = 0.10
+	wheel.radial_segments = 12
+	for wx in [ox + 0.42, ox + length - 0.44]:
+		for side in [-1.0, 1.0]:
+			var wm := MeshInstance3D.new()
+			wm.mesh = wheel
+			wm.material_override = ItemVisuals.material(Color(0.10, 0.10, 0.11))
+			wm.position = Vector3(wx, 0.17, oz + side * 0.48)
+			wm.rotation_degrees = Vector3(90, 0, 0)
+			add_child(wm)
+
+
+## Altura de la base de una estación (el camión se apoya arriba).
+func body_y(t: CellData) -> float:
+	return float(GameConfig.STATION_HEIGHT.get(t.station, 0.7))
+
+
+func _box_mesh(size: Vector3, color: Color, pos: Vector3) -> MeshInstance3D:
+	var box := BoxMesh.new()
+	box.size = size
+	var mi := MeshInstance3D.new()
+	mi.mesh = box
+	mi.material_override = ItemVisuals.material(color)
+	mi.position = pos
+	add_child(mi)
+	return mi
 
 
 func _build_collider(t: CellData) -> void:

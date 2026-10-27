@@ -1,32 +1,38 @@
 extends Node3D
 ## Orquestador: escena, estado, reglas y bucle.
 ##
-## Piezas del bucle (todas con nombre para poder discutirlas):
-##   fuente   -> montones de basura y dispensador de bolsas
-##   canal    -> mesa de clasificar / lavadero (trabajo sostenido)
-##   buffer   -> mostradores (donde se acumula y se fusiona la bolsa)
-##   sumidero -> camión de entrega (valida el pedido)
-##   retorno  -> bolsas sucias (el "plato sucio" de Overcooked)
+## El bucle de la v2 (Fase 1):
+##   fuente   -> basura tirada en la playa (TrashSpawner)
+##   buffer   -> la bolsa que cuelga en la boca del contenedor
+##   sumidero -> camión: entregar la bolsa suma a la CUOTA DEL DÍA
+##
+## No hay pedidos ni lavado: el objetivo es cumplir la cuota por tipo antes de
+## que termine la jornada (reloj de 24 h comprimido).
 
 enum State { MENU, PLAYING, PAUSED, RESULTS }
 
 var state: State = State.MENU
 var world: GridWorld
 var players: Array = []
-var orders: OrderBook
 var gulls: Gulls
+var spawner: TrashSpawner
 var hud: Hud
 var camera: Camera3D
+var sun: DirectionalLight3D
 var _cam_target := Vector3(12, 0, 8)
 var _cam_dist := 14.0
 
+var level_index := 0
+var level: Dictionary = {}
 var time_left := 0.0
-var level_seconds := GameConfig.ROUND_SECONDS
+var level_seconds := 180.0
+var quota := {}                  # objetivo por tipo
+var delivered := {}              # entregado por tipo
 var score := 0
-var stats := {"served": 0, "expired": 0, "thrown": 0, "washed": 0}
+var won := false
+var stats := {"delivered": 0, "spawned": 0, "binned": 0, "stolen": 0, "penalties": 0, "thrown": 0}
 var player_count := 1
 var sandbox := false
-var mismatch := 0.0
 
 var toasts: Array = []
 var flying: Array = []
@@ -78,7 +84,7 @@ func _build_environment() -> void:
 	we.environment = env
 	add_child(we)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -42, 0)
 	sun.light_energy = 0.75
 	sun.shadow_enabled = true
@@ -112,6 +118,15 @@ func is_results() -> bool:
 
 
 func _reset_world(count: int) -> void:
+	if gulls != null:
+		for g in gulls.list:
+			if g.node != null and is_instance_valid(g.node):
+				g.node.queue_free()
+		gulls.list.clear()
+		gulls = null
+	spawner = null
+	flying.clear()
+
 	if world != null:
 		world.queue_free()
 		world = null
@@ -136,23 +151,33 @@ func _reset_world(count: int) -> void:
 		players.append(p)
 
 
-func start_game(count: int, is_sandbox := false) -> void:
+func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 	sandbox = is_sandbox
+	level_index = clampi(idx, 0, Levels.LEVELS.size() - 1)
+	level = Levels.SANDBOX.duplicate(true) if sandbox else Levels.LEVELS[level_index].duplicate(true)
+
 	_reset_world(count)
 	for p in players:
 		p.active = true
 
-	orders = OrderBook.new()
 	gulls = Gulls.new(self, world)
+	spawner = TrashSpawner.new(self, world)
+	spawner.setup(level)
+
 	toasts.clear()
 	flying.clear()
 	score = 0
-	mismatch = 0.0
-	stats = {"served": 0, "expired": 0, "thrown": 0, "washed": 0}
-	level_seconds = Levels.SANDBOX_SECONDS if sandbox else GameConfig.ROUND_SECONDS
+	won = false
+	stats = {"delivered": 0, "spawned": 0, "binned": 0, "stolen": 0, "penalties": 0, "thrown": 0}
+	level_seconds = float(level.get("seconds", 180.0))
 	time_left = level_seconds
+	quota = (level.get("quota", {}) as Dictionary).duplicate()
+	delivered = {}
+	for t in GameConfig.RESIDUE_ORDER:
+		delivered[t] = 0
 	state = State.PLAYING
 	_cam_setup()
+	_update_light()
 
 
 func _toggle_pause() -> void:
@@ -166,7 +191,8 @@ func _toggle_pause() -> void:
 			p.active = true
 
 
-func _finish() -> void:
+func _finish(win: bool) -> void:
+	won = win
 	state = State.RESULTS
 	for p in players:
 		p.active = false
@@ -183,24 +209,32 @@ func _unhandled_input(event: InputEvent) -> void:
 	match state:
 		State.MENU:
 			if code == KEY_ENTER or code == KEY_SPACE or code == KEY_KP_ENTER:
-				start_game(1)
+				start_game(1, false, 0)
 			elif code == KEY_2:
-				start_game(2)
+				start_game(2, false, 0)
 			elif code == KEY_D:
-				start_game(1, true)
+				start_game(1, true, 0)
 		State.PLAYING:
 			if code == KEY_P or code == KEY_ESCAPE:
 				_toggle_pause()
 			elif code == KEY_R:
-				start_game(player_count, sandbox)
+				start_game(player_count, sandbox, level_index)
 		State.PAUSED:
 			if code == KEY_P or code == KEY_ESCAPE:
 				_toggle_pause()
 			elif code == KEY_R:
-				start_game(player_count, sandbox)
+				start_game(player_count, sandbox, level_index)
 		State.RESULTS:
-			if code == KEY_R or code == KEY_ENTER:
-				start_game(player_count, sandbox)
+			if code == KEY_R:
+				start_game(player_count, sandbox, level_index)
+			elif code == KEY_ENTER or code == KEY_KP_ENTER or code == KEY_SPACE:
+				if sandbox:
+					state = State.MENU
+					_reset_world(1)
+				elif won and level_index + 1 < Levels.LEVELS.size():
+					start_game(player_count, false, level_index + 1)
+				else:
+					start_game(player_count, false, 0)
 			elif code == KEY_ESCAPE:
 				state = State.MENU
 				_reset_world(1)
@@ -226,9 +260,11 @@ func _cam_pos_for(target: Vector3, dist: float) -> Vector3:
 
 
 func _cam_dist_for(spread: float) -> float:
-	# 14 unidades alcanzan para una pantalla de ~10 celdas de alto; si se
-	# separan, se abre hasta 30
-	return clampf(12.5 + spread * 1.9, 12.5, 30.0)
+	# El encuadre no se abre sin freno: a 24 unidades de distancia los
+	# personajes quedan del tamaño de una uña. Si se separan mucho, uno
+	# puede quedar al borde de la pantalla (como en Overcooked) en vez de
+	# alejar la cámara hasta perder el juego de vista.
+	return clampf(11.0 + spread * 1.15, 11.0, 15.5)
 
 
 func _update_camera(delta: float) -> void:
@@ -258,19 +294,19 @@ func _process(delta: float) -> void:
 
 	time_left = maxf(0.0, time_left - delta)
 
-	for o in orders.tick(delta):
-		stats["expired"] += 1
-		score = maxi(0, score - GameConfig.SCORE_EXPIRED_PENALTY)
-		toast(Vector3(world.w * 0.5, 1.8, 3.0), "¡Pedido perdido!", "bad")
+	spawner.tick(delta)
+	if not sandbox:
+		gulls.tick(delta)
 
-	gulls.tick(delta)
-	_tick_sinks(delta)
 	_update_flying(delta)
 	_update_toasts(delta)
-	mismatch = maxf(0.0, mismatch - delta)
+	_update_light()
 
-	if time_left <= 0.0:
-		_finish()
+	if not sandbox:
+		if quota_met():
+			_finish(true)
+		elif time_left <= 0.0:
+			_finish(false)
 
 
 func _update_toasts(delta: float) -> void:
@@ -297,97 +333,224 @@ func _update_flying(delta: float) -> void:
 			_land(f)
 
 
+## La luz sigue al reloj: amanecer cálido, sol alto al mediodía, atardecer
+## naranja. Es gratis y hace que la jornada se sienta avanzar.
+func _update_light() -> void:
+	if sun == null:
+		return
+	var p := day_progress()
+	var arc := sin(PI * p)
+	sun.rotation_degrees = Vector3(-18.0 - 70.0 * arc, lerpf(-78.0, -12.0, p), 0.0)
+	sun.light_energy = lerpf(0.55, 0.92, arc)
+	var golden := 1.0 - arc
+	sun.light_color = Color(1, 1, 1).lerp(Color(1.0, 0.68, 0.43), golden * 0.85)
+
+
+# ------------------------------------------------------------------ reloj
+func day_progress() -> float:
+	if level_seconds <= 0.0:
+		return 1.0
+	return clampf(1.0 - time_left / level_seconds, 0.0, 1.0)
+
+
+func clock_minutes() -> float:
+	return fmod(GameConfig.DAY_START_MINUTES + GameConfig.DAY_MINUTES * day_progress(), 1440.0)
+
+
+func clock_text() -> String:
+	var m := int(clock_minutes())
+	return "%02d:%02d" % [int(m / 60), m % 60]
+
+
+func level_name() -> String:
+	return String(level.get("name", ""))
+
+
+func days_total() -> int:
+	return Levels.LEVELS.size()
+
+
+# ------------------------------------------------------------------ cuota
+func quota_met() -> bool:
+	if quota.is_empty():
+		return false
+	for t in quota.keys():
+		if int(delivered.get(t, 0)) < int(quota[t]):
+			return false
+	return true
+
+
+func total_delivered() -> int:
+	var n := 0
+	for t in delivered.keys():
+		n += int(delivered[t])
+	return n
+
+
+func total_quota() -> int:
+	var n := 0
+	for t in quota.keys():
+		n += int(quota[t])
+	return n
+
+
+func quota_rows() -> Array:
+	var rows: Array = []
+	for t in GameConfig.RESIDUE_ORDER:
+		var need := int(quota.get(t, 0))
+		var have := int(delivered.get(t, 0))
+		rows.append({
+			"type": t,
+			"label": String(GameConfig.RESIDUES[t]["label"]),
+			"color": GameConfig.RESIDUES[t]["color"],
+			"icon": String(GameConfig.RESIDUES[t]["icon"]),
+			"done": have,
+			"need": need,
+			"ratio": 1.0 if need <= 0 else clampf(float(have) / float(need), 0.0, 1.0),
+		})
+	return rows
+
+
+func stars_earned() -> int:
+	if not won or level_seconds <= 0.0:
+		return 0
+	var ratio := time_left / level_seconds
+	if ratio >= 0.40:
+		return 3
+	if ratio >= 0.18:
+		return 2
+	return 1
+
+
+func penalty(reason: String, pos: Vector3) -> void:
+	stats["penalties"] = int(stats.get("penalties", 0)) + 1
+	score = maxi(0, score - GameConfig.PENALTY)
+	toast(pos, "%s −%d" % [reason, GameConfig.PENALTY], "bad")
+
+
 # ------------------------------------------------------------------ reglas
 func player_use(p: Player, tile: CellData) -> void:
+	if tile == null:
+		return
 	var st: String = tile.station
 	var held: CarryItem = p.carrying
 
-	# 1. entrega en el camión
+	# 1. entrega: bolsa con basura -> suma a la cuota del día
 	if st == "delivery":
-		if held != null and held.is_bag() and held.clean:
+		if held != null and held.is_bag():
 			deliver(p, held)
 		elif held != null:
-			toast(p.position + Vector3(0, 1.7, 0), "Solo bolsas limpias", "bad")
+			toast(p.position + Vector3(0, 1.7, 0), "La basura va al contenedor", "bad")
 		else:
-			toast(p.position + Vector3(0, 1.7, 0), "Trae una bolsa", "bad")
+			toast(p.position + Vector3(0, 1.7, 0), "Traé una bolsa llena", "bad")
 		return
 
-	# 1b. contenedor de reciclaje: se TIRA el residuo (no se etiqueta)
+	# 2. contenedor: la bolsa se cuelga en la boca y allí se llena
 	if st == "bin":
-		if held == null:
-			toast(tile.center() + Vector3(0, 0.9, 0), "Traé un residuo", "bad")
-			return
-		if not held.is_residue():
-			toast(tile.center() + Vector3(0, 0.9, 0), "Acá va la basura, no la bolsa", "bad")
-			return
-		if held.type != tile.bin:
-			mismatch = 0.5
-			toast(tile.center() + Vector3(0, 0.9, 0), "Ese no va en %s" % GameConfig.BIN_LABEL.get(tile.bin, "este"), "bad")
-			return
-		score += GameConfig.SCORE_BIN
-		stats["classified"] = int(stats.get("classified", 0)) + 1
-		p.carrying = null
-		destroy_item(held)
-		toast(tile.center() + Vector3(0, 0.9, 0), "+%d reciclado" % GameConfig.SCORE_BIN, "good")
+		_use_bin(p, tile, held)
 		return
 
-	# 2b. lavadero: dejar la bolsa sucia (pila) o retirar una limpia de la repisa
-	if st == "wash":
-		if held != null and held.is_bag() and not held.clean:
-			if tile.items.size() >= GameConfig.SINK_CAPACITY:
-				toast(tile.center() + Vector3(0, 0.9, 0), "El lavadero está lleno", "bad")
-				return
-			p.carrying = null
-			held.progress = 0.0
-			tile.items.append(held)
-			parent_item(_item_node(held), world.items_root)
-			_update_sink_visual(tile)
+	# 3. dispensador de bolsas
+	if st == "bags":
+		if held != null:
+			toast(p.position + Vector3(0, 1.7, 0), "Manos ocupadas", "bad")
 			return
-		if held == null:
-			var clean_bag := _take_clean(tile)
-			if clean_bag != null:
-				move_item_to_player(clean_bag, p)
-			else:
-				toast(tile.center() + Vector3(0, 0.9, 0), "No hay bolsas limpias todavía", "bad")
-			return
-		toast(tile.center() + Vector3(0, 0.9, 0), "Lavá la bolsa, no la guardes", "bad")
+		var bag := CarryItem.bag()
+		ItemVisuals.build(bag)
+		move_item_to_player(bag, p)
 		return
 
-	# 2. manos vacías: fuentes y recogida
+	# 4. manos vacías: recoger del piso
 	if held == null:
-		if st == "pile":
-			var item := CarryItem.residue(tile.pool[randi() % tile.pool.size()])
-			ItemVisuals.build(item)
-			move_item_to_player(item, p)
-			return
-		if st == "bags":
-			if count_bags() >= GameConfig.BAG_STOCK:
-				toast(p.position + Vector3(0, 1.7, 0), "No quedan bolsas: hay que lavar", "bad")
-				return
-			var bag := CarryItem.bag()
-			ItemVisuals.build(bag)
-			move_item_to_player(bag, p)
-			return
 		if tile.item != null:
 			var it: CarryItem = tile.item
 			tile.item = null
 			move_item_to_player(it, p)
-			return
 		return
 
-	# 3. con algo en la mano: colocar / fusionar
+	# 5. con algo en la mano: soltar / meter en una bolsa del piso
 	if try_place(tile, held):
 		p.carrying = null
 
 
-func player_channel(p: Player, tile: CellData, delta: float) -> bool:
-	var item: CarryItem = p.carrying
-	if item == null:
-		return false
+## Contenedor con boca de bolsa (decisión "bolsa primero"):
+##   - con un residuo: entra en la bolsa si el tipo coincide
+##   - con una bolsa: la cuelga (si no hay otra)
+##   - con las manos vacías: retira la bolsa (llena o a medias)
+func _use_bin(p: Player, tile: CellData, held: CarryItem) -> void:
+	var bin_name := String(GameConfig.BIN_LABEL.get(tile.bin, "CONTENEDOR"))
+	var at := tile.center() + Vector3(0, 0.9, 0)
 
-	# El clasificado y el lavado ya no se "sostienen": tirar en el contenedor es
-	# instantáneo y el lavadero trabaja solo (ver _tick_sinks).
-	return false
+	if held != null and held.is_residue():
+		# El tipo se comprueba ANTES que la bolsa: tirar vidrio en el de latas es
+		# un error del jugador y tiene que castigarse aunque no haya bolsa.
+		if held.type != tile.bin:
+			penalty("Ese no va en %s" % bin_name, at)
+			return
+		if tile.bag == null:
+			toast(at, "Falta la bolsa en %s" % bin_name, "bad")
+			return
+		if not tile.bag.has_room():
+			toast(at, "La bolsa está llena: llevala al camión", "bad")
+			return
+		tile.bag.contents.append(held.type)
+		p.carrying = null
+		destroy_item(held)
+		ItemVisuals.rebuild(tile.bag)
+		_update_bin_visual(tile)
+		score += GameConfig.POINTS_PER_BIN
+		stats["binned"] = int(stats.get("binned", 0)) + 1
+		if tile.bag.is_full():
+			toast(at, "¡%s llena! Al camión" % bin_name, "good")
+		else:
+			toast(at, "+1 en %s (%d/%d)" % [bin_name, tile.bag.contents.size(), GameConfig.BAG_CAPACITY], "good")
+		return
+
+	if held != null and held.is_bag():
+		if tile.bag != null:
+			toast(at, "Ya hay una bolsa en %s" % bin_name, "bad")
+			return
+		p.carrying = null
+		tile.bag = held
+		_update_bin_visual(tile)
+		toast(at, "Bolsa colgada en %s" % bin_name, "good")
+		return
+
+	if held != null:
+		toast(at, "Acá va basura", "bad")
+		return
+
+	# manos vacías
+	if tile.bag != null:
+		var bag := tile.bag
+		tile.bag = null
+		move_item_to_player(bag, p)
+		if bag.is_full():
+			toast(at, "¡Bolsa llena! Llevala al camión", "good")
+		else:
+			toast(at, "Bolsa fuera (%d/%d)" % [bag.contents.size(), GameConfig.BAG_CAPACITY], "info")
+	else:
+		toast(at, "Sin bolsa: tomá una en el dispensador", "bad")
+
+
+## Entregar en el camión: cada residuo suma a su barra de cuota.
+func deliver(p: Player, bag: CarryItem) -> void:
+	if bag.contents.is_empty():
+		toast(p.position + Vector3(0, 1.7, 0), "La bolsa está vacía", "bad")
+		return
+
+	var n := bag.contents.size()
+	for t in bag.contents:
+		delivered[t] = int(delivered.get(t, 0)) + 1
+	stats["delivered"] = int(stats["delivered"]) + n
+	score += n * GameConfig.POINTS_PER_ITEM
+
+	p.carrying = null
+	destroy_item(bag)
+	toast(p.position + Vector3(0, 1.9, 0), "+%d entregados" % n, "good")
+
+	if quota_met():
+		_finish(true)
 
 
 func try_place(tile: CellData, item: CarryItem) -> bool:
@@ -399,14 +562,14 @@ func try_place(tile: CellData, item: CarryItem) -> bool:
 		move_item_to_tile(item, tile)
 		return true
 
-	# bolsa sobre la mesa + residuo en la mano
+	# bolsa en el piso + residuo en la mano
 	if on_tile.is_bag() and item.is_residue():
 		if fill_bag(on_tile, item):
 			destroy_item(item)
 			return true
 		return false
 
-	# residuo sobre la mesa + bolsa en la mano
+	# residuo en el piso + bolsa en la mano
 	if item.is_bag() and on_tile.is_residue():
 		if fill_bag(item, on_tile):
 			destroy_item(on_tile)
@@ -419,66 +582,12 @@ func try_place(tile: CellData, item: CarryItem) -> bool:
 
 
 func fill_bag(bag: CarryItem, residue: CarryItem) -> bool:
-	if not bag.clean:
-		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "La bolsa está sucia", "bad")
-		return false
 	if not bag.has_room():
 		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "Bolsa llena", "bad")
 		return false
 	bag.contents.append(residue.type)
 	ItemVisuals.rebuild(bag)
 	return true
-
-
-func deliver(p: Player, bag: CarryItem) -> void:
-	if bag.contents.is_empty():
-		toast(p.position + Vector3(0, 1.7, 0), "La bolsa está vacía", "bad")
-		return
-
-	var order := orders.match_contents(bag.contents)
-	if order == null:
-		mismatch = 0.5
-		toast(p.position + Vector3(0, 1.7, 0), "No cuadra con el pedido", "bad")
-		return
-
-	var ratio := clampf(order.patience / order.patience_max, 0.0, 1.0)
-	var pts := GameConfig.SCORE_BASE + int(round(GameConfig.SCORE_SPEED_BONUS * ratio))
-	score += pts
-	stats["served"] += 1
-	orders.consume(order)
-	p.carrying = null
-	destroy_item(bag)
-	toast(p.position + Vector3(0, 1.9, 0), "+%d" % pts, "good")
-	spawn_dirty_bag()
-
-
-func spawn_dirty_bag() -> void:
-	var returns := world.tiles_of("return")
-	if returns.is_empty():
-		return
-	var ret: CellData = returns[0]
-	var bag := CarryItem.bag(false)
-	ItemVisuals.build(bag)
-	if ret.item == null:
-		move_item_to_tile(bag, ret)
-	else:
-		var floors := world.free_floors_near(ret.x, ret.y, 5)
-		if not floors.is_empty():
-			move_item_to_tile(bag, floors[0])
-		else:
-			destroy_item(bag)
-
-
-func count_bags() -> int:
-	var n := 0
-	for row in world.tiles:
-		for t in row:
-			if t.item != null and t.item.is_bag():
-				n += 1
-	for p in players:
-		if p.carrying != null and p.carrying.is_bag():
-			n += 1
-	return n
 
 
 func throw_item(p: Player) -> void:
@@ -510,7 +619,7 @@ func throw_item(p: Player) -> void:
 		return
 
 	p.carrying = null
-	stats["thrown"] += 1
+	stats["thrown"] = int(stats["thrown"]) + 1
 	parent_item(item.node, world.items_root)
 
 	var from := p.position + Vector3(0, 1.3, 0)
@@ -547,8 +656,7 @@ func parent_item(node: Node3D, new_parent: Node) -> void:
 		node.reparent(new_parent, false)
 
 
-## Un ítem en el piso ocupa la celda: sin esto el jugador lo atraviesa (en
-## Overcooked no se puede caminar por encima de una bolsa).
+## Solo las BOLSAS estorban el paso: una botella tirada en la arena se pisa.
 func item_blocker(item: CarryItem, on: bool) -> void:
 	if item.node == null:
 		return
@@ -571,9 +679,10 @@ func item_blocker(item: CarryItem, on: bool) -> void:
 
 func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 	tile.item = item
+	_unhang(item)
 	if item.node == null:
 		return
-	item_blocker(item, true)
+	item_blocker(item, item.is_bag())
 	parent_item(item.node, world.items_root)
 	item.node.position = world.item_position(tile)
 	item.node.rotation = Vector3.ZERO
@@ -587,72 +696,36 @@ func _item_node(item: CarryItem) -> Node3D:
 	return item.node
 
 
-## Acomoda las bolsas del lavadero: las sucias a la izquierda, las limpias
-## apiladas en la repisa de la derecha.
-func _update_sink_visual(tile: CellData) -> void:
-	var dirty := 0
-	var clean := 0
-	for it in tile.items:
-		if not it.is_bag():
-			continue
-		var node := _item_node(it)
-		parent_item(node, world.items_root)
-		var slot: int
-		if it.clean:
-			slot = clean
-			node.position = tile.center() + Vector3(0.26, 0.10 + slot * 0.13, 0.0)
-			clean += 1
-		else:
-			slot = dirty
-			node.position = tile.center() + Vector3(-0.24, 0.06, -0.10 + slot * 0.12)
-			node.rotation = Vector3(0, 0.4 * slot, 0)
-			dirty += 1
-		node.scale = Vector3(0.75, 0.75, 0.75)
+## Acomoda la bolsa que cuelga de la boca del contenedor. No se escala: la bolsa
+## colgada se dibuja EXPANDIDA como forro (ver `ItemVisuals._build_bin_liner`),
+## así que al colgarla hay que volver a construirla.
+func _update_bin_visual(tile: CellData) -> void:
+	if tile.bag == null:
+		return
+	var bag := tile.bag
+	if not bag.hung:
+		bag.hung = true
+		ItemVisuals.rebuild(bag)      # si todavía no existe el nodo, no hace nada
+	var node := _item_node(bag)       # y acá se construye ya como forro
+	item_blocker(bag, false)
+	parent_item(node, world.items_root)
+	# origen en el piso de la celda: la geometría del forro se arma en alturas
+	# absolutas sobre la cara del contenedor
+	node.position = Vector3(tile.x + 0.5, 0.0, tile.y + 0.5)
+	node.rotation = Vector3.ZERO
+	node.scale = Vector3.ONE
 
 
-func _take_clean(tile: CellData) -> CarryItem:
-	for i in tile.items.size():
-		var it: CarryItem = tile.items[i]
-		if it.is_bag() and it.clean:
-			tile.items.remove_at(i)
-			_update_sink_visual(tile)
-			return it
-	return null
-
-
-## Lavado automático: cada WASH_TIME sale una bolsa limpia a la repisa.
-func _tick_sinks(delta: float) -> void:
-	for row in world.tiles:
-		for t in row:
-			if t.station != "wash":
-				continue
-			var has_dirty := false
-			var clean_count := 0
-			for it in t.items:
-				if it.is_bag() and not it.clean:
-					has_dirty = true
-				elif it.is_bag() and it.clean:
-					clean_count += 1
-			if not has_dirty:
-				t.wash_t = 0.0
-				continue
-			t.wash_t += delta
-			if t.wash_t >= GameConfig.WASH_TIME:
-				t.wash_t = 0.0
-				if clean_count < GameConfig.TRAY_CAPACITY:
-					for it in t.items:
-						if it.is_bag() and not it.clean:
-							it.clean = true
-							it.contents.clear()
-							it.progress = 0.0
-							ItemVisuals.rebuild(it)
-							stats["washed"] += 1
-							break
-				_update_sink_visual(t)
+## Al sacarla vuelve a ser la bolsa de mano (cono atado).
+func _unhang(item: CarryItem) -> void:
+	if item.is_bag() and item.hung:
+		item.hung = false
+		ItemVisuals.rebuild(item)
 
 
 func move_item_to_player(item: CarryItem, p: Player) -> void:
 	p.carrying = item
+	_unhang(item)
 	if item.node == null:
 		return
 	item_blocker(item, false)
@@ -675,14 +748,6 @@ func toast(pos: Vector3, text: String, kind := "info") -> void:
 	toasts.append({"pos": pos, "text": text, "kind": kind, "ttl": 1.5, "rise": 0.0})
 
 
-func stars_earned() -> int:
-	var n := 0
-	for threshold in GameConfig.STARS:
-		if score >= int(threshold):
-			n += 1
-	return n
-
-
 # ------------------------------------------------------------------ ayudas UI
 func interaction_hint(p: Player) -> String:
 	var tile := p.front_tile()
@@ -697,60 +762,37 @@ func interaction_hint(p: Player) -> String:
 
 	match st:
 		"delivery":
-			if held != null and held.is_bag() and held.clean:
-				return "[%s] Entregar bolsa" % key
-			if held != null and held.is_bag() and not held.clean:
-				return "Esa bolsa está sucia: hay que lavarla"
+			if held != null and held.is_bag() and held.contents.is_empty():
+				return "La bolsa está vacía"
+			if held != null and held.is_bag():
+				return "[%s] Entregar (%d)" % [key, held.contents.size()]
 			if held != null:
-				return "Solo bolsas con basura"
-			return "Camión de reciclaje"
-		"pile":
-			if held == null:
-				return "[%s] Recoger residuo" % key
-			return "Montón de basura"
+				return "La basura va al contenedor"
+			return "Camión: entregá una bolsa llena"
 		"bags":
 			if held != null:
-				return "Bolsas limpias"
-			if count_bags() >= GameConfig.BAG_STOCK:
-				return "Sin bolsas: hay que lavar"
-			return "[%s] Tomar bolsa (%d/%d)" % [key, count_bags(), GameConfig.BAG_STOCK]
+				return "Manos ocupadas"
+			return "[%s] Tomar bolsa" % key
 		"bin":
-			var nombre: String = GameConfig.BIN_LABEL.get(tile.bin, "CONTENEDOR")
+			var nombre: String = String(GameConfig.BIN_LABEL.get(tile.bin, "CONTENEDOR"))
 			if held == null:
-				return "Contenedor de %s" % nombre
+				if tile.bag != null:
+					return "[%s] Sacar bolsa (%d/%d)" % [key, tile.bag.contents.size(), GameConfig.BAG_CAPACITY]
+				return "Contenedor de %s · falta bolsa" % nombre
+			if held.is_bag():
+				return "Ya hay una bolsa" if tile.bag != null else "[%s] Colgar la bolsa" % key
 			if not held.is_residue():
-				return "Acá va la basura, no la bolsa"
+				return "Acá va basura"
 			if held.type != tile.bin:
 				return "Ese no va en %s" % nombre
+			if tile.bag == null:
+				return "Primero colgá una bolsa"
+			if tile.bag.is_full():
+				return "Bolsa llena: al camión"
 			return "[%s] Tirar en %s" % [key, nombre]
-		"sort":
-			return "Mesa de clasificación"
-		"wash":
-			if held != null and held.is_bag() and not held.clean:
-				return "[%s] Dejar en el lavadero" % key
-			if held == null:
-				for it in tile.items:
-					if it.is_bag() and it.clean:
-						return "[%s] Tomar bolsa limpia" % key
-				return "Lavadero (lavá solo)"
-			return "Lavadero"
-		"return":
-			if held == null and tile.item != null:
-				return "[%s] Coger bolsa sucia" % key
-			return "Bolsas sucias"
-		"counter":
-			if held == null and tile.item != null:
-				return "[%s] Coger" % key
-			if held != null and tile.item == null:
-				return "[%s] Soltar" % key
-			if held != null and held.is_residue() and tile.item != null and tile.item.is_bag():
-				return "[%s] Meter en la bolsa" % key
-			if held != null and held.is_bag() and tile.item != null and tile.item.is_residue():
-				return "[%s] Meter en la bolsa" % key
-			return ""
 
 	if held == null and tile.item != null:
-		return "[%s] Coger" % key
-	if held != null and tile.item == null and not tile.is_solid():
+		return "[%s] Recoger %s" % [key, tile.item.label()]
+	if held != null and tile.item == null and tile.can_hold():
 		return "[%s] Soltar" % key
 	return ""
