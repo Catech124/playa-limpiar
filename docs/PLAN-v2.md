@@ -48,14 +48,31 @@ Decisiones que se resolvieron al implementar (no estaban en el plan):
 - **El ítem va entre las manos** (pose de cargar), no al costado: era el bug de
   "aparecen al lado de las manos".
 
-## Fase 2 — Presión
+## Fase 2 — Presión — ✅ HECHA
 
-| # | Paso |
-|---|---|
-| 2.1 | Basura que se hunde en el mar a los 6 s (−2) |
-| 2.2 | Vidrio que se rompe a los 6 s en la arena (−2) |
-| 2.3 | Gaviota que roba basura del piso o de la bolsa (−2) |
-| 2.4 | Aro de cuenta regresiva sobre cada basura + tope de 3 castigos/min |
+| # | Paso | Estado |
+|---|---|---|
+| 2.1 | Basura que se hunde en el mar (−2) | ✅ 10 s, primera fila de agua |
+| 2.2 | Vidrio que se rompe en la arena (−2) | ✅ a los 14 s |
+| 2.3 | Gaviota que roba basura del piso (−2) | ✅ del piso |
+| 2.4 | Aro de cuenta atrás + tope de 3 castigos/min | ✅ |
+
+Decisiones de implementación:
+
+- **La basura flotante va solo en la primera fila de agua** (se alcanza desde la
+  orilla): el agua todavía no se camina, así que más adentro sería una pérdida
+  garantizada. El agua pasó a ser un **escalón bajo (0.20 m)**: frena al jugador
+  igual que una pared y deja flotar la basura.
+- **Los tiempos de vencimiento son más largos que los 6 s del diseño** (10 s el
+  agua, 14 s el vidrio): medido en una simulación de 15 s sin jugador, con 6 s
+  vencían 5 basuras. El aro avisa y el margen tiene que alcanzar para cruzar la
+  playa caminando.
+- **La gaviota roba solo del piso** (no de la bolsa colgada): sacar de la bolsa
+  castigaba al que estaba embolsando, que es justo lo que hay que premiar.
+- **El tope de castigos** se lleva con una ventana de 60 s. Los castigos que no
+  descuentan igual se cuentan y se avisan («tope, no descuenta»).
+- **Los castigos cuestan puntos, no tiempo**: la cuota se gana o se pierde por la
+  basura entregada; el castigo empuja el puntaje y se ve en el resultado.
 
 ## Fase 3 — Mar y tiburón
 

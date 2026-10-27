@@ -12,7 +12,7 @@ var timer := 0.0
 var interval := 3.6
 var max_on_ground := 6
 var rows := Vector2i(3, 10)
-var water_chance := 0.0        # Fase 3: basura flotante
+var water_chance := 0.0        # basura flotante en la primera fila de agua
 var enabled := true
 
 
@@ -26,6 +26,7 @@ func setup(cfg: Dictionary) -> void:
 	max_on_ground = int(cfg.get("spawn_max", 6))
 	var band: Array = cfg.get("spawn_rows", [3, 10])
 	rows = Vector2i(int(band[0]), int(band[1]))
+	water_chance = float(cfg.get("spawn_water", 0.0))
 	timer = interval
 	for i in int(cfg.get("spawn_initial", 0)):
 		spawn_one()
@@ -53,7 +54,13 @@ func count_on_ground() -> int:
 
 
 func spawn_one(force_type := "") -> CarryItem:
-	var tile := pick_tile()
+	# una parte de la basura cae al agua: se ve la orilla trabajar y hay una
+	# razón para correr (se hunde a los segundos)
+	var from_water := force_type == "" and water_chance > 0.0 and randf() < water_chance
+	var tile: CellData = pick_water_tile() if from_water else null
+	if tile == null:
+		from_water = false
+		tile = pick_tile()
 	if tile == null:
 		return null
 
@@ -61,7 +68,7 @@ func spawn_one(force_type := "") -> CarryItem:
 	if t == "":
 		t = pick_type()
 
-	var item := CarryItem.residue(t)
+	var item := CarryItem.residue(t, "water" if from_water else "beach")
 	ItemVisuals.build(item)
 	game.move_item_to_tile(item, tile)
 	# cae desde un poco más arriba y se acuesta sola: la basura no aparece
@@ -86,6 +93,31 @@ func pick_tile() -> CellData:
 	if candidates.is_empty():
 		return null
 	return candidates[randi() % candidates.size()]
+
+
+## Basura flotante: solo la PRIMERA fila de agua, que se alcanza desde la orilla
+## (el agua todavía no se camina; eso es la Fase 3).
+func pick_water_tile() -> CellData:
+	var row_y := -1
+	for y in world.h:
+		for x in world.w:
+			var t := world.tile_at(x, y)
+			if t != null and t.kind == "water":
+				row_y = y
+				break
+		if row_y >= 0:
+			break
+	if row_y < 0:
+		return null
+
+	var options: Array = []
+	for x in range(1, world.w - 1):
+		var t := world.tile_at(x, row_y)
+		if t != null and t.kind == "water" and t.item == null and not _player_on(t):
+			options.append(t)
+	if options.is_empty():
+		return null
+	return options[randi() % options.size()]
 
 
 func _player_on(t: CellData) -> bool:

@@ -15,6 +15,7 @@ var type := ""               # pet | lata | vidrio (solo residuos)
 var contents: Array = []     # solo bolsas: Array[String]
 var node: Node3D = null      # visual en la escena
 var hung := false            # bolsa colgada en un contenedor: cambia de forma
+var ring: Node3D = null      # aro de cuenta atrás (solo basura con vencimiento)
 var life := 0.0              # segundos que lleva tirado en el piso
 var origin := "beach"        # beach | water (el agua vale más en la Fase 3)
 

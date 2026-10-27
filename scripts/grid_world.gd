@@ -87,7 +87,9 @@ func free_floors_near(cx: int, cy: int, radius := 4) -> Array:
 
 
 func item_position(tile: CellData) -> Vector3:
-	return Vector3(tile.x + 0.5, tile.top_y() + 0.02, tile.y + 0.5)
+	# la basura del agua flota sobre la lámina (el agua sigue siendo sólida)
+	var y := 0.24 if tile.kind == "water" else tile.top_y() + 0.02
+	return Vector3(tile.x + 0.5, y, tile.y + 0.5)
 
 
 # ------------------------------------------------------------------ geometría
@@ -453,7 +455,9 @@ func _build_collider(t: CellData) -> void:
 	# Todos los sólidos llevan una pared ALTA: con la altura real (0.55 a 0.95)
 	# la cápsula del jugador se trepaba al borde y quedaba "encima de todo".
 	# La altura visual la da el mesh; el collider es una pared invisible.
-	var height := 2.0
+	# el agua es un escalón bajo: frena al jugador pero deja flotar la basura;
+	# el resto de los sólidos son paredes altas (la cápsula se trepaba encima)
+	var height := 0.20 if t.kind == "water" else 2.0
 
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()

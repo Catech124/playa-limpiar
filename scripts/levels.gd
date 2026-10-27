@@ -39,6 +39,7 @@ const LEVELS := [
 		"spawn_interval": 3.6,
 		"spawn_max": 6,
 		"spawn_rows": [3, 10],
+		"spawn_water": 0.0,
 	},
 	{
 		"name": "Día 2 · Marea alta",
@@ -48,6 +49,7 @@ const LEVELS := [
 		"spawn_interval": 3.0,
 		"spawn_max": 7,
 		"spawn_rows": [4, 10],
+		"spawn_water": 0.15,
 	},
 	{
 		"name": "Día 3 · Último día",
@@ -57,6 +59,7 @@ const LEVELS := [
 		"spawn_interval": 2.4,
 		"spawn_max": 8,
 		"spawn_rows": [5, 10],
+		"spawn_water": 0.25,
 	},
 ]
 

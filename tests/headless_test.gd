@@ -102,7 +102,10 @@ func _run() -> void:
 		for t in lvl["quota"].keys():
 			need += int(lvl["quota"][t])
 		var burst := int(lvl["spawn_initial"])
-		var t_spawn := float(maxi(0, need - burst)) * float(lvl["spawn_interval"])
+		# una parte de la basura cae al agua y se hunde: no cuenta para la cuota
+		# salvo que se rescate, así que el ritmo tiene que cubrir esa pérdida
+		var lost := float(lvl.get("spawn_water", 0.0))
+		var t_spawn := float(maxi(0, need - burst)) / maxf(0.2, 1.0 - lost) * float(lvl["spawn_interval"])
 		check("el nivel «%s» puede llenar su cuota a tiempo" % String(lvl["name"]),
 			t_spawn < float(lvl["seconds"]) * 0.6,
 			"%.0f s de aparición para %.0f s de jornada" % [t_spawn, float(lvl["seconds"])])
@@ -401,6 +404,64 @@ func _run() -> void:
 	main.move_item_to_player(kick_me, p)
 	check("en la mano el residuo queda sin física",
 		(kick_me.node as RigidBody3D).freeze and (kick_me.node as RigidBody3D).collision_layer == 0)
+
+	# --- el agua tira basura ---------------------------------------------
+	main.start_game(1, false, 1)          # Día 2: marea alta
+	await frames(2)
+	check("el Día 2 tira basura al agua", main.spawner.water_chance > 0.0,
+		"%.2f" % main.spawner.water_chance)
+	var wt: CellData = main.spawner.pick_water_tile()
+	check("la basura flotante cae en la primera fila de agua",
+		wt != null and wt.kind == "water" and wt.y == 11,
+		"fila %d" % (wt.y if wt != null else -1))
+
+	# --- presión: la basura que se pierde --------------------------------
+	main.start_game(1)
+	await frames(2)
+	# playa limpia: si queda vidrio de la aparición inicial, se rompe también y
+	# el conteo de castigos deja de ser determinista
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
+	var glass: CarryItem = main.spawner.spawn_one("vidrio")
+	main._tick_decay(1.0)
+	check("el vidrio avisa con un aro de cuenta atrás", glass.ring != null)
+	var pen_before: int = int(main.stats["penalties"])
+	main._tick_decay(GameConfig.GLASS_BREAK_TIME)
+	check("el vidrio de la arena se rompe solo", glass.node == null)
+	check("el vidrio roto descuenta", int(main.stats["penalties"]) == pen_before + 1,
+		"%d -> %d" % [pen_before, int(main.stats["penalties"])])
+
+	# basura flotante: se alcanza desde la orilla y se hunde si nadie la agarra
+	var wtile: CellData = main.world.tile_at(5, 11)
+	if wtile != null and wtile.item != null:
+		main.destroy_item(wtile.item)
+		wtile.item = null
+	var floating: CarryItem = CarryItem.residue("lata", "water")
+	ItemVisuals.build(floating)
+	main.move_item_to_tile(floating, wtile)
+	p = main.players[0]
+	p.teleport(5, 10, Vector2i(0, 1))
+	check("la basura del agua se alcanza desde la orilla",
+		"recoger" in main.interaction_hint(p).to_lower(), main.interaction_hint(p))
+	pen_before = int(main.stats["penalties"])
+	main._tick_decay(GameConfig.SEA_SINK_TIME + 0.1)
+	check("la basura del agua se hunde", floating.node == null)
+	check("lo que se hundió descuenta", int(main.stats["penalties"]) == pen_before + 1)
+
+	# tope: como mucho 3 castigos por minuto descuentan
+	main.start_game(1)
+	await frames(2)
+	main.score = 100
+	var score0: int = main.score
+	for i in 6:
+		main.penalty("prueba", Vector3.ZERO)
+	check("el tope deja descontar solo 3 castigos por minuto",
+		score0 - main.score == GameConfig.PENALTY * GameConfig.PENALTY_CAP,
+		"descontó %d de %d" % [score0 - main.score, GameConfig.PENALTY * 6])
+	check("los castigos igual quedan contados", int(main.stats["penalties"]) == 6)
 
 	# --- avisos contextuales ---------------------------------------------
 	main.start_game(1)

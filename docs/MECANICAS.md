@@ -82,6 +82,25 @@ otro barre la arena, así que la presión puede ser mayor.
 - El agua es sólida y se ve (orilla con espuma). En la Fase 3 pasa a ser
   transitable, con tiburón.
 
+## Presión (Fase 2)
+
+| Situación | Regla | Aviso |
+|---|---|---|
+| Basura flotante | se hunde a los **10 s** | aro + «Se hundió» (−2) |
+| Vidrio en la arena | se rompe a los **14 s** | aro + «Vidrio roto» (−2) |
+| Gaviota | roba un residuo del piso y se lo lleva | «¡Gaviota!» (−2) |
+
+- El **aro de cuenta atrás** se cierra y pasa de ámbar a rojo. Solo lo llevan las
+  basuras que vencen: es el aviso de que esa basura se pierde.
+- **Tope:** como mucho **3 castigos por minuto** descuentan puntos; el resto solo
+  avisan. Si no, distraerse 20 s hunde la partida sin poder remontar.
+- La basura flotante cae en la **primera fila de agua**, que se alcanza desde la
+  orilla (el agua se camina recién en la Fase 3): un 15 % en el Día 2 y un 25 %
+  en el Día 3. El agua es un escalón bajo, así que la basura flota.
+- Los tiempos son más largos que los 6 s del diseño (10 s el agua, 14 s el
+  vidrio): con 6 s, 15 segundos de simulación sin jugador daban 5 castigos. La
+  playa es grande, hay que cruzarla caminando y el aro ya avisa.
+
 ## Cómo se ve (sin assets importados)
 
 Todo son primitivas de Godot; lo que hace que se reconozca cada cosa es la
@@ -99,7 +118,5 @@ silueta:
 
 ## Lo que todavía no está
 
-Fase 2 (presión): basura que se hunde, vidrio que se rompe, castigo de la
-gaviota y tope de 3 castigos por minuto.
 Fase 3 (mar): agua transitable, aleta, tiburón.
 Fase 4 (mundo): NPCs que tiran basura, nivel bosque.

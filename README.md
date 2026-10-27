@@ -55,9 +55,13 @@ La basura es **física**: cae al aparecer, queda acostada y se puede **patear**.
 
 ![residuos](docs/captura-items.png)
 
-Las **gaviotas** se llevan la basura que dejás tirada (con un jugador
-aparecen cada ~50 s; con dos, cada ~34 s), y el **reloj** no perdona: si se hace
-de noche sin cumplir la cuota, se pierde el día.
+La basura **no espera**: la que flota en el agua se hunde a los 6 s, el vidrio
+de la arena se rompe a los 10 s y las **gaviotas** se llevan la que dejás tirada
+(con un jugador aparecen cada ~50 s; con dos, cada ~34 s). Un **aro** que se
+cierra avisa cuál está por perderse. Y el **reloj** no perdona: si se hace de
+noche sin cumplir la cuota, se pierde el día.
+
+![presión](docs/captura-presion.png)
 
 ![orilla](docs/captura-orilla.png)
 
@@ -86,7 +90,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   68 comprobaciones de reglas (headless)
+tests/headless_test.gd   78 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -131,12 +135,13 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**68 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**78 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
 colisiones (contenedor, bolsa en el piso, muro, mar), física de la basura
-(cae acostada, se patea, se congela en la mano), rig y animación.
+(cae acostada, se patea, se congela en la mano), presión (se hunde, se
+rompe, tope de castigos), rig y animación.
 Sale con código 0 solo si pasa todo.
 
 Capturas (necesita display; funciona con Xvfb):
@@ -146,16 +151,16 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 ```
 
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
-`--kick` (basura pateada),
+`--kick` (basura pateada), `--pressure` (aros y basura flotante),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 
 ## Estado
 
-**v0.2 — Fase 1 del rediseño completa**: bucle de cuota (basura tirada →
-contenedor con bolsa → camión), reloj de 24 h, HUD con las 3 barras y fin de día
-con estrellas. Funciona la cooperación de 2 jugadores en el mismo teclado.
+**v0.3 — Fases 1 y 2 del rediseño completas**: bucle de cuota (basura tirada →
+contenedor con bolsa → camión), reloj de 24 h, HUD con las 3 barras, fin de día
+con estrellas y la presión de la Fase 2 (se hunde, se rompe, gaviota, aros y tope
+de castigos). Funciona la cooperación de 2 jugadores en el mismo teclado.
 
-Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 2 (basura que se
-hunde, vidrio que se rompe, castigo de gaviota), Fase 3 (mar transitable y
-tiburón) y Fase 4 (NPCs y nivel bosque).
+Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 3 (mar transitable
+y tiburón) y Fase 4 (NPCs y nivel bosque).

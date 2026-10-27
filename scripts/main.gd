@@ -36,6 +36,8 @@ var sandbox := false
 
 var toasts: Array = []
 var _sync_cd := 0.0
+var clock := 0.0                 # segundos de la jornada (para el tope de castigos)
+var penalty_log: Array = []      # instantes de los castigos que descontaron
 var flying: Array = []
 
 
@@ -167,6 +169,8 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 
 	toasts.clear()
 	flying.clear()
+	clock = 0.0
+	penalty_log.clear()
 	score = 0
 	won = false
 	stats = {"delivered": 0, "spawned": 0, "binned": 0, "stolen": 0, "penalties": 0, "thrown": 0}
@@ -293,7 +297,9 @@ func _process(delta: float) -> void:
 
 	_update_camera(delta)
 
+	clock += delta
 	time_left = maxf(0.0, time_left - delta)
+	_tick_decay(delta)
 
 	spawner.tick(delta)
 	if not sandbox:
@@ -314,6 +320,80 @@ func _process(delta: float) -> void:
 			_finish(true)
 		elif time_left <= 0.0:
 			_finish(false)
+
+
+## Presión de la Fase 2: la basura del agua se hunde y el vidrio de la arena se
+## rompe. El aro de cuenta atrás avisa cuánto queda (se cierra y se pone rojo).
+func _tick_decay(delta: float) -> void:
+	var expired: Array = []
+	for row in world.tiles:
+		for t in row:
+			var it: CarryItem = t.item
+			if it == null or not it.is_residue():
+				continue
+			var limit := 0.0
+			if it.origin == "water":
+				limit = GameConfig.SEA_SINK_TIME
+			elif it.type == "vidrio":
+				limit = GameConfig.GLASS_BREAK_TIME
+			if limit <= 0.0:
+				continue
+			it.life += delta
+			_update_ring(it, t, limit)
+			if it.life >= limit:
+				expired.append([t, it])
+	for e in expired:
+		var tile: CellData = e[0]
+		var it: CarryItem = e[1]
+		var at := tile.center() + Vector3(0, 0.5, 0)
+		tile.item = null
+		destroy_item(it)
+		if it.origin == "water":
+			penalty("Se hundió", at)
+		else:
+			penalty("Vidrio roto", at)
+
+
+func _make_ring() -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.24
+	torus.outer_radius = 0.30
+	torus.rings = 20
+	torus.ring_segments = 6
+	mi.mesh = torus
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.72, 0.25, 0.85)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## El aro va en el piso (no cuelga del ítem): si la botella rueda, el aviso
+## sigue legible desde la cámara alta.
+func _update_ring(it: CarryItem, tile: CellData, limit: float) -> void:
+	if it.ring == null or not is_instance_valid(it.ring):
+		it.ring = _make_ring()
+		world.items_root.add_child(it.ring)
+	var left := clampf(1.0 - it.life / limit, 0.0, 1.0)
+	# el aro sigue al cuerpo (la basura rueda), no a la celda donde cayó
+	var at := Vector3(tile.x + 0.5, 0.035, tile.y + 0.5)
+	if it.node != null:
+		at.x = it.node.global_position.x
+		at.z = it.node.global_position.z
+	it.ring.position = at
+	var k := 0.35 + 0.65 * left
+	it.ring.scale = Vector3(k, 1.0, k)
+	var mat := (it.ring as MeshInstance3D).material_override as StandardMaterial3D
+	mat.albedo_color = Color(1.0, 0.72, 0.25, 0.85).lerp(Color(1.0, 0.22, 0.18, 0.95), 1.0 - left)
+
+
+func _clear_ring(item: CarryItem) -> void:
+	if item.ring != null and is_instance_valid(item.ring):
+		item.ring.queue_free()
+	item.ring = null
 
 
 ## La basura es física: si rueda dos celdas, la celda donde estaba quedaría
@@ -454,8 +534,17 @@ func stars_earned() -> int:
 	return 1
 
 
+## Castigo con motivo visible. Tope: los primeros 3 del último minuto
+## descuentan; el resto solo avisan (si no, distraerse 20 s hunde la partida
+## sin que se pueda remontar).
 func penalty(reason: String, pos: Vector3) -> void:
 	stats["penalties"] = int(stats.get("penalties", 0)) + 1
+	while not penalty_log.is_empty() and clock - float(penalty_log[0]) > GameConfig.PENALTY_WINDOW:
+		penalty_log.pop_front()
+	if penalty_log.size() >= GameConfig.PENALTY_CAP:
+		toast(pos, "%s · tope, no descuenta" % reason, "info")
+		return
+	penalty_log.append(clock)
 	score = maxi(0, score - GameConfig.PENALTY)
 	toast(pos, "%s −%d" % [reason, GameConfig.PENALTY], "bad")
 
@@ -713,6 +802,7 @@ func item_blocker(item: CarryItem, on: bool) -> void:
 ## Un residuo en la mano (o en el pico de una gaviota) no tiene física: se
 ## congela y se saca de toda colisión. Si no, empuja al jugador y se cae solo.
 func _hold(item: CarryItem) -> void:
+	_clear_ring(item)          # si sale del piso, el aro ya no corresponde
 	var body := item.node as RigidBody3D
 	if body == null:
 		return
@@ -807,6 +897,7 @@ func _unhang(item: CarryItem) -> void:
 func move_item_to_player(item: CarryItem, p: Player) -> void:
 	p.carrying = item
 	_unhang(item)
+	_clear_ring(item)
 	if item.node == null:
 		return
 	_hold(item)
@@ -820,6 +911,7 @@ func move_item_to_player(item: CarryItem, p: Player) -> void:
 func destroy_item(item: CarryItem) -> void:
 	if item == null:
 		return
+	_clear_ring(item)
 	if item.node != null:
 		item.node.queue_free()
 		item.node = null

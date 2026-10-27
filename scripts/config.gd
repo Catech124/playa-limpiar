@@ -32,6 +32,18 @@ const POINTS_PER_BIN := 1          # basura metida en la bolsa del contenedor
 const POINTS_PER_ITEM := 10        # basura entregada en el camión
 const PENALTY := 2                 # castigo (contenedor equivocado, etc.)
 
+# --- presión (Fase 2) ----------------------------------------------------
+## Basura flotante: se hunde si nadie la recoge. El tiro hasta la orilla es
+## corto, pero hay que verla y decidir ir.
+const SEA_SINK_TIME := 10.0
+## Vidrio en la arena: se rompe solo. Bastante más margen que el mar: la playa
+## es grande, hay que cruzarla caminando y con 6 s era castigo seguro.
+const GLASS_BREAK_TIME := 14.0
+## Tope: como mucho 3 castigos por minuto descuentan puntos. Si no, un jugador
+## que se distrae 20 s pierde la partida sin poder remontar.
+const PENALTY_CAP := 3
+const PENALTY_WINDOW := 60.0
+
 # --- gaviotas ------------------------------------------------------------
 ## Depende de cuántos jugadores hay: con uno solo no alcanzan las manos para
 ## embolsar y cubrir la playa a la vez, así que la gaviota aparece mucho menos.

@@ -133,7 +133,8 @@ func _advance(g: Gull, delta: float) -> void:
 				g.carry.node.position = Vector3(0, -0.2, 0)
 				g.carry.node.scale = Vector3(0.7, 0.7, 0.7)
 				game.stats["stolen"] = int(game.stats.get("stolen", 0)) + 1
-				game.toast(Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5), "¡Gaviota!", "bad")
+				# la gaviota cuesta puntos: es la presión de dejar basura tirada
+				game.penalty("¡Gaviota!", Vector3(g.target.x + 0.5, 1.6, g.target.y + 0.5))
 				g.phase = "exit"
 		_:
 			var edge := Vector3(g.pos.x, 3.4, -2.0)

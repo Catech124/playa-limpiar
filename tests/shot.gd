@@ -52,6 +52,38 @@ func _ready() -> void:
 		await _shoot(1.2)
 		return
 
+	if "--pressure" in args:
+		# Fase 2: aro de cuenta atrás en el vidrio y basura flotante en la orilla
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.55
+		for row in main.world.tiles:
+			for t in row:
+				if t.item != null:
+					main.destroy_item(t.item)
+					t.item = null
+		var spots := [[9, 8, "vidrio", 6.5], [12, 7, "vidrio", 2.0], [7, 9, "pet", 0.0]]
+		for spot in spots:
+			var r := CarryItem.residue(spot[2])
+			ItemVisuals.build(r)
+			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
+			main.drop_from_above(r)
+			r.life = float(spot[3])
+		for wx in [10, 13, 16]:
+			var w := CarryItem.residue("lata", "water")
+			ItemVisuals.build(w)
+			main.move_item_to_tile(w, main.world.tile_at(wx, 11))
+			main.drop_from_above(w)
+			w.life = 2.0 + float(wx % 3)
+		main.players[0].teleport(11, 9, Vector2i(0, 1))
+		for i in 80:
+			await get_tree().physics_frame
+		main._tick_decay(0.0)
+		main.camera.fov = 34.0
+		main.camera.look_at_from_position(Vector3(12.0, 6.4, 16.0), Vector3(12.0, 0.3, 10.6), Vector3.UP)
+		await _shoot(0.8)
+		return
+
 	if "--kick" in args:
 		# basura pateada: los residuos ruedan y quedan acostados
 		main.start_game(1)
