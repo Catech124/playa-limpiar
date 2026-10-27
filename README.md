@@ -36,6 +36,7 @@ arena (sin reloj ni gaviotas).
 | Impulso | `SHIFT` | `CTRL` |
 | Lanzar | `E` | `.` |
 
+Moverse en diagonal gira al personaje en diagonal (no se va de costado).
 `P` / `ESC` pausa · `R` reinicia.
 
 ## Cómo se juega
@@ -44,6 +45,7 @@ La playa amanece cubierta de basura y hay que cumplir la **cuota del día** ante
 del atardecer:
 
 1. **Recogé** la basura que aparece tirada en la arena (PET, vidrio o latas).
+   Se agarra lo que está cerca: no hace falta mirarlo.
 2. **Colgá una bolsa** en la boca del contenedor que corresponde y tirá la basura
    adentro. Si el contenedor no es el suyo, no entra y perdés puntos.
 3. Cuando la bolsa tiene **4 residuos** se marca llena: **retirala** y llevala.
@@ -64,6 +66,12 @@ noche sin cumplir la cuota, se pierde el día.
 ![presión](docs/captura-presion.png)
 
 ![orilla](docs/captura-orilla.png)
+
+La playa tiene **palmeras, sombrillas con toalla, la torre del guardavidas y un
+muelle** sobre el agua. Los props grandes bloquean el paso y reservan su celda:
+la basura no aparece dentro de ellos.
+
+![mapa](docs/captura-mapa.png)
 
 Detalle de reglas y números en [`docs/MECANICAS.md`](docs/MECANICAS.md).
 
@@ -90,7 +98,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   78 comprobaciones de reglas (headless)
+tests/headless_test.gd   84 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -135,13 +143,13 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**78 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**84 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
 colisiones (contenedor, bolsa en el piso, muro, mar), física de la basura
-(cae acostada, se patea, se congela en la mano), presión (se hunde, se
-rompe, tope de castigos), rig y animación.
+(cae acostada, se patea, se congela en la mano), agarre por cercanía, giro
+diagonal, presión (se hunde, se rompe, tope de castigos), rig y animación.
 Sale con código 0 solo si pasa todo.
 
 Capturas (necesita display; funciona con Xvfb):
@@ -152,6 +160,7 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
 `--kick` (basura pateada), `--pressure` (aros y basura flotante),
+`--map` (el mapa entero), `--diagonal` (giro en diagonal),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 

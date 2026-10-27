@@ -52,6 +52,41 @@ func _ready() -> void:
 		await _shoot(1.2)
 		return
 
+	if "--diagonal" in args:
+		# los dos jugadores caminando en diagonal: el cuerpo mira a la diagonal
+		main.start_game(2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var p1: Player = main.players[0]
+		var p2: Player = main.players[1]
+		p1.teleport(8, 8)
+		p2.teleport(13, 6)
+		p1.face_towards(Vector2(1.0, -1.0), 1.0)
+		p2.face_towards(Vector2(-1.0, -1.0), 1.0)
+		var one := CarryItem.residue("vidrio")
+		ItemVisuals.build(one)
+		main.move_item_to_player(one, p1)
+		var other := CarryItem.bag(["pet", "pet"])
+		ItemVisuals.build(other)
+		main.move_item_to_player(other, p2)
+		main.camera.fov = 30.0
+		main.camera.look_at_from_position(Vector3(10.5, 3.4, 15.0), Vector3(10.5, 0.5, 8.4), Vector3.UP)
+		await _shoot(0.8)
+		return
+
+	if "--map" in args:
+		# el mapa entero desde el mar: sirve para revisar props y proporciones
+		main.start_game(2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.7
+		var w := float(main.world.w)
+		var h := float(main.world.h)
+		main.camera.fov = 52.0
+		main.camera.look_at_from_position(Vector3(w * 0.5, 15.0, h + 12.0),
+			Vector3(w * 0.5, 0.0, h * 0.42), Vector3.UP)
+		await _shoot(1.2)
+		return
+
 	if "--pressure" in args:
 		# Fase 2: aro de cuenta atrás en el vidrio y basura flotante en la orilla
 		main.start_game(1)

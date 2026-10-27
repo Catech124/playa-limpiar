@@ -85,7 +85,7 @@ func pick_tile() -> CellData:
 	for y in range(rows.x, rows.y + 1):
 		for x in range(1, world.w - 1):
 			var t := world.tile_at(x, y)
-			if t == null or not t.can_hold() or t.item != null:
+			if t == null or not t.can_hold() or t.item != null or t.decor != "":
 				continue
 			if _player_on(t):
 				continue
@@ -113,7 +113,7 @@ func pick_water_tile() -> CellData:
 	var options: Array = []
 	for x in range(1, world.w - 1):
 		var t := world.tile_at(x, row_y)
-		if t != null and t.kind == "water" and t.item == null and not _player_on(t):
+		if t != null and t.kind == "water" and t.item == null and t.decor == "" and not _player_on(t):
 			options.append(t)
 	if options.is_empty():
 		return null

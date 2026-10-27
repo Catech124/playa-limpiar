@@ -581,11 +581,12 @@ func player_use(p: Player, tile: CellData) -> void:
 		move_item_to_player(bag, p)
 		return
 
-	# 4. manos vacías: recoger del piso
+	# 4. manos vacías: recoger del piso (basta con tenerlo cerca)
 	if held == null:
-		if tile.item != null:
-			var it: CarryItem = tile.item
-			tile.item = null
+		var near := nearest_item_tile(p)
+		if near != null:
+			var it: CarryItem = near.item
+			near.item = null
 			move_item_to_player(it, p)
 		return
 
@@ -652,6 +653,31 @@ func _use_bin(p: Player, tile: CellData, held: CarryItem) -> void:
 			toast(at, "Bolsa fuera (%d/%d)" % [bag.contents.size(), GameConfig.BAG_CAPACITY], "info")
 	else:
 		toast(at, "Sin bolsa: tomá una en el dispensador", "bad")
+
+
+## Agarrar no exige mirar: alcanza con tener el objeto cerca (radio de algo más
+## de una celda). Se prefiere lo que está adelante, pero también se levanta lo
+## de los costados y lo de atrás, que es lo que uno espera al pasar por encima.
+func nearest_item_tile(p: Player) -> CellData:
+	var best: CellData = null
+	var best_score := 99.0
+	var forward := Vector3(float(p.facing.x), 0.0, float(p.facing.y))
+	var me := Vector3(p.position.x, 0.0, p.position.z)
+	for y in range(p.tile_y() - 1, p.tile_y() + 2):
+		for x in range(p.tile_x() - 1, p.tile_x() + 2):
+			var t := world.tile_at(x, y)
+			if t == null or t.item == null:
+				continue
+			var to := Vector3(t.x + 0.5, 0.0, t.y + 0.5) - me
+			var d := to.length()
+			if d > 1.45:
+				continue
+			# adelante gana: a igual distancia se levanta lo que se está mirando
+			var score := d - 0.30 * forward.dot(to.normalized())
+			if score < best_score:
+				best_score = score
+				best = t
+	return best
 
 
 ## Entregar en el camión: cada residuo suma a su barra de cuota.
@@ -965,8 +991,10 @@ func interaction_hint(p: Player) -> String:
 				return "Bolsa llena: al camión"
 			return "[%s] Tirar en %s" % [key, nombre]
 
-	if held == null and tile.item != null:
-		return "[%s] Recoger %s" % [key, tile.item.label()]
+	if held == null:
+		var near := nearest_item_tile(p)
+		if near != null:
+			return "[%s] Recoger %s" % [key, near.item.label()]
 	if held != null and tile.item == null and tile.can_hold():
 		return "[%s] Soltar" % key
 	return ""

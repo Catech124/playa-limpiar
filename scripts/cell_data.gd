@@ -10,6 +10,7 @@ var station := ""        # "" | bags | bin | delivery
 var item: CarryItem = null   # ítem apoyado en la celda (suelo)
 var bin: String = ""     # tipo de residuo que acepta un contenedor (pet/lata/vidrio)
 var bag: CarryItem = null    # bolsa colgada en la boca de un contenedor
+var decor := ""              # prop decorativo grande (palmera, torre, muelle)
 
 
 func is_solid() -> bool:

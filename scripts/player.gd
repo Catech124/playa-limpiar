@@ -22,7 +22,8 @@ var color := Color.WHITE
 var keymap: Dictionary = {}
 var world: GridWorld
 var game                     # main.gd (sin tipo: evita dependencia circular)
-var facing := Vector2i(0, -1)
+var facing := Vector2i(0, -1)   # eje dominante: se usa para interactuar
+var yaw := PI                   # hacia dónde mira el cuerpo (diagonal incluida)
 var carrying: CarryItem = null
 var active := false
 
@@ -197,12 +198,8 @@ func _physics_process(delta: float) -> void:
 
 	if dir != Vector2.ZERO:
 		dir = dir.normalized()
-		if absf(dir.x) >= absf(dir.y):
-			facing = Vector2i(signi(int(sign(dir.x))), 0)
-		else:
-			facing = Vector2i(0, signi(int(sign(dir.y))))
+		face_towards(dir, delta)
 		walk_phase += delta * 12.0
-		_body_mesh.rotation.y = _facing_angle()
 		_body_mesh.position.y = absf(sin(walk_phase)) * 0.025
 	else:
 		_body_mesh.position.y = 0.0
@@ -246,6 +243,21 @@ func move_step(dir: Vector2) -> void:
 		position.z = clampf(position.z, 1.05, float(world.h) - 1.05)
 
 
+## Gira el cuerpo hacia donde va, con un suavizado corto. Para interactuar se
+## guarda el eje dominante (`facing`), pero la animación mira a la diagonal: si
+## no, al caminar en diagonal el personaje se iba de costado.
+func face_towards(dir: Vector2, delta: float) -> void:
+	if dir == Vector2.ZERO:
+		return
+	var d := dir.normalized()
+	if absf(d.x) >= absf(d.y):
+		facing = Vector2i(signi(int(sign(d.x))), 0)
+	else:
+		facing = Vector2i(0, signi(int(sign(d.y))))
+	yaw = lerp_angle(yaw, atan2(d.x, d.y), minf(1.0, delta * 22.0))
+	_body_mesh.rotation.y = yaw
+
+
 func front_tile() -> CellData:
 	var fx := position.x + facing.x * 0.62
 	var fz := position.z + facing.y * 0.62
@@ -263,7 +275,8 @@ func tile_y() -> int:
 func teleport(tx: int, ty: int, face := Vector2i(0, -1)) -> void:
 	position = Vector3(tx + 0.5, 0.0, ty + 0.5)
 	facing = face
-	_body_mesh.rotation.y = _facing_angle()
+	yaw = _facing_angle()
+	_body_mesh.rotation.y = yaw
 
 
 ## Animación procedural sobre las bisagras del GLB.

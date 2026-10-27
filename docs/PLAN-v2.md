@@ -74,6 +74,15 @@ Decisiones de implementación:
 - **Los castigos cuestan puntos, no tiempo**: la cuota se gana o se pierde por la
   basura entregada; el castigo empuja el puntaje y se ve en el resultado.
 
+## Ajustes de jugabilidad (post Fase 2)
+
+- **Agarre por cercanía**: radio de 1,45 celdas alrededor del jugador; lo de
+  adelante tiene prioridad. Antes había que estar mirando la celda exacta.
+- **Giro diagonal real**: el cuerpo mira a la dirección de movimiento; `facing`
+  (eje dominante) queda solo para las interacciones.
+- **Mapa con props**: palmeras, sombrillas con toalla, torre del guardavidas y
+  muelle. Los grandes bloquean y reservan su celda para el spawner.
+
 ## Fase 3 — Mar y tiburón
 
 | # | Paso |

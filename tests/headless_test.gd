@@ -415,6 +415,50 @@ func _run() -> void:
 		wt != null and wt.kind == "water" and wt.y == 11,
 		"fila %d" % (wt.y if wt != null else -1))
 
+	# --- giro diagonal y agarre por cercanía -----------------------------
+	main.start_game(1)
+	await frames(2)
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
+	p = main.players[0]
+	p.teleport(10, 6, Vector2i(0, -1))
+	p.face_towards(Vector2(1.0, -1.0), 1.0)
+	check("en diagonal el cuerpo mira en diagonal",
+		absf(angle_difference(p.yaw, PI * 0.75)) < 0.12, "yaw=%.2f" % p.yaw)
+	check("para interactuar queda el eje dominante", p.facing == Vector2i(1, 0),
+		str(p.facing))
+
+	p.teleport(10, 6, Vector2i(0, -1))        # mirando al norte
+	var side: CarryItem = CarryItem.residue("pet")
+	ItemVisuals.build(side)
+	main.move_item_to_tile(side, main.world.tile_at(11, 6))   # a la derecha
+	main.player_use(p, p.front_tile())                        # el frente está vacío
+	check("se recoge lo que está al costado sin mirarlo", p.carrying == side)
+	main.destroy_item(side)
+	p.carrying = null
+
+	var behind: CarryItem = CarryItem.residue("lata")
+	ItemVisuals.build(behind)
+	main.move_item_to_tile(behind, main.world.tile_at(10, 7))  # atrás
+	main.player_use(p, p.front_tile())
+	check("también se recoge lo que quedó atrás", p.carrying == behind)
+	main.destroy_item(behind)
+	p.carrying = null
+
+	var far: CarryItem = CarryItem.residue("vidrio")
+	ItemVisuals.build(far)
+	main.move_item_to_tile(far, main.world.tile_at(10, 3))     # tres celdas
+	main.player_use(p, p.front_tile())
+	check("no se recoge lo que está lejos", p.carrying == null)
+	main.destroy_item(far)
+
+	var palm: CellData = main.world.tile_at(2, 7)
+	check("los props grandes reservan su celda", palm != null and palm.decor == "palm",
+		"decor=%s" % (palm.decor if palm != null else "?"))
+
 	# --- presión: la basura que se pierde --------------------------------
 	main.start_game(1)
 	await frames(2)

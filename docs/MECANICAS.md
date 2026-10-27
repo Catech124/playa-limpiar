@@ -59,6 +59,29 @@ embolsa no hay manos para cubrir la playa, y con el ritmo anterior ganarle a una
 gaviota era cuestión de suerte. Con dos, uno embolsa cerca del contenedor y el
 otro barre la arena, así que la presión puede ser mayor.
 
+## Agarrar y moverse
+
+- **Se agarra por cercanía**: no hace falta mirar el objeto. Alcanza con tenerlo
+  a menos de **1,45 celdas** (el frente, los costados o atrás). Cuando hay varios,
+  gana el que está adelante.
+- **El cuerpo gira hacia donde va**, no hacia el eje cardinal: caminando en
+  diagonal el personaje mira en diagonal. Para interactuar se sigue usando el eje
+  dominante (el aviso del piso es coherente con lo que se ve).
+
+## El mapa
+
+La playa tiene puntos de referencia (todos con primitivas):
+
+- **Palmeras** en los rincones, con tronco inclinado y cocos: bloquean el paso.
+- **Sombrillas** con varillas y toalla rayada (dan sombra a la basura que cae).
+- **Torre del guardavidas** con techo a cuatro aguas, escalera y bandera: bloquea.
+- **Muelle de tablas** sobre el agua, con pilotes: es el punto de referencia de la
+  orilla y en la Fase 3 va a ser el acceso al mar.
+- Rocas, algas, caracoles y estrellas de mar repartidos por la arena.
+
+Los props grandes **reservan su celda**: la basura no aparece dentro de una
+palmera ni debajo del muelle.
+
 ## Física de la basura
 
 - Cada residuo es un **cuerpo rígido** (cápsula): se puede **patear**, rueda y

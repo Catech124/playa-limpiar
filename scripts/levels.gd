@@ -74,10 +74,19 @@ const SANDBOX := {
 	"spawn_rows": [2, 10],
 }
 
-## Props decorativos (sin colisión) para que la arena no quede vacía.
-## Formato: [x, y, tipo]
+## Props decorativos. Los grandes (palmera, torre, muelle) reservan la celda:
+## la basura no aparece encima de ellos. Formato: [x, y, tipo]
 const DECOR := [
-	[2, 9, "rock"], [21, 9, "rock"], [5, 8, "seaweed"], [17, 8, "shell"],
+	# palmeras en los rincones de la arena
+	[2, 2, "palm"], [21, 2, "palm"], [2, 7, "palm"], [21, 9, "palm"],
+	# sombrillas con toalla (el toldo da sombra a la basura)
+	[6, 4, "umbrella"], [16, 5, "umbrella"], [11, 8, "umbrella"],
+	# torre del guardavidas, mirando al mar
+	[3, 10, "tower"],
+	# muelle de tablas que entra al agua
+	[15, 12, "pier"],
+	# detalles chicos: no reservan la celda
+	[2, 9, "rock"], [21, 6, "rock"], [5, 8, "seaweed"], [17, 8, "shell"],
 	[8, 10, "shell"], [14, 10, "starfish"], [3, 4, "starfish"], [20, 4, "seaweed"],
-	[6, 5, "shell"], [18, 6, "rock"], [12, 2, "shell"], [2, 7, "seaweed"],
+	[6, 5, "shell"], [12, 2, "shell"], [17, 2, "seaweed"],
 ]
