@@ -98,25 +98,23 @@ func pick_tile() -> CellData:
 ## Basura flotante: solo la PRIMERA fila de agua, que se alcanza desde la orilla
 ## (el agua todavía no se camina; eso es la Fase 3).
 func pick_water_tile() -> CellData:
-	var row_y := -1
-	for y in world.h:
-		for x in world.w:
-			var t := world.tile_at(x, y)
-			if t != null and t.kind == "water":
-				row_y = y
-				break
-		if row_y >= 0:
-			break
-	if row_y < 0:
-		return null
-
 	var options: Array = []
-	for x in range(1, world.w - 1):
-		var t := world.tile_at(x, row_y)
-		if t != null and t.kind == "water" and t.item == null and t.decor == "" and not _player_on(t):
+	var deep: Array = []
+	for y in world.h:
+		for x in range(1, world.w - 1):
+			var t := world.tile_at(x, y)
+			if t == null or t.kind != "water" or t.item != null or t.decor != "":
+				continue
+			if _player_on(t):
+				continue
 			options.append(t)
+			if y >= 12:
+				deep.append(t)
 	if options.is_empty():
 		return null
+	# dos de cada tres, cerca de la orilla; el resto mar adentro (más riesgo)
+	if not deep.is_empty() and randf() < 0.34:
+		return deep[randi() % deep.size()]
 	return options[randi() % options.size()]
 
 

@@ -19,6 +19,7 @@ class Gull:
 	var wobble := 0.0
 	var wing_l: Node3D
 	var wing_r: Node3D
+	var mark: Node3D            # aro rojo sobre la basura que va a robar
 
 
 func _init(g, w: GridWorld) -> void:
@@ -63,8 +64,46 @@ func spawn() -> bool:
 	g.node = _build_gull(g)
 	g.node.position = g.pos
 	game.add_child(g.node)
+	g.mark = _make_mark()
+	game.world.items_root.add_child(g.mark)
 	list.append(g)
 	return true
+
+
+## Aro rojo sobre la basura que la gaviota eligió: avisa cuál va a robar y da
+## tiempo a rescatarla (es el mismo lenguaje visual que el aro del vidrio).
+func _make_mark() -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var t := TorusMesh.new()
+	# más grande que el aro del vidrio: así se distinguen aunque caigan juntos
+	t.inner_radius = 0.40
+	t.outer_radius = 0.50
+	t.rings = 22
+	t.ring_segments = 6
+	mi.mesh = t
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.20, 0.16, 0.92)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+func _update_mark(g: Gull) -> void:
+	if g.mark == null or not is_instance_valid(g.mark):
+		return
+	if g.target == null or g.target.item == null:
+		g.mark.queue_free()
+		g.mark = null
+		return
+	var p := Vector3(g.target.x + 0.5, 0.05, g.target.y + 0.5)
+	if g.target.item.node != null:
+		p.x = g.target.item.node.global_position.x
+		p.z = g.target.item.node.global_position.z
+	g.mark.position = p
+	var k: float = 0.88 + 0.12 * sin(g.wobble * 0.7)
+	g.mark.scale = Vector3(k, 1.0, k)
 
 
 ## Las alas se guardan en el objeto Gull: sin esa referencia el aleteo no tiene
@@ -111,6 +150,7 @@ func _build_gull(g: Gull) -> Node3D:
 
 
 func _advance(g: Gull, delta: float) -> void:
+	_update_mark(g)
 	g.wobble += delta * 9.0
 	if g.wing_l != null:
 		g.wing_l.rotation.z = sin(g.wobble) * 0.5
@@ -140,6 +180,9 @@ func _advance(g: Gull, delta: float) -> void:
 			var edge := Vector3(g.pos.x, 3.4, -2.0)
 			_move(g, edge, delta * GameConfig.GULL_SPEED * 1.4)
 			if g.pos.z < -1.2:
+				if g.mark != null and is_instance_valid(g.mark):
+					g.mark.queue_free()
+					g.mark = null
 				if g.carry != null:
 					game.destroy_item(g.carry)
 					g.carry = null

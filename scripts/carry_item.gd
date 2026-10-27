@@ -13,6 +13,7 @@ extends RefCounted
 var kind := "residue"        # residue | bag
 var type := ""               # pet | lata | vidrio (solo residuos)
 var contents: Array = []     # solo bolsas: Array[String]
+var water: Array = []        # tipos del mar dentro de la bolsa (suman doble)
 var node: Node3D = null      # visual en la escena
 var hung := false            # bolsa colgada en un contenedor: cambia de forma
 var ring: Node3D = null      # aro de cuenta atrás (solo basura con vencimiento)

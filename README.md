@@ -33,10 +33,11 @@ arena (sin reloj ni gaviotas).
 |---|---|---|
 | Mover | `W A S D` | flechas |
 | Acción (recoger / colgar bolsa / tirar / entregar) | `ESPACIO` | `ENTER` |
-| Impulso | `SHIFT` | `CTRL` |
+| Impulso (casi sin espera) | `SHIFT` | `CTRL` |
 | Lanzar | `E` | `.` |
 
-Moverse en diagonal gira al personaje en diagonal (no se va de costado).
+Moverse en diagonal gira al personaje en diagonal (no se va de costado). El
+impulso deja polvo (o salpicadura en el agua) y se puede repetir cada 0,35 s.
 `P` / `ESC` pausa · `R` reinicia.
 
 ## Cómo se juega
@@ -64,6 +65,11 @@ cierra avisa cuál está por perderse. Y el **reloj** no perdona: si se hace de
 noche sin cumplir la cuota, se pierde el día.
 
 ![presión](docs/captura-presion.png)
+
+La gaviota **marca con un aro rojo** el residuo que va a robar: hay unos segundos
+para rescatarlo.
+
+![gaviota](docs/captura-gaviota.png)
 
 ![orilla](docs/captura-orilla.png)
 
@@ -98,7 +104,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   84 comprobaciones de reglas (headless)
+tests/headless_test.gd   96 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -143,7 +149,7 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**84 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**96 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
@@ -160,16 +166,22 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
 `--kick` (basura pateada), `--pressure` (aros y basura flotante),
-`--map` (el mapa entero), `--diagonal` (giro en diagonal),
+`--map` (el mapa entero), `--diagonal` (giro en diagonal), `--swim` (nado y
+aleta), `--gull` (aro de la gaviota),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 
 ## Estado
 
-**v0.3 — Fases 1 y 2 del rediseño completas**: bucle de cuota (basura tirada →
+**v0.4 — Fases 1, 2 y 3 del rediseño completas**: bucle de cuota (basura tirada →
 contenedor con bolsa → camión), reloj de 24 h, HUD con las 3 barras, fin de día
 con estrellas y la presión de la Fase 2 (se hunde, se rompe, gaviota, aros y tope
 de castigos). Funciona la cooperación de 2 jugadores en el mismo teclado.
 
-Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 3 (mar transitable
-y tiburón) y Fase 4 (NPCs y nivel bosque).
+La **Fase 3** agrega el mar: se entra nadando (más lento), a los 3 s aparece la
+aleta y a los 6 s el tiburón muerde. La basura flotante suma doble a la cuota.
+
+![nadando](docs/captura-nadar.png)
+
+Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 4 (NPCs que tiran
+basura y nivel bosque).

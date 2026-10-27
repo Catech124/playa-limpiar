@@ -307,14 +307,38 @@ func _run() -> void:
 		await get_tree().physics_frame
 	check("se puede caminar por encima de una botella", p.position.x > 10.4, "x=%.2f" % p.position.x)
 
-	# el agua sigue siendo sólida
+	# el agua se nada (Fase 3): se entra y se va más lento que caminando
 	p.teleport(5, 10, Vector2i(0, 1))
 	await frames(2)
 	for i in 40:
 		p.velocity = Vector3(0.0, 0.0, 4.0)
 		p.move_and_slide()
 		await get_tree().physics_frame
-	check("no se entra al mar", p.position.z < 10.85, "z=%.2f" % p.position.z)
+	check("se puede entrar al mar", p.position.z > 11.2, "z=%.2f" % p.position.z)
+	check("en el agua el jugador nada", p.swimming)
+	check("nadar es más lento que caminar",
+		GameConfig.SWIM_SPEED < GameConfig.PLAYER_SPEED
+		and GameConfig.SWIM_DASH_SPEED < GameConfig.DASH_SPEED,
+		"nadar %.1f · correr %.1f" % [GameConfig.SWIM_SPEED, GameConfig.PLAYER_SPEED])
+
+	# tiburón: aleta a los 3 s y mordida a los 6 s
+	var carried: CarryItem = CarryItem.bag(["pet"])
+	ItemVisuals.build(carried)
+	main.move_item_to_player(carried, p)
+	p.water_time = 0.0
+	main._tick_water(1.0)
+	check("al segundo en el agua todavía no hay aleta", p.fin == null)
+	p.water_time = GameConfig.SHARK_FIN_TIME
+	main._tick_water(0.05)
+	check("a los 3 s aparece la aleta", p.fin != null)
+	for i in 60:
+		main._tick_water(0.1)      # se queda en el agua hasta la mordida
+		if p.tile_y() <= 10:
+			break
+	check("a los 6 s el tiburón muerde y devuelve a la arena",
+		p.tile_y() <= 10, "y=%d" % p.tile_y())
+	check("la mordida hace soltar lo que llevaba", p.carrying == null)
+	check("la aleta desaparece después de la mordida", p.fin == null)
 
 	# --- gaviotas ---------------------------------------------------------
 	main.start_game(1)
@@ -345,6 +369,21 @@ func _run() -> void:
 			if t.item != null and t.item.is_residue():
 				main.destroy_item(t.item)
 				t.item = null
+	check("sin basura tirada no viene ninguna gaviota", not main.gulls.spawn())
+
+	# la gaviota avisa cuál va a robar con un aro rojo
+	var mark_victim: CarryItem = main.spawner.spawn_one("pet")
+	main.gulls.list.clear()
+	main.gulls.spawn()
+	var gull = main.gulls.list[0]
+	check("la gaviota marca lo que va a robar", gull.mark != null)
+	for i in 160:
+		main.gulls.tick(0.05)
+	check("al robar, el aro desaparece", gull.mark == null or not is_instance_valid(gull.mark))
+	check("el aro apuntaba a la basura robada", mark_victim.node == null)
+
+
+
 	check("sin basura tirada no viene ninguna gaviota", not main.gulls.spawn())
 
 	# La gaviota llega según cuántos jugadores hay: sola, la playa queda sin
@@ -411,8 +450,8 @@ func _run() -> void:
 	check("el Día 2 tira basura al agua", main.spawner.water_chance > 0.0,
 		"%.2f" % main.spawner.water_chance)
 	var wt: CellData = main.spawner.pick_water_tile()
-	check("la basura flotante cae en la primera fila de agua",
-		wt != null and wt.kind == "water" and wt.y == 11,
+	check("la basura flotante cae en el agua",
+		wt != null and wt.kind == "water" and wt.y >= 11,
 		"fila %d" % (wt.y if wt != null else -1))
 
 	# --- giro diagonal y agarre por cercanía -----------------------------
@@ -494,6 +533,17 @@ func _run() -> void:
 	main._tick_decay(GameConfig.SEA_SINK_TIME + 0.1)
 	check("la basura del agua se hunde", floating.node == null)
 	check("lo que se hundió descuenta", int(main.stats["penalties"]) == pen_before + 1)
+
+	# la basura del mar suma doble a la cuota
+	main.start_game(1)
+	await frames(2)
+	var sea_bag: CarryItem = CarryItem.bag(["pet"])
+	sea_bag.water = ["pet"]
+	ItemVisuals.build(sea_bag)
+	main.move_item_to_player(sea_bag, main.players[0])
+	main.deliver(main.players[0], sea_bag)
+	check("la basura del mar suma doble a la cuota",
+		int(main.delivered["pet"]) == 2, "%d" % int(main.delivered["pet"]))
 
 	# tope: como mucho 3 castigos por minuto descuentan
 	main.start_game(1)

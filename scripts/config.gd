@@ -14,9 +14,11 @@ const DAY_MINUTES := 16.0 * 60.0
 const PLAYER_SPEED := 4.6          # celdas/s
 const PLAYER_RADIUS := 0.30
 const PLAYER_HEIGHT := 1.0
-const DASH_SPEED := 9.0
+const DASH_SPEED := 9.2
 const DASH_TIME := 0.18
-const DASH_COOLDOWN := 1.0
+## Casi sin espera: el impulso es para encadenar y sentirse ágil. Con 1 s el
+## juego se sentía pesado; con 0.35 s se puede repetir al ritmo de la carrera.
+const DASH_COOLDOWN := 0.35
 
 # --- bolsas --------------------------------------------------------------
 ## La bolsa entra en la boca del contenedor y allí se llena. Al entregarla
@@ -31,6 +33,15 @@ const THROW_TIME := 0.42
 const POINTS_PER_BIN := 1          # basura metida en la bolsa del contenedor
 const POINTS_PER_ITEM := 10        # basura entregada en el camión
 const PENALTY := 2                 # castigo (contenedor equivocado, etc.)
+
+# --- agua y tiburón (Fase 3) ---------------------------------------------
+## Nadar es más lento que caminar: entrar al mar tiene que costar.
+const SWIM_SPEED := 2.5
+const SWIM_DASH_SPEED := 4.2
+## A los 3 s aparece la aleta; a los 6 s, la mordida.
+const SHARK_FIN_TIME := 3.0
+const SHARK_BITE_TIME := 6.0
+const SHARK_BITE_PENALTY := 3
 
 # --- presión (Fase 2) ----------------------------------------------------
 ## Basura flotante: se hunde si nadie la recoge. El tiro hasta la orilla es
@@ -55,6 +66,9 @@ const GULL_SPEED := 3.2
 # --- física de la basura -------------------------------------------------
 ## Capa 2: la basura es dinámica y el jugador la patea (no la choca).
 const ITEM_LAYER := 2
+## Capa 4: el piso del agua. Frena a la basura (flota) pero NO al jugador, que
+## ahora nada; por eso va en una capa aparte.
+const WATER_LAYER := 4
 ## Altura desde la que cae cada residuo al aparecer (baja: se ve caer, no
 ## llueve basura del cielo).
 const ITEM_DROP_HEIGHT := 0.55

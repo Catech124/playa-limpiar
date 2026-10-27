@@ -32,6 +32,12 @@ var dash_cd := 0.0
 var walk_phase := 0.0
 
 var carry_anchor: Node3D
+var swimming := false
+var water_time := 0.0       # segundos seguidos en el agua (lo usa el tiburón)
+var fin: Node3D = null      # aleta que avisa la mordida
+var wake: MeshInstance3D = null   # espuma alrededor del nadador
+var _swim_blend := 0.0
+var _splash_cd := 0.0
 var _act_pressed := false
 var _throw_pressed := false
 var _dash_pressed := false
@@ -178,6 +184,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_update_swim(delta)
 	_animate(delta)
 	if not active:
 		return
@@ -200,14 +207,17 @@ func _physics_process(delta: float) -> void:
 		dir = dir.normalized()
 		face_towards(dir, delta)
 		walk_phase += delta * 12.0
-		_body_mesh.position.y = absf(sin(walk_phase)) * 0.025
-	else:
-		_body_mesh.position.y = 0.0
 
 	# ---- impulso ----------------------------------------------------------
 	if _dash_pressed and dash_cd <= 0.0 and dir != Vector2.ZERO:
 		dash_left = GameConfig.DASH_TIME
 		dash_cd = GameConfig.DASH_COOLDOWN
+		# polvo en la arena, salpicadura en el agua: el impulso tiene que verse
+		if game != null:
+			if swimming:
+				game.spawn_puff(position + Vector3(0, 0.05, 0), Color(0.85, 0.95, 1.0), 8, 1.1)
+			else:
+				game.spawn_puff(position, Color(0.88, 0.82, 0.66), 8, 1.0)
 	_dash_pressed = false
 
 	move_step(dir)
@@ -228,7 +238,11 @@ func _physics_process(delta: float) -> void:
 
 
 func move_step(dir: Vector2) -> void:
-	var speed := GameConfig.DASH_SPEED if dash_left > 0.0 else GameConfig.PLAYER_SPEED
+	var speed := GameConfig.PLAYER_SPEED
+	if swimming:
+		speed = GameConfig.SWIM_DASH_SPEED if dash_left > 0.0 else GameConfig.SWIM_SPEED
+	elif dash_left > 0.0:
+		speed = GameConfig.DASH_SPEED
 	if dir == Vector2.ZERO:
 		velocity = Vector3.ZERO
 	else:
@@ -256,6 +270,49 @@ func face_towards(dir: Vector2, delta: float) -> void:
 		facing = Vector2i(0, signi(int(sign(d.y))))
 	yaw = lerp_angle(yaw, atan2(d.x, d.y), minf(1.0, delta * 22.0))
 	_body_mesh.rotation.y = yaw
+
+
+## Mirar si está en el agua se hace con la celda, no con la altura: el jugador
+## camina siempre a y=0 y el agua es una lámina.
+func _update_swim(delta: float) -> void:
+	var t: CellData = world.tile_at(tile_x(), tile_y()) if world != null else null
+	swimming = t != null and t.kind == "water"
+	_swim_blend = move_toward(_swim_blend, 1.0 if swimming else 0.0, delta * 6.0)
+	if _swim_blend > 0.05:
+		_ensure_wake()
+	if wake != null:
+		wake.visible = _swim_blend > 0.4
+		var k := 0.9 + 0.12 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
+		wake.scale = Vector3(k, 1.0, k)
+
+	# salpicaduras al avanzar: el movimiento en el agua tiene que verse
+	_splash_cd = maxf(0.0, _splash_cd - delta)
+	if swimming and velocity.length() > 0.2 and _splash_cd <= 0.0:
+		_splash_cd = 0.30
+		if game != null:
+			game.spawn_puff(position + Vector3(0, 0.04, 0), Color(0.94, 0.99, 1.0), 3, 0.55)
+
+
+## Espuma: sin esto el personaje parece flotar sobre una plancha azul.
+func _ensure_wake() -> void:
+	if wake != null:
+		return
+	wake = MeshInstance3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = 0.34
+	t.outer_radius = 0.46
+	t.rings = 18
+	t.ring_segments = 5
+	wake.mesh = t
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.95, 0.99, 1.0, 0.55)
+	wake.material_override = m
+	wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	wake.position = Vector3(0, 0.11, 0.16)
+	wake.visible = false
+	add_child(wake)
 
 
 func front_tile() -> CellData:
@@ -296,7 +353,21 @@ func _animate(delta: float) -> void:
 	var head: Node3D = _hinges.get("head")
 	var breath := sin(Time.get_ticks_msec() / 1000.0 * 2.2)
 
-	if carry:
+	var swim := _swim_blend
+	if swim > 0.35:
+		# nadando: brazadas alternadas (el cuerpo va acostado, ver abajo)
+		var stroke := sin(Time.get_ticks_msec() / 1000.0 * 6.0)
+		if carry:
+			if arm_l: arm_l.rotation = Vector3(-1.35, 0.0, 0.35)
+			if arm_r: arm_r.rotation = Vector3(-1.35, 0.0, -0.35)
+		else:
+			# brazada abierta: los brazos salen a los costados y reman alternados,
+			# que desde la cámara alta es lo que se lee como nadar
+			# los brazos van adelante y abiertos: el ala del sombrero tapa los
+			# hombros, así que la brazada tiene que salir por delante
+			if arm_l: arm_l.rotation = Vector3(-2.2 + stroke * 0.55, 0.0, 0.75)
+			if arm_r: arm_r.rotation = Vector3(-2.2 - stroke * 0.55, 0.0, -0.75)
+	elif carry:
 		# brazos adelante y un poco abiertos, como sosteniendo la caja
 		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, 0.35)
 		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, -0.35)
@@ -307,7 +378,12 @@ func _animate(delta: float) -> void:
 		if arm_l: arm_l.rotation = Vector3(swing, 0.0, -0.06 + breath * 0.02)
 		if arm_r: arm_r.rotation = Vector3(-swing, 0.0, 0.06 - breath * 0.02)
 
-	if moving:
+	if swim > 0.35:
+		# pataleo corto y rápido
+		var kick := sin(Time.get_ticks_msec() / 1000.0 * 9.0) * (0.35 if moving else 0.12)
+		if leg_l: leg_l.rotation = Vector3(kick, 0.0, 0.0)
+		if leg_r: leg_r.rotation = Vector3(-kick, 0.0, 0.0)
+	elif moving:
 		if leg_l: leg_l.rotation = Vector3(-sin(t) * 0.62, 0.0, 0.0)
 		if leg_r: leg_r.rotation = Vector3(sin(t) * 0.62, 0.0, 0.0)
 	else:
@@ -320,6 +396,15 @@ func _animate(delta: float) -> void:
 			-0.04 + (0.02 * sin(t * 2.0) if moving else breath * 0.015),
 			0.0,
 			(0.03 * sin(t) if moving else breath * 0.02))
+
+	# el cuerpo se acuesta en el agua y flota: inclinado hacia adelante, un poco
+	# corrido para que quede centrado en la celda (el origen del modelo son los pies)
+	_body_mesh.rotation.x = swim * 1.42
+	_body_mesh.position.z = -0.34 * swim
+	var target_y := 0.12 * swim
+	if moving and swim < 0.35:
+		target_y += absf(sin(t)) * 0.025
+	_body_mesh.position.y = lerpf(_body_mesh.position.y, target_y, minf(1.0, delta * 12.0))
 
 
 func _facing_angle() -> float:

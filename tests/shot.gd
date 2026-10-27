@@ -74,6 +74,80 @@ func _ready() -> void:
 		await _shoot(0.8)
 		return
 
+	if "--swim" in args:
+		# nadando con la aleta cerca: el agua es más lenta y da miedo
+		main.start_game(2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var s1: Player = main.players[0]
+		var s2: Player = main.players[1]
+		s1.teleport(9, 12, Vector2i(1, 0))
+		s2.teleport(12, 11, Vector2i(-1, 1))
+		for i in 3:
+			await get_tree().physics_frame
+		s1.face_towards(Vector2(1.0, 0.0), 1.0)
+		s2.face_towards(Vector2(-1.0, 1.0), 1.0)
+		s1.water_time = 4.2
+		main._tick_water(0.02)
+		var floating := CarryItem.residue("pet", "water")
+		ItemVisuals.build(floating)
+		main.move_item_to_tile(floating, main.world.tile_at(13, 12))
+		main.camera.fov = 34.0
+		main.camera.look_at_from_position(Vector3(11.0, 5.0, 17.0), Vector3(11.0, 0.2, 11.4), Vector3.UP)
+		await _shoot(1.0)
+		return
+
+	if "--gull" in args:
+		# gaviota con el aro rojo sobre la basura que eligió
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		for row in main.world.tiles:
+			for t in row:
+				if t.item != null:
+					main.destroy_item(t.item)
+					t.item = null
+		for spot in [[9, 7, "vidrio"], [12, 6, "pet"], [7, 6, "lata"]]:
+			var r := CarryItem.residue(spot[2])
+			ItemVisuals.build(r)
+			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
+		var gull: bool = main.gulls.spawn()
+		if not gull:
+			main.camera.look_at_from_position(Vector3(10.0, 4.0, 14.0), Vector3(10.0, 0.3, 7.0), Vector3.UP)
+			await _shoot(0.6)
+			return
+		for i in 72:
+			main.gulls.tick(1.0 / 60.0)
+		var g2 = main.gulls.list[0]
+		var tp := Vector3(g2.target.x + 0.5, 0.0, g2.target.y + 0.5)
+		print("gull en ", g2.pos, " target ", tp, " aro ", g2.mark)
+		var w := float(main.world.w)
+		var h := float(main.world.h)
+		main.camera.fov = 44.0
+		main.camera.look_at_from_position(tp + Vector3(0.0, 11.0, 13.0),
+			tp + Vector3(-1.5, 0.0, 1.0), Vector3.UP)
+		await _shoot(0.6)
+		return
+
+	if "--dash" in args:
+		# el polvo del impulso, recién salido
+		main.start_game(2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.7
+		var d1: Player = main.players[0]
+		var d2: Player = main.players[1]
+		d1.teleport(9, 7)
+		d2.teleport(12, 7)
+		d1.face_towards(Vector2(1.0, 0.0), 1.0)
+		d2.face_towards(Vector2(0.0, -1.0), 1.0)
+		await get_tree().physics_frame
+		main.spawn_puff(d1.position, Color(0.88, 0.82, 0.66), 9, 1.1)
+		main.spawn_puff(d2.position, Color(0.88, 0.82, 0.66), 9, 1.1)
+		main.camera.fov = 30.0
+		main.camera.look_at_from_position(Vector3(10.5, 3.2, 14.0), Vector3(10.5, 0.4, 7.4), Vector3.UP)
+		await _shoot(0.10)
+		return
+
 	if "--map" in args:
 		# el mapa entero desde el mar: sirve para revisar props y proporciones
 		main.start_game(2)

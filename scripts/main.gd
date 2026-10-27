@@ -35,6 +35,7 @@ var player_count := 1
 var sandbox := false
 
 var toasts: Array = []
+var puffs: Array = []            # polvo / salpicaduras
 var _sync_cd := 0.0
 var clock := 0.0                 # segundos de la jornada (para el tope de castigos)
 var penalty_log: Array = []      # instantes de los castigos que descontaron
@@ -169,6 +170,10 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 
 	toasts.clear()
 	flying.clear()
+	for pf in puffs:
+		if is_instance_valid(pf["node"]):
+			pf["node"].queue_free()
+	puffs.clear()
 	clock = 0.0
 	penalty_log.clear()
 	score = 0
@@ -300,6 +305,7 @@ func _process(delta: float) -> void:
 	clock += delta
 	time_left = maxf(0.0, time_left - delta)
 	_tick_decay(delta)
+	_tick_water(delta)
 
 	spawner.tick(delta)
 	if not sandbox:
@@ -307,6 +313,7 @@ func _process(delta: float) -> void:
 
 	_update_flying(delta)
 	_update_toasts(delta)
+	_update_puffs(delta)
 	_update_light()
 
 	# la basura rueda: la celda lógica tiene que seguir al cuerpo
@@ -320,6 +327,99 @@ func _process(delta: float) -> void:
 			_finish(true)
 		elif time_left <= 0.0:
 			_finish(false)
+
+
+## Tiburón (Fase 3): a los 3 s aparece la aleta y a los 6 s muerde. El reloj
+## corre por jugador: nadie puede quedarse tranquilo en el agua.
+func _tick_water(delta: float) -> void:
+	for p in players:
+		if p.swimming:
+			p.water_time += delta
+			if p.fin == null and p.water_time >= GameConfig.SHARK_FIN_TIME:
+				p.fin = _make_fin()
+				world.items_root.add_child(p.fin)
+				toast(p.position + Vector3(0, 1.4, 0), "¡Aleta!", "bad")
+			if p.fin != null:
+				# la aleta rodea al jugador: cuanto más tiempo, más cerca
+				var a: float = float(p.water_time) * 1.7
+				var r: float = maxf(0.55, 1.5 - (float(p.water_time) - GameConfig.SHARK_FIN_TIME) * 0.25)
+				p.fin.position = p.position + Vector3(cos(a) * r, 0.02, sin(a) * r)
+				p.fin.rotation.y = -a
+			if p.water_time >= GameConfig.SHARK_BITE_TIME:
+				_bite(p)
+		else:
+			p.water_time = 0.0
+			_clear_fin(p)
+
+
+func _make_fin() -> Node3D:
+	var root := Node3D.new()
+	# aleta plana triangular (prisma): se lee de costado a la cámara alta
+	var m := PrismMesh.new()
+	m.size = Vector3(0.42, 0.58, 0.08)
+	m.left_to_right = 0.45
+	var mi := MeshInstance3D.new()
+	mi.mesh = m
+	mi.material_override = ItemVisuals.material(Color(0.26, 0.30, 0.34))
+	mi.position = Vector3(0, 0.26, 0)
+	mi.rotation_degrees = Vector3(0, 0, -6)
+	root.add_child(mi)
+
+	var foam := MeshInstance3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = 0.30
+	t.outer_radius = 0.38
+	t.rings = 16
+	t.ring_segments = 5
+	foam.mesh = t
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.94, 0.99, 1.0, 0.8)
+	foam.material_override = mat
+	foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	foam.position = Vector3(0, 0.02, 0)
+	root.add_child(foam)
+	return root
+
+
+func _clear_fin(p: Player) -> void:
+	if p.fin != null and is_instance_valid(p.fin):
+		p.fin.queue_free()
+	p.fin = null
+
+
+## Mordida: −3, suelta lo que llevaba y vuelve a la arena. La basura que soltó
+## queda en la orilla (no se pierde en el fondo: ya sería castigo doble).
+func _bite(p: Player) -> void:
+	penalty("Tiburón", p.position + Vector3(0, 1.5, 0), GameConfig.SHARK_BITE_PENALTY)
+	spawn_puff(p.position, Color(0.95, 0.99, 1.0), 12, 1.6)
+	var dest := _nearest_sand(p)
+	if p.carrying != null:
+		var item := p.carrying
+		p.carrying = null
+		if dest != null:
+			move_item_to_tile(item, dest)
+		else:
+			destroy_item(item)
+	if dest != null:
+		p.teleport(dest.x, dest.y, Vector2i(0, -1))
+	p.water_time = 0.0
+	_clear_fin(p)
+
+
+func _nearest_sand(p: Player) -> CellData:
+	var best: CellData = null
+	var best_d := 999.0
+	for row in world.tiles:
+		for t in row:
+			if t.kind != "floor" or t.decor != "":
+				continue
+			var d := Vector2(float(t.x - p.tile_x()), float(t.y - p.tile_y())).length()
+			if d < best_d:
+				best_d = d
+				best = t
+	return best
 
 
 ## Presión de la Fase 2: la basura del agua se hunde y el vidrio de la arena se
@@ -357,8 +457,8 @@ func _tick_decay(delta: float) -> void:
 func _make_ring() -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.24
-	torus.outer_radius = 0.30
+	torus.inner_radius = 0.20
+	torus.outer_radius = 0.26
 	torus.rings = 20
 	torus.ring_segments = 6
 	mi.mesh = torus
@@ -413,12 +513,59 @@ func _sync_item_tiles() -> void:
 		var from: CellData = m[0]
 		var it: CarryItem = m[1]
 		var dest := world.tile_at(int(m[2]), int(m[3]))
-		if dest == null or not dest.can_hold():
+		if dest == null or (not dest.can_hold() and dest.kind != "water"):
 			continue
 		if dest.item != null:
 			continue          # ocupada: se resuelve cuando el otro se mueva
 		from.item = null
 		dest.item = it
+
+
+## Polvo del impulso (y salpicadura cuando es en el agua): unas bolitas que se
+## abren y se apagan. Barato y da la sensación de velocidad.
+func spawn_puff(pos: Vector3, color: Color, count := 7, spread := 0.9) -> void:
+	for i in count:
+		var a := TAU * float(i) / float(count) + randf_range(-0.3, 0.3)
+		var mi := MeshInstance3D.new()
+		var m := SphereMesh.new()
+		m.radius = 0.10
+		m.height = 0.10
+		mi.mesh = m
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(color.r, color.g, color.b, 0.8)
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = pos + Vector3(randf_range(-0.1, 0.1), 0.07, randf_range(-0.1, 0.1))
+		world.items_root.add_child(mi)
+		puffs.append({
+			"node": mi,
+			"mat": mat,
+			"vel": Vector3(cos(a), 0.0, sin(a)) * randf_range(0.4, 1.0) * spread,
+			"life": 0.0,
+			"ttl": randf_range(0.32, 0.50),
+		})
+
+
+func _update_puffs(delta: float) -> void:
+	for pf in puffs.duplicate():
+		pf["life"] += delta
+		var node: MeshInstance3D = pf["node"]
+		if not is_instance_valid(node):
+			puffs.erase(pf)
+			continue
+		var vel: Vector3 = pf["vel"]
+		node.position += vel * delta
+		pf["vel"] = vel * 0.88
+		var k: float = 1.0 - float(pf["life"]) / float(pf["ttl"])
+		# el radio base es 0.09: la escala va de ~0.7 a 2.4 durante la vida
+		var s: float = 0.9 + 1.9 * (1.0 - k)
+		node.scale = Vector3(s, s, s)
+		(pf["mat"] as StandardMaterial3D).albedo_color.a = 0.8 * k
+		if float(pf["life"]) >= float(pf["ttl"]):
+			node.queue_free()
+			puffs.erase(pf)
 
 
 func _update_toasts(delta: float) -> void:
@@ -537,7 +684,7 @@ func stars_earned() -> int:
 ## Castigo con motivo visible. Tope: los primeros 3 del último minuto
 ## descuentan; el resto solo avisan (si no, distraerse 20 s hunde la partida
 ## sin que se pueda remontar).
-func penalty(reason: String, pos: Vector3) -> void:
+func penalty(reason: String, pos: Vector3, amount := GameConfig.PENALTY) -> void:
 	stats["penalties"] = int(stats.get("penalties", 0)) + 1
 	while not penalty_log.is_empty() and clock - float(penalty_log[0]) > GameConfig.PENALTY_WINDOW:
 		penalty_log.pop_front()
@@ -545,8 +692,8 @@ func penalty(reason: String, pos: Vector3) -> void:
 		toast(pos, "%s · tope, no descuenta" % reason, "info")
 		return
 	penalty_log.append(clock)
-	score = maxi(0, score - GameConfig.PENALTY)
-	toast(pos, "%s −%d" % [reason, GameConfig.PENALTY], "bad")
+	score = maxi(0, score - amount)
+	toast(pos, "%s −%d" % [reason, amount], "bad")
 
 
 # ------------------------------------------------------------------ reglas
@@ -616,6 +763,8 @@ func _use_bin(p: Player, tile: CellData, held: CarryItem) -> void:
 			toast(at, "La bolsa está llena: llevala al camión", "bad")
 			return
 		tile.bag.contents.append(held.type)
+		if held.origin == "water":
+			tile.bag.water.append(held.type)     # del mar: suma doble a la cuota
 		p.carrying = null
 		destroy_item(held)
 		ItemVisuals.rebuild(tile.bag)
@@ -689,8 +838,11 @@ func deliver(p: Player, bag: CarryItem) -> void:
 	var n := bag.contents.size()
 	for t in bag.contents:
 		delivered[t] = int(delivered.get(t, 0)) + 1
+	# la basura que salió del mar suma doble a la cuota: es el premio por nadar
+	for t in bag.water:
+		delivered[t] = int(delivered.get(t, 0)) + 1
 	stats["delivered"] = int(stats["delivered"]) + n
-	score += n * GameConfig.POINTS_PER_ITEM
+	score += n * GameConfig.POINTS_PER_ITEM + bag.water.size() * GameConfig.POINTS_PER_ITEM
 
 	p.carrying = null
 	destroy_item(bag)
@@ -733,6 +885,8 @@ func fill_bag(bag: CarryItem, residue: CarryItem) -> bool:
 		toast(Vector3(residue.node.position.x if residue.node else 0, 1.8, residue.node.position.z if residue.node else 0), "Bolsa llena", "bad")
 		return false
 	bag.contents.append(residue.type)
+	if residue.origin == "water":
+		bag.water.append(residue.type)
 	ItemVisuals.rebuild(bag)
 	return true
 
@@ -845,7 +999,7 @@ func _drop(item: CarryItem) -> void:
 	if body == null:
 		return
 	body.collision_layer = GameConfig.ITEM_LAYER
-	body.collision_mask = 1 | GameConfig.ITEM_LAYER
+	body.collision_mask = 1 | GameConfig.ITEM_LAYER | GameConfig.WATER_LAYER
 	body.freeze = false
 
 

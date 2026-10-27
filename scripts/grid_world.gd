@@ -535,6 +535,14 @@ func _wave_crest(x: int, y: int) -> void:
 
 
 func _build_station(t: CellData) -> void:
+	# la entrega no es una caja con un camión encima: es el camión
+	if t.station == "delivery":
+		if t.x == 0 or String(map[t.y])[t.x - 1] != t.ch:
+			_build_truck(t)
+		if t.x == 0 or String(map[t.y])[t.x - 1] != t.ch:
+			_add_station_label(t, 1.30, "ENTREGA")
+		return
+
 	var height := float(GameConfig.STATION_HEIGHT.get(t.station, 0.7))
 	var color: Color = GameConfig.STATION_COLOR.get(t.station, Color(0.5, 0.5, 0.5))
 	if t.station == "bin":
@@ -590,10 +598,6 @@ func _build_station(t: CellData) -> void:
 			bm.rotation_degrees = Vector3(0, i * 14.0, 0)
 			add_child(bm)
 
-	# el camión se dibuja UNA vez por tramo de `D` (si no, salen dos pegados)
-	if t.station == "delivery" and (t.x == 0 or String(map[t.y])[t.x - 1] != t.ch):
-		_build_truck(t)
-
 	# una sola etiqueta por tramo continuo (si no, "ENTREGAENTREGA").
 	# Se mira el mapa de texto: `tiles` todavía se está construyendo.
 	if t.x > 0 and String(map[t.y])[t.x - 1] == t.ch:
@@ -618,8 +622,24 @@ func _build_station(t: CellData) -> void:
 	add_child(label)
 
 
-## Camión de la entrega: chasis, cabina adelante, caja atrás y cuatro ruedas.
-## Se dibuja UNA vez por tramo de `D`: si no, aparecen dos camiones pegados.
+## Etiqueta flotante de una estación (una sola por tramo).
+func _add_station_label(t: CellData, y: float, text: String) -> void:
+	var label := Label3D.new()
+	label.text = text
+	label.font_size = 42
+	label.pixel_size = 0.0055
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.outline_size = 14
+	label.outline_modulate = Color(0, 0, 0, 0.85)
+	label.modulate = Color(1, 1, 1)
+	label.position = Vector3(t.x + 0.5, y, t.y + 0.5)
+	add_child(label)
+
+
+## Camión de la entrega: ruedas con llanta, chasis, caja con costillas y lona,
+## cabina con parabrisas y ventanillas, paragolpes y faros. Se dibuja UNA vez
+## por tramo de `D` (si no, salen dos camiones pegados).
 func _build_truck(t: CellData) -> void:
 	var run := 1
 	while t.x + run < w and String(map[t.y])[t.x + run] == t.ch:
@@ -627,34 +647,83 @@ func _build_truck(t: CellData) -> void:
 	var ox := float(t.x)
 	var oz := float(t.y) + 0.5
 	var length := float(run)
-	var base := body_y(t)
-	var bed := 0.16
-	var body: Color = GameConfig.STATION_COLOR["delivery"]
 
-	_box_mesh(Vector3(length - 0.06, bed, 0.98), body.darkened(0.25),
-		Vector3(ox + length * 0.5, base + bed * 0.5, oz))
-	_box_mesh(Vector3(length - 0.72, 0.58, 0.94), body.lightened(0.10),
-		Vector3(ox + 0.72 + (length - 0.72) * 0.5, base + bed + 0.29, oz))
-	_box_mesh(Vector3(0.66, 0.70, 0.90), Color(0.86, 0.42, 0.22),
-		Vector3(ox + 0.36, base + bed + 0.35, oz))
-	# parabrisas: desde el aire es lo que dice "esto es un camión"
-	_box_mesh(Vector3(0.52, 0.05, 0.72), Color(0.16, 0.24, 0.32),
-		Vector3(ox + 0.36, base + bed + 0.71, oz))
+	var tyre := Color(0.11, 0.11, 0.13)
+	var hub := Color(0.72, 0.74, 0.77)
+	var chassis := Color(0.20, 0.22, 0.26)
+	var box_col := Color(0.32, 0.40, 0.50)
+	var cab_col := Color(0.88, 0.45, 0.22)
+	var glass := Color(0.14, 0.24, 0.34)
 
+	# ruedas: tres por lado
 	var wheel := CylinderMesh.new()
 	wheel.top_radius = 0.17
 	wheel.bottom_radius = 0.17
-	wheel.height = 0.10
-	wheel.radial_segments = 12
-	for wx in [ox + 0.42, ox + length - 0.44]:
+	wheel.height = 0.12
+	wheel.radial_segments = 14
+	var hub_mesh := CylinderMesh.new()
+	hub_mesh.top_radius = 0.075
+	hub_mesh.bottom_radius = 0.075
+	hub_mesh.height = 0.13
+	hub_mesh.radial_segments = 10
+	for wx in [ox + 0.42, ox + length * 0.5, ox + length - 0.42]:
 		for side in [-1.0, 1.0]:
 			var wm := MeshInstance3D.new()
 			wm.mesh = wheel
-			wm.material_override = ItemVisuals.material(Color(0.10, 0.10, 0.11))
-			wm.position = Vector3(wx, 0.17, oz + side * 0.48)
+			wm.material_override = ItemVisuals.material(tyre)
+			wm.position = Vector3(wx, 0.17, oz + side * 0.46)
 			wm.rotation_degrees = Vector3(90, 0, 0)
 			add_child(wm)
+			var hm := MeshInstance3D.new()
+			hm.mesh = hub_mesh
+			hm.material_override = ItemVisuals.material(hub, 0.4)
+			hm.position = Vector3(wx, 0.17, oz + side * 0.46)
+			hm.rotation_degrees = Vector3(90, 0, 0)
+			add_child(hm)
 
+	# chasis
+	_box_mesh(Vector3(length - 0.06, 0.12, 0.80), chassis,
+		Vector3(ox + length * 0.5, 0.30, oz))
+
+	# caja de carga con costillas y lona arriba
+	var cargo_x := ox + 0.64
+	var cargo_w := length - 0.70
+	_box_mesh(Vector3(cargo_w, 0.66, 0.92), box_col,
+		Vector3(cargo_x + cargo_w * 0.5, 0.70, oz))
+	for i in 4:
+		var rx := cargo_x + 0.10 + (cargo_w - 0.20) * float(i) / 3.0
+		for side in [-1.0, 1.0]:
+			_box_mesh(Vector3(0.035, 0.66, 0.02), box_col.darkened(0.18),
+				Vector3(rx, 0.70, oz + side * 0.465))
+	# lona semicilíndrica
+	var tarp := CylinderMesh.new()
+	tarp.top_radius = 0.10
+	tarp.bottom_radius = 0.10
+	tarp.height = cargo_w
+	tarp.radial_segments = 12
+	var tm := MeshInstance3D.new()
+	tm.mesh = tarp
+	tm.material_override = ItemVisuals.material(Color(0.86, 0.84, 0.76))
+	tm.position = Vector3(cargo_x + cargo_w * 0.5, 1.03, oz)
+	tm.rotation_degrees = Vector3(0, 0, 90)
+	add_child(tm)
+
+	# cabina adelante
+	var cab_x := ox + 0.36
+	_box_mesh(Vector3(0.62, 0.66, 0.86), cab_col, Vector3(cab_x, 0.70, oz))
+	_box_mesh(Vector3(0.64, 0.06, 0.90), cab_col.lightened(0.18), Vector3(cab_x, 1.06, oz))
+	# parabrisas y ventanillas
+	_box_mesh(Vector3(0.05, 0.28, 0.72), glass, Vector3(ox + 0.68, 0.86, oz))
+	for side in [-1.0, 1.0]:
+		_box_mesh(Vector3(0.26, 0.22, 0.02), glass, Vector3(cab_x - 0.06, 0.86, oz + side * 0.435))
+	# paragolpes y faros
+	_box_mesh(Vector3(0.07, 0.16, 0.88), chassis, Vector3(ox + 0.03, 0.34, oz))
+	for side in [-1.0, 1.0]:
+		_box_mesh(Vector3(0.03, 0.09, 0.16), Color(0.98, 0.94, 0.72),
+			Vector3(ox + 0.02, 0.46, oz + side * 0.28))
+	# escalón trasero (la compuerta por donde se carga)
+	_box_mesh(Vector3(0.08, 0.34, 0.80), chassis,
+		Vector3(ox + length - 0.03, 0.42, oz))
 
 ## Altura de la base de una estación (el camión se apoya arriba).
 func body_y(t: CellData) -> float:
@@ -676,11 +745,14 @@ func _build_collider(t: CellData) -> void:
 	# Todos los sólidos llevan una pared ALTA: con la altura real (0.55 a 0.95)
 	# la cápsula del jugador se trepaba al borde y quedaba "encima de todo".
 	# La altura visual la da el mesh; el collider es una pared invisible.
-	# el agua es un escalón bajo: frena al jugador pero deja flotar la basura;
-	# el resto de los sólidos son paredes altas (la cápsula se trepaba encima)
-	var height := 0.20 if t.kind == "water" else 2.0
+	# El agua tiene piso propio en OTRA capa: sostiene la basura flotante pero
+	# deja nadar al jugador. El resto de los sólidos son paredes altas (con la
+	# altura real la cápsula se trepaba encima).
+	var height := 0.10 if t.kind == "water" else 2.0
 
 	var body := StaticBody3D.new()
+	if t.kind == "water":
+		body.collision_layer = GameConfig.WATER_LAYER
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(1.0, height, 1.0)

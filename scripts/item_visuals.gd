@@ -86,7 +86,7 @@ static func _make_residue_body(item: CarryItem) -> RigidBody3D:
 	body.name = "Residue"
 	body.mass = GameConfig.ITEM_MASS
 	body.collision_layer = GameConfig.ITEM_LAYER
-	body.collision_mask = 1 | GameConfig.ITEM_LAYER
+	body.collision_mask = 1 | GameConfig.ITEM_LAYER | GameConfig.WATER_LAYER
 	body.continuous_cd = true
 	body.linear_damp = 0.25
 	body.angular_damp = 0.9

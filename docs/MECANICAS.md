@@ -49,6 +49,9 @@ Aparecen si hay basura tirada. Bajan, **se llevan un residuo de la arena** y se
 van volando: esa basura está perdida. Es la presión para no dejar la playa hecha
 un desastre.
 
+La gaviota **marca con un aro rojo** el residuo que eligió, así se ve cuál hay que
+rescatar antes de que llegue (el mismo lenguaje visual que el aro del vidrio).
+
 | Jugadores | Primera gaviota | Después, cada |
 |---|---|---|
 | 1 | 55 s | 50 s |
@@ -67,6 +70,9 @@ otro barre la arena, así que la presión puede ser mayor.
 - **El cuerpo gira hacia donde va**, no hacia el eje cardinal: caminando en
   diagonal el personaje mira en diagonal. Para interactuar se sigue usando el eje
   dominante (el aviso del piso es coherente con lo que se ve).
+- **Impulso casi sin espera**: 0,35 s entre uno y otro (antes 1 s). Cada impulso
+  levanta **polvo** en la arena y **salpicadura** en el agua: es lo que hace que
+  la carrera se sienta rápida.
 
 ## El mapa
 
@@ -75,8 +81,11 @@ La playa tiene puntos de referencia (todos con primitivas):
 - **Palmeras** en los rincones, con tronco inclinado y cocos: bloquean el paso.
 - **Sombrillas** con varillas y toalla rayada (dan sombra a la basura que cae).
 - **Torre del guardavidas** con techo a cuatro aguas, escalera y bandera: bloquea.
-- **Muelle de tablas** sobre el agua, con pilotes: es el punto de referencia de la
-  orilla y en la Fase 3 va a ser el acceso al mar.
+- **Muelle de tablas** sobre el agua, con pilotes: es el punto de referencia de
+  la orilla.
+- **Camión de la entrega** con cabina, parabrisas, caja con costillas, lona,
+  ruedas con llanta y faros: es la estación de entrega, no una caja con un
+  camión encima.
 - Rocas, algas, caracoles y estrellas de mar repartidos por la arena.
 
 Los props grandes **reservan su celda**: la basura no aparece dentro de una
@@ -104,6 +113,18 @@ palmera ni debajo del muelle.
 - Una **bolsa** en el piso tiene collider propio; un residuo suelto no (se pisa).
 - El agua es sólida y se ve (orilla con espuma). En la Fase 3 pasa a ser
   transitable, con tiburón.
+
+## El mar y el tiburón (Fase 3)
+
+- **Se entra al agua nadando**: el personaje se acuesta sobre la lámina, deja
+  estela de espuma y salpica al avanzar. Nadar es **más lento** que caminar
+  (2,5 contra 4,6) y el impulso en el agua también es más corto (4,2 contra 9,2).
+- **A los 3 s** de estar en el agua aparece la **aleta** (un triángulo oscuro que
+  rodea al jugador). **A los 6 s** muerde: −3, **suelta lo que lleva** (queda en
+  la orilla) y vuelve a la arena.
+- La **basura flotante** aparece en cualquier fila del agua (una de cada tres,
+  mar adentro) y **suma doble a la cuota**: es el premio por el riesgo.
+- La basura del agua **se hunde a los 10 s** si no se rescata.
 
 ## Presión (Fase 2)
 
@@ -141,5 +162,5 @@ silueta:
 
 ## Lo que todavía no está
 
-Fase 3 (mar): agua transitable, aleta, tiburón.
+Fase 4 (mundo): NPCs que tiran basura y nivel bosque.
 Fase 4 (mundo): NPCs que tiran basura, nivel bosque.

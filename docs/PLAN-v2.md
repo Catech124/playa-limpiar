@@ -83,13 +83,30 @@ Decisiones de implementación:
 - **Mapa con props**: palmeras, sombrillas con toalla, torre del guardavidas y
   muelle. Los grandes bloquean y reservan su celda para el spawner.
 
-## Fase 3 — Mar y tiburón
+## Fase 3 — Mar y tiburón — ✅ HECHA
 
-| # | Paso |
-|---|---|
-| 3.1 | Zona de agua transitable (orilla) con profundidad |
-| 3.2 | Aleta a los 3 s, mordida a los 6 s (−3 y te devuelve a la arena) |
-| 3.3 | Basura flotante que vale +2 |
+| # | Paso | Estado |
+|---|---|---|
+| 3.1 | Zona de agua transitable con profundidad | ✅ |
+| 3.2 | Aleta a los 3 s, mordida a los 6 s (−3 y te devuelve a la arena) | ✅ |
+| 3.3 | Basura flotante que vale más | ✅ suma doble a la cuota |
+
+Decisiones de implementación:
+
+- **El agua tiene piso en otra capa** (capa 4): sostiene la basura flotante pero
+  no al jugador, así se nada sin que un escalón invisible frene el paso.
+- **Nadar es más lento** (2,5 contra 4,6) y el impulso en el agua es más corto
+  (4,2 contra 9,2): entrar al mar es una decisión, no un atajo.
+- **La animación de nado** es postura (el cuerpo se acuesta con el sombrero
+  adelante) + estela de espuma + salpicaduras al avanzar. Las brazadas existen,
+  pero el ala del sombrero tapa los hombros desde la cámara alta: lo que se lee
+  es la postura y la estela.
+- **El tiburón corre por jugador**: cada uno tiene su reloj de agua, así en co-op
+  uno puede cubrir la orilla mientras el otro nada.
+- **La basura del mar suma doble a la cuota** (no solo puntos): si no, el riesgo
+  de nadar no se pagaba en la condición de victoria.
+- **La mordida no destruye lo que llevabas**: lo deja en la orilla. Perder la
+  basura además de 3 puntos ya era castigo doble.
 
 ## Fase 4 — Mundo y vida
 
