@@ -66,6 +66,9 @@ const GULL_SPEED := 3.2
 # --- física de la basura -------------------------------------------------
 ## Capa 2: la basura es dinámica y el jugador la patea (no la choca).
 const ITEM_LAYER := 2
+## Altura de la superficie del agua sobre la arena (0). El fondo queda mucho
+## más abajo: el personaje nadando se ve hundido hasta el pecho, no en un charco.
+const WATER_LEVEL := 0.30
 ## Capa 4: el piso del agua. Frena a la basura (flota) pero NO al jugador, que
 ## ahora nada; por eso va en una capa aparte.
 const WATER_LAYER := 4

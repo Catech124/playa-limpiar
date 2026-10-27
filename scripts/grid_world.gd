@@ -19,6 +19,8 @@ var tiles: Array = []          # Array[Array[CellData]]
 var spawns: Array = []         # Array[Vector2i]
 var items_root: Node3D
 var colliders: Node3D
+var foam_line: Array = []      # segmentos de espuma de la orilla
+var _water_t := 0.0
 
 
 func build(map_rows: Array) -> void:
@@ -48,6 +50,7 @@ func build(map_rows: Array) -> void:
 
 	# los props se arman al final: necesitan marcar su celda
 	_build_decor()
+	_build_city()
 
 
 # ------------------------------------------------------------------ consultas
@@ -91,7 +94,7 @@ func free_floors_near(cx: int, cy: int, radius := 4) -> Array:
 
 func item_position(tile: CellData) -> Vector3:
 	# la basura del agua flota sobre la lámina (el agua sigue siendo sólida)
-	var y := 0.24 if tile.kind == "water" else tile.top_y() + 0.02
+	var y := GameConfig.WATER_LEVEL + 0.02 if tile.kind == "water" else tile.top_y() + 0.02
 	return Vector3(tile.x + 0.5, y, tile.y + 0.5)
 
 
@@ -184,25 +187,159 @@ func _build_ground() -> void:
 	floor_body.add_child(floor_shape)
 	add_child(floor_body)
 
-	# cuadrícula tenue: ayuda a leer distancias y da textura sin assets
-	var line_mat := ItemVisuals.material(COLORS["sand_line"], 0.0)
-	for x in range(min_x + 1, max_x + 1):
-		var lx := BoxMesh.new()
-		lx.size = Vector3(0.02, 0.02, sand_h)
-		var lm := MeshInstance3D.new()
-		lm.mesh = lx
-		lm.material_override = line_mat
-		lm.position = Vector3(x, 0.011, (min_y + max_y + 1) * 0.5)
-		add_child(lm)
+	_build_sand_patches(min_x, max_x, min_y, max_y)
+	_build_water(min_x, max_x, min_y, max_y)
 
-	for y in range(min_y + 1, max_y + 1):
-		var lz := BoxMesh.new()
-		lz.size = Vector3(sand_w, 0.02, 0.02)
-		var lm2 := MeshInstance3D.new()
-		lm2.mesh = lz
-		lm2.material_override = line_mat
-		lm2.position = Vector3((min_x + max_x + 1) * 0.5, 0.011, y)
-		add_child(lm2)
+
+## La ciudad detrás del paseo: edificación baja, vereda, baranda, faroles y el
+## cartel de la playa. No hace falta una ciudad entera: alcanza para que el
+## lugar no se sienta una isla perdida.
+func _build_city() -> void:
+	var prom_y := 0.62
+	_box_mesh(Vector3(w + 10.0, 0.30, 4.2), Color(0.77, 0.75, 0.70),
+		Vector3(w * 0.5, prom_y - 0.15, -2.1))
+
+	# baranda sobre el paseo
+	for x in range(0, w + 1, 2):
+		_box_mesh(Vector3(0.07, 0.62, 0.07), Color(0.90, 0.90, 0.87),
+			Vector3(float(x), prom_y + 0.31, -0.55))
+	_box_mesh(Vector3(w + 1.0, 0.07, 0.07), Color(0.90, 0.90, 0.87),
+		Vector3(w * 0.5, prom_y + 0.62, -0.55))
+
+	# faroles
+	for x in range(2, w, 5):
+		_box_mesh(Vector3(0.08, 1.55, 0.08), Color(0.34, 0.36, 0.40),
+			Vector3(float(x), prom_y + 0.78, -1.15))
+		_box_mesh(Vector3(0.24, 0.18, 0.24), Color(1.0, 0.95, 0.74),
+			Vector3(float(x), prom_y + 1.62, -1.15))
+
+	# edificios: alturas y colores distintos, con ventanas
+	var palette := [Color(0.95, 0.91, 0.82), Color(0.90, 0.62, 0.48),
+		Color(0.56, 0.72, 0.80), Color(0.86, 0.84, 0.78), Color(0.73, 0.79, 0.67)]
+	var xs := [0.4, 3.6, 7.0, 10.6, 14.0, 17.4, 20.6]
+	for i in xs.size():
+		var bx: float = xs[i]
+		var hh := 1.9 + 0.48 * float((i * 7) % 5)
+		var col: Color = palette[i % palette.size()]
+		_box_mesh(Vector3(2.6, hh, 2.2), col, Vector3(bx + 1.3, prom_y + hh * 0.5, -5.0))
+		_box_mesh(Vector3(2.8, 0.16, 2.4), col.darkened(0.22),
+			Vector3(bx + 1.3, prom_y + hh + 0.08, -5.0))
+		for wy in 2:
+			for wx in 3:
+				_box_mesh(Vector3(0.36, 0.44, 0.03), Color(0.16, 0.22, 0.30),
+					Vector3(bx + 0.52 + 0.78 * wx, prom_y + 0.85 + 0.80 * wy, -3.88))
+
+	# cartel de la playa, mirando a la arena
+	_box_mesh(Vector3(2.8, 0.46, 0.10), Color(0.16, 0.44, 0.33),
+		Vector3(w * 0.5, prom_y + 1.30, -0.52))
+	var sign_label := Label3D.new()
+	sign_label.text = "PLAYA LIMPIA"
+	sign_label.font_size = 56
+	sign_label.pixel_size = 0.006
+	sign_label.modulate = Color(1, 1, 1)
+	sign_label.outline_size = 10
+	sign_label.outline_modulate = Color(0, 0, 0, 0.6)
+	sign_label.position = Vector3(w * 0.5, prom_y + 1.30, -0.46)
+	add_child(sign_label)
+
+
+## Manchas de arena: se superponen elipses planas de tonos apenas distintos.
+## Antes había una cuadrícula y la playa parecía un tablero de cubos.
+func _build_sand_patches(min_x: int, max_x: int, min_y: int, max_y: int) -> void:
+	for i in 26:
+		var px := float(min_x) + 1.0 + float((i * 53) % maxi(1, max_x - min_x - 1))
+		var py := float(min_y) + 1.0 + float((i * 29) % maxi(1, max_y - min_y - 2))
+		var r := 0.8 + float((i * 17) % 7) * 0.16
+		var tone := 0.009 * float((i * 13) % 5)
+		var disc := CylinderMesh.new()
+		disc.top_radius = r
+		disc.bottom_radius = r * 1.06
+		disc.height = 0.012
+		disc.radial_segments = 14
+		var mi := MeshInstance3D.new()
+		mi.mesh = disc
+		mi.material_override = ItemVisuals.material(
+			COLORS["sand"].lightened(tone) if i % 2 == 0 else COLORS["sand"].darkened(tone))
+		mi.position = Vector3(px, 0.008, py)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+
+
+## El mar: una sola lámina animada con shader (ondula y cambia de color según
+## la profundidad) más dos franjas de espuma que van y vienen en la orilla.
+func _build_water(min_x: int, max_x: int, min_y: int, max_y: int) -> void:
+	var water_w := float(max_x - min_x + 1) + 8.0
+	var water_z0 := float(max_y) + 1.0
+	var rows := float(h) - float(max_y) - 1.0 + 4.0
+
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(water_w, rows)
+	plane.subdivide_width = 48
+	plane.subdivide_depth = 18
+	var mi := MeshInstance3D.new()
+	mi.mesh = plane
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/water.gdshader")
+	mat.set_shader_parameter("shore_z", water_z0)
+	mat.set_shader_parameter("deep_z", water_z0 + 3.0)
+	mi.material_override = mat
+	mi.position = Vector3(float(min_x) + water_w * 0.5 - 4.0 + 4.0, GameConfig.WATER_LEVEL,
+		water_z0 + rows * 0.5 - 2.0)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+	# borde de agua contra la arena (si no, la lámina flota sin espesor)
+	_box_mesh(Vector3(water_w, GameConfig.WATER_LEVEL + 0.02, 0.05),
+		Color(0.35, 0.78, 0.84), Vector3(float(min_x) + water_w * 0.5, GameConfig.WATER_LEVEL * 0.5, water_z0))
+	var lip := _box_mesh(Vector3(water_w, 0.02, 0.05), Color(0.72, 0.94, 0.96),
+		Vector3(float(min_x) + water_w * 0.5, GameConfig.WATER_LEVEL + 0.005, water_z0 + 0.02))
+	lip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	# espuma de la orilla: una línea ondulada que respira (dos pasadas)
+	_build_foam_line(water_z0 + 0.08, 0.15, 0.85)
+	_build_foam_line(water_z0 + 0.46, 0.10, 0.45)
+
+
+## Una línea de espuma hecha de segmentos: así se puede ondular y avanzar como
+## la rompiente (dos cajas rectas parecían una raya pintada).
+func _build_foam_line(z0: float, height: float, alpha: float) -> void:
+	var step := 0.62
+	var x := -6.0
+	var idx := 0
+	while x < float(w) + 6.0:
+		var foam := BoxMesh.new()
+		foam.size = Vector3(step * 1.2, 0.02, height)
+		var mi := MeshInstance3D.new()
+		mi.mesh = foam
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.96, 0.99, 1.0, alpha)
+		mi.material_override = mat
+		mi.position = Vector3(x, GameConfig.WATER_LEVEL + 0.012, z0)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		foam_line.append({"node": mi, "mat": mat, "x": x, "z0": z0, "ph": float(idx) * 0.8,
+			"alpha": alpha})
+		x += step
+		idx += 1
+
+
+## El agua se anima sola: las franjas de espuma van y vienen de la orilla y el
+## shader hace las ondas y el brillo.
+func _process(delta: float) -> void:
+	_water_t += delta
+	for f in foam_line:
+		var node: MeshInstance3D = f["node"]
+		if not is_instance_valid(node):
+			continue
+		var ph: float = f["ph"]
+		var x: float = f["x"]
+		var k := sin(_water_t * 1.15 + ph) * 0.5 + 0.5
+		# la rompiente avanza y retrocede, y ondula a lo largo de la playa
+		node.position.z = float(f["z0"]) + sin(_water_t * 1.15 + ph) * 0.10 			+ sin(_water_t * 0.55 + x * 0.5) * 0.06
+		var mat := node.material_override as StandardMaterial3D
+		mat.albedo_color.a = float(f["alpha"]) * (0.55 + 0.45 * k)
 
 
 func _build_decor() -> void:
@@ -476,62 +613,38 @@ func _pier(cx: int, from_y: int, to_y: int) -> void:
 func _build_visual(t: CellData) -> void:
 	match t.kind:
 		"water":
-			# se mira el MAPA, no `tiles`: durante el build la fila de abajo
-			# todavía no existe
-			var shallow := t.y == 0 or String(map[t.y - 1])[t.x] != "~"
-			# la primera fila es turquesa (baja) y el resto azul profundo:
-			# el degradé es lo que hace que se lea como mar y no como piso
-			var wcol: Color = Color(0.19, 0.60, 0.73) if shallow else COLORS["ocean"]
-			var wbox := BoxMesh.new()
-			wbox.size = Vector3(1.0, 0.10, 1.0)
-			var wm := MeshInstance3D.new()
-			wm.mesh = wbox
-			wm.material_override = ItemVisuals.material(wcol)
-			wm.position = Vector3(t.x + 0.5, 0.05, t.y + 0.5)
-			wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(wm)
-			if shallow:
-				_foam(t.x, t.y)
-			elif (t.x * 7 + t.y * 13) % 3 == 0:
-				# crestas sueltas mar adentro (deterministas: no titilan al reiniciar)
-				_wave_crest(t.x, t.y)
+			pass        # el mar es una sola lámina animada (ver _build_water)
 		"floor":
 			# arena mojada donde la playa se mete al mar
 			if t.y + 1 < h and String(map[t.y + 1])[t.x] == "~":
 				_box_mesh(Vector3(1.0, 0.02, 0.34), Color(0.74, 0.62, 0.42),
 					Vector3(t.x + 0.5, 0.013, t.y + 0.84 + 0.03 * sin(t.x * 1.3)))
 		"rock":
-			var box := BoxMesh.new()
-			box.size = Vector3(0.96, 0.8, 0.96)
-			var mi := MeshInstance3D.new()
-			mi.mesh = box
-			mi.material_override = ItemVisuals.material(COLORS["rock"])
-			mi.position = Vector3(t.x + 0.5, 0.4, t.y + 0.5)
-			mi.rotation_degrees = Vector3(0, (t.x * 37 + t.y * 17) % 20 - 10, 0)
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(mi)
+			# rocas naturales: varias piedras superpuestas, con tonos y tamaños
+			# distintos. Antes era un cubo gris por celda y parecía una caja.
+			var seed := t.x * 31 + t.y * 17
+			for i in 4:
+				var sx := 0.55 + 0.28 * float((seed + i * 7) % 5)
+				var sz := 0.50 + 0.26 * float((seed + i * 11) % 5)
+				var sh := 0.50 + 0.24 * float((seed + i * 5) % 5)
+				var sphere := SphereMesh.new()
+				sphere.radius = 0.5
+				sphere.height = 1.0
+				sphere.radial_segments = 9
+				sphere.rings = 5
+				var mi := MeshInstance3D.new()
+				mi.mesh = sphere
+				var tone := Color(0.47, 0.45, 0.42).lightened(0.045 * float((seed + i) % 4))
+				mi.material_override = ItemVisuals.material(tone)
+				mi.position = Vector3(
+					t.x + 0.5 + sin(float(seed + i * 3)) * 0.26,
+					sh * 0.30,
+					t.y + 0.5 + cos(float(seed + i * 5)) * 0.26)
+				mi.scale = Vector3(sx, sh, sz)
+				mi.rotation.y = float((seed + i * 13) % 360) * 0.01745
+				add_child(mi)
 		"station":
 			_build_station(t)
-
-
-## Espuma de la orilla: dos franjas (la rompiente y su estela) en la primera
-## fila de agua. Sin esto el mar se lee como una plancha azul.
-func _foam(x: int, y: int) -> void:
-	# el serrucho de la rompiente: sin esto la orilla es una regla
-	var wob := 0.035 * sin(x * 1.3) + 0.015 * sin(x * 2.9)
-	_box_mesh(Vector3(1.0, 0.03, 0.16 + wob), Color(0.96, 0.99, 0.99),
-		Vector3(x + 0.5, 0.115, y + 0.09 + wob * 0.5))
-	_box_mesh(Vector3(1.0, 0.02, 0.06), Color(0.82, 0.94, 0.96),
-		Vector3(x + 0.5, 0.105, y + 0.32 + wob))
-
-
-## Cresta suelta mar adentro. La posición sale de (x,y): es decorativa pero
-## estable, así el mar no "hierve" cada vez que se reconstruye el mundo.
-func _wave_crest(x: int, y: int) -> void:
-	var ox := float((x * 37 + y * 11) % 40) / 100.0 - 0.20
-	var oz := float((x * 17 + y * 29) % 30) / 100.0 - 0.15
-	_box_mesh(Vector3(0.42, 0.02, 0.06), Color(0.45, 0.79, 0.88),
-		Vector3(x + 0.5 + ox, 0.105, y + 0.5 + oz))
 
 
 func _build_station(t: CellData) -> void:
@@ -748,7 +861,7 @@ func _build_collider(t: CellData) -> void:
 	# El agua tiene piso propio en OTRA capa: sostiene la basura flotante pero
 	# deja nadar al jugador. El resto de los sólidos son paredes altas (con la
 	# altura real la cápsula se trepaba encima).
-	var height := 0.10 if t.kind == "water" else 2.0
+	var height := GameConfig.WATER_LEVEL if t.kind == "water" else 2.0
 
 	var body := StaticBody3D.new()
 	if t.kind == "water":

@@ -75,7 +75,10 @@ para rescatarlo.
 
 La playa tiene **palmeras, sombrillas con toalla, la torre del guardavidas y un
 muelle** sobre el agua. Los props grandes bloquean el paso y reservan su celda:
-la basura no aparece dentro de ellos.
+la basura no aparece dentro de ellos. Detrás del paseo se ve la **ciudad**
+(edificios, faroles y el cartel de la playa): el lugar no es una isla perdida.
+La arena no tiene cuadrícula y el **mar es una lámina animada** con shader que
+ondula y cambia de color según la profundidad.
 
 ![mapa](docs/captura-mapa.png)
 

@@ -343,7 +343,7 @@ func _tick_water(delta: float) -> void:
 				# la aleta rodea al jugador: cuanto más tiempo, más cerca
 				var a: float = float(p.water_time) * 1.7
 				var r: float = maxf(0.55, 1.5 - (float(p.water_time) - GameConfig.SHARK_FIN_TIME) * 0.25)
-				p.fin.position = p.position + Vector3(cos(a) * r, 0.02, sin(a) * r)
+				p.fin.position = p.position + Vector3(cos(a) * r, GameConfig.WATER_LEVEL - 0.02, sin(a) * r)
 				p.fin.rotation.y = -a
 			if p.water_time >= GameConfig.SHARK_BITE_TIME:
 				_bite(p)

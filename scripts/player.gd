@@ -215,7 +215,7 @@ func _physics_process(delta: float) -> void:
 		# polvo en la arena, salpicadura en el agua: el impulso tiene que verse
 		if game != null:
 			if swimming:
-				game.spawn_puff(position + Vector3(0, 0.05, 0), Color(0.85, 0.95, 1.0), 8, 1.1)
+				game.spawn_puff(position + Vector3(0, GameConfig.WATER_LEVEL, 0), Color(0.85, 0.95, 1.0), 8, 1.1)
 			else:
 				game.spawn_puff(position, Color(0.88, 0.82, 0.66), 8, 1.0)
 	_dash_pressed = false
@@ -290,7 +290,7 @@ func _update_swim(delta: float) -> void:
 	if swimming and velocity.length() > 0.2 and _splash_cd <= 0.0:
 		_splash_cd = 0.30
 		if game != null:
-			game.spawn_puff(position + Vector3(0, 0.04, 0), Color(0.94, 0.99, 1.0), 3, 0.55)
+			game.spawn_puff(position + Vector3(0, GameConfig.WATER_LEVEL - 0.02, 0), Color(0.94, 0.99, 1.0), 3, 0.55)
 
 
 ## Espuma: sin esto el personaje parece flotar sobre una plancha azul.
@@ -310,7 +310,7 @@ func _ensure_wake() -> void:
 	m.albedo_color = Color(0.95, 0.99, 1.0, 0.55)
 	wake.material_override = m
 	wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	wake.position = Vector3(0, 0.11, 0.16)
+	wake.position = Vector3(0, GameConfig.WATER_LEVEL + 0.015, 0.16)
 	wake.visible = false
 	add_child(wake)
 
@@ -363,10 +363,10 @@ func _animate(delta: float) -> void:
 		else:
 			# brazada abierta: los brazos salen a los costados y reman alternados,
 			# que desde la cámara alta es lo que se lee como nadar
-			# los brazos van adelante y abiertos: el ala del sombrero tapa los
-			# hombros, así que la brazada tiene que salir por delante
-			if arm_l: arm_l.rotation = Vector3(-2.2 + stroke * 0.55, 0.0, 0.75)
-			if arm_r: arm_r.rotation = Vector3(-2.2 - stroke * 0.55, 0.0, -0.75)
+			# brazos abiertos a los costados (el ala del sombrero tapa los
+			# hombros: si la brazada no sale de costado, no se ve)
+			if arm_l: arm_l.rotation = Vector3(-1.0 + stroke * 0.55, 0.0, 1.25)
+			if arm_r: arm_r.rotation = Vector3(-1.0 - stroke * 0.55, 0.0, -1.25)
 	elif carry:
 		# brazos adelante y un poco abiertos, como sosteniendo la caja
 		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, 0.35)
@@ -400,8 +400,10 @@ func _animate(delta: float) -> void:
 	# el cuerpo se acuesta en el agua y flota: inclinado hacia adelante, un poco
 	# corrido para que quede centrado en la celda (el origen del modelo son los pies)
 	_body_mesh.rotation.x = swim * 1.42
+	# el cuerpo rola con la brazada: es lo que hace que se lea el estilo libre
+	_body_mesh.rotation.z = sin(Time.get_ticks_msec() / 1000.0 * 6.0) * 0.22 * swim
 	_body_mesh.position.z = -0.34 * swim
-	var target_y := 0.12 * swim
+	var target_y := (GameConfig.WATER_LEVEL - 0.09) * swim
 	if moving and swim < 0.35:
 		target_y += absf(sin(t)) * 0.025
 	_body_mesh.position.y = lerpf(_body_mesh.position.y, target_y, minf(1.0, delta * 12.0))

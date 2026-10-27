@@ -372,6 +372,12 @@ func _run() -> void:
 	check("sin basura tirada no viene ninguna gaviota", not main.gulls.spawn())
 
 	# la gaviota avisa cuál va a robar con un aro rojo
+	# (playa vacía: la víctima tiene que ser la única candidata)
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
 	var mark_victim: CarryItem = main.spawner.spawn_one("pet")
 	main.gulls.list.clear()
 	main.gulls.spawn()

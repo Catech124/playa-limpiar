@@ -76,7 +76,19 @@ otro barre la arena, así que la presión puede ser mayor.
 
 ## El mapa
 
-La playa tiene puntos de referencia (todos con primitivas):
+La playa está **conectada a la ciudad**: detrás del paseo hay edificios bajos con
+ventanas, faroles, una baranda y el cartel «PLAYA LIMPIA». No es una ciudad
+entera, solo lo justo para que el lugar no se sienta una isla perdida.
+
+- **Arena continua**: no hay cuadrícula. La textura son manchas de duna (elipses
+  planas de tonos apenas distintos) y la orilla de arena mojada.
+- **Rocas naturales**: el borde son grupos de piedras superpuestas de distinto
+  tamaño y tono (antes era un cubo gris por celda).
+- **Mar animado**: una sola lámina con shader. Ondula con `TIME`, cambia de
+  turquesa a azul según la profundidad y deja ver el fondo (alfa). La espuma de
+  la orilla son segmentos que avanzan y retroceden como la rompiente.
+
+Puntos de referencia (todos con primitivas):
 
 - **Palmeras** en los rincones, con tronco inclinado y cocos: bloquean el paso.
 - **Sombrillas** con varillas y toalla rayada (dan sombra a la basura que cae).
@@ -116,8 +128,9 @@ palmera ni debajo del muelle.
 
 ## El mar y el tiburón (Fase 3)
 
-- **Se entra al agua nadando**: el personaje se acuesta sobre la lámina, deja
-  estela de espuma y salpica al avanzar. Nadar es **más lento** que caminar
+- **Se entra al agua nadando**: el personaje queda **hundido hasta el pecho**
+  (el agua está a 0,30 y el cuerpo a 0,21), se acuesta sobre la lámina, rola con
+  la brazada, deja estela de espuma y salpica al avanzar. Nadar es **más lento** que caminar
   (2,5 contra 4,6) y el impulso en el agua también es más corto (4,2 contra 9,2).
 - **A los 3 s** de estar en el agua aparece la **aleta** (un triángulo oscuro que
   rodea al jugador). **A los 6 s** muerde: −3, **suelta lo que lleva** (queda en
