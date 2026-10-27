@@ -64,6 +64,9 @@ func spawn_one(force_type := "") -> CarryItem:
 	var item := CarryItem.residue(t)
 	ItemVisuals.build(item)
 	game.move_item_to_tile(item, tile)
+	# cae desde un poco más arriba y se acuesta sola: la basura no aparece
+	# plantada como una vela
+	game.drop_from_above(item)
 	game.stats["spawned"] = int(game.stats.get("spawned", 0)) + 1
 	return item
 

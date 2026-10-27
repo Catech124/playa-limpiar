@@ -49,6 +49,10 @@ del atardecer:
 3. Cuando la bolsa tiene **4 residuos** se marca llena: **retirala** y llevala.
 4. **Entregala en el camión**: cada residuo suma a su barra de la cuota.
 
+La basura es **física**: cae al aparecer, queda acostada y se puede **patear**.
+
+![basura pateada](docs/captura-patear.png)
+
 ![residuos](docs/captura-items.png)
 
 Las **gaviotas** se llevan la basura que dejás tirada (con un jugador
@@ -82,7 +86,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   62 comprobaciones de reglas (headless)
+tests/headless_test.gd   68 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -127,11 +131,12 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**62 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**68 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
-colisiones (contenedor, bolsa en el piso, muro, mar), rig y animación.
+colisiones (contenedor, bolsa en el piso, muro, mar), física de la basura
+(cae acostada, se patea, se congela en la mano), rig y animación.
 Sale con código 0 solo si pasa todo.
 
 Capturas (necesita display; funciona con Xvfb):
@@ -141,6 +146,7 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 ```
 
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
+`--kick` (basura pateada),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 

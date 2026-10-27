@@ -128,6 +128,7 @@ func _advance(g: Gull, delta: float) -> void:
 				# se lleva el residuo: no lo deja caer en otro lado
 				g.carry = g.target.item
 				g.target.item = null
+				game._hold(g.carry)      # congelado en el pico: si no, se cae
 				game.parent_item(g.carry.node, g.node)
 				g.carry.node.position = Vector3(0, -0.2, 0)
 				g.carry.node.scale = Vector3(0.7, 0.7, 0.7)

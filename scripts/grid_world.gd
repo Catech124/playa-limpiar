@@ -167,6 +167,18 @@ func _build_ground() -> void:
 	sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(sm)
 
+	# piso físico: la basura es un cuerpo rígido y necesita dónde apoyarse
+	# (el jugador sigue clavado a y=0 a mano, no salta ni cae)
+	var floor_body := StaticBody3D.new()
+	floor_body.name = "Floor"
+	var floor_shape := CollisionShape3D.new()
+	var floor_box := BoxShape3D.new()
+	floor_box.size = Vector3(float(w) + 4.0, 1.0, float(h) + 4.0)
+	floor_shape.shape = floor_box
+	floor_shape.position = Vector3(w * 0.5, -0.5, h * 0.5)
+	floor_body.add_child(floor_shape)
+	add_child(floor_body)
+
 	# cuadrícula tenue: ayuda a leer distancias y da textura sin assets
 	var line_mat := ItemVisuals.material(COLORS["sand_line"], 0.0)
 	for x in range(min_x + 1, max_x + 1):

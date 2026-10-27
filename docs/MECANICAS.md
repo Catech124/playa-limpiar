@@ -59,6 +59,19 @@ embolsa no hay manos para cubrir la playa, y con el ritmo anterior ganarle a una
 gaviota era cuestión de suerte. Con dos, uno embolsa cerca del contenedor y el
 otro barre la arena, así que la presión puede ser mayor.
 
+## Física de la basura
+
+- Cada residuo es un **cuerpo rígido** (cápsula): se puede **patear**, rueda y
+  se acomoda. El jugador no lo choca (no frena el paso): lo empuja.
+- Al aparecer **cae desde 0.55 m**, inclinado y girando, así que queda acostado:
+  la basura no aparece plantada como una vela.
+- En la mano se **congela** y pierde colisión (si no, empujaría al jugador y se
+  caería sola). Lo mismo cuando la gaviota se la lleva.
+- El jugador lleva lo que tiene **en las manos**, entre los dos guantes (pose de
+  cargar), no flotando al costado.
+- La celda lógica sigue al cuerpo: si una botella rueda dos celdas, se levanta
+  donde está, no donde apareció.
+
 ## Colisiones
 
 - Todas las celdas sólidas llevan una **pared invisible de 2 m**: con la altura
@@ -77,6 +90,8 @@ silueta:
 - **Botella PET**: cuerpo ancho, etiqueta blanca y tapa azul oscura.
 - **Botella de vidrio**: verde, cuello largo y etiqueta crema.
 - **Lata**: metal con banda roja y anilla en la tapa.
+- **Materiales**: el vidrio es translúcido (alfa + borde iluminado), el metal es
+  satinado (metallic 0.7 con rugosidad baja) y el PET es plástico opaco.
 - **Bolsa colgada**: va **expandida como forro**. El plástico cubre el marco de
   la boca, cuelga por fuera del contenedor y la basura asoma desde adentro. En
   la mano es una bolsa chica atada, que se lleva al costado para no tapar al

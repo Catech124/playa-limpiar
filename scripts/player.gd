@@ -131,9 +131,11 @@ func _add_outline(root: Node) -> void:
 	add_child(rm)
 
 	carry_anchor = Node3D.new()
-	# al costado, no al pecho: adelante el ítem quedaba tapado por el sombrero
-	# (y una bolsa llena parecía una bata cubriendo al personaje)
-	carry_anchor.position = Vector3(0.44, 0.58, 0.22)
+	# EN LAS MANOS: con la pose de cargar (brazos a -1.15 rad) los guantes
+	# quedan en (±0.09, 0.39, 0.28) en el espacio del cuerpo, así que el punto
+	# medio es donde el personaje sostiene lo que lleva. Antes colgaba al
+	# costado y los objetos aparecían flotando al lado de las manos.
+	carry_anchor.position = Vector3(0.0, 0.40, 0.28)
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 

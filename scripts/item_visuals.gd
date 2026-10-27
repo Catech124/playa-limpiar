@@ -3,36 +3,112 @@ extends RefCounted
 ## Geometría de los ítems. Sin assets: primitivas y color.
 ##
 ## Se mira todo desde la cámara alta (~12 unidades), así que la basura tiene que
-## reconocerse por SILUETA y color: un cilindro pelado no dice "botella".
-##   PET    → cuerpo ancho, etiqueta blanca, tapa oscura
-##   vidrio → botellón verde, cuello largo, etiqueta crema
-##   lata   → metal con banda de color y anilla
+## reconocerse por SILUETA y MATERIAL:
+##   PET    → plástico azul con etiqueta blanca y tapa oscura
+##   vidrio → botellón verde translúcido, cuello largo y etiqueta crema
+##   lata   → metal brillante con banda de color y anilla
 ##
 ## La bolsa tiene DOS formas: en la mano es un cono atado; colgada en un
 ## contenedor va EXPANDIDA como forro, con el borde doblado sobre la boca y lo
 ## que lleva adentro a la vista, como una bolsa de basura de verdad.
 
+## Alturas reales de cada pieza (el origen del dibujo es la base).
+const RESIDUE_HEIGHT := {"pet": 0.356, "vidrio": 0.417, "lata": 0.236}
+const RESIDUE_RADIUS := {"pet": 0.100, "vidrio": 0.095, "lata": 0.082}
 
+
+static func residue_height(type: String) -> float:
+	return float(RESIDUE_HEIGHT.get(type, 0.35))
+
+
+static func residue_radius(type: String) -> float:
+	return float(RESIDUE_RADIUS.get(type, 0.10))
+
+
+# ------------------------------------------------------------------ materiales
 static func material(c: Color, metallic := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.metallic = metallic
 	# el metal con la rugosidad del plástico se lee como plástico plateado
-	m.roughness = lerpf(0.8, 0.30, metallic)
+	m.roughness = lerpf(0.8, 0.18, metallic)
+	if metallic > 0.3:
+		m.metallic_specular = 1.0
 	return m
 
 
+## Vidrio: se ve el fondo a través y el borde brilla. En el renderer de
+## compatibilidad no hay refracción, así que el efecto se arma con alfa, borde
+## iluminado (rim) y rugosidad casi cero.
+static func glass_material(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(c.r * 0.9, c.g * 0.95, c.b * 0.9, 0.60)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.roughness = 0.05
+	m.metallic_specular = 0.95
+	m.rim_enabled = true
+	m.rim = 0.6
+	m.rim_tint = 0.5
+	# que no proyecte una sombra sólida de botella opaca
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
+
+## Metal: con metallic 1 el color sale casi todo del reflejo del cielo y la lata
+## queda azul oscura; por eso va satinada (0.7) con la rugosidad baja, que es
+## como se lee una lata de aluminio con brillo.
+static func metal_material(c: Color, polished := 1.0, metallic := 0.7) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c.lightened(0.12)
+	m.metallic = metallic
+	m.metallic_specular = 1.0
+	m.roughness = 0.24 + (1.0 - polished) * 0.26
+	return m
+
+
+# ------------------------------------------------------------------ construcción
 static func build(item: CarryItem) -> Node3D:
-	var root := Node3D.new()
+	var root: Node3D
+	if item.is_residue():
+		root = _make_residue_body(item)
+	else:
+		root = Node3D.new()
 	item.node = root
 	rebuild(item)
 	return root
+
+
+## La basura es un cuerpo rígido: se puede patear, rueda y se acuesta sola.
+## El origen queda en la BASE del dibujo y la cápsula en el medio, así el cuerpo
+## gira sobre su centro de masa (como una botella de verdad).
+static func _make_residue_body(item: CarryItem) -> RigidBody3D:
+	var body := RigidBody3D.new()
+	body.name = "Residue"
+	body.mass = GameConfig.ITEM_MASS
+	body.collision_layer = GameConfig.ITEM_LAYER
+	body.collision_mask = 1 | GameConfig.ITEM_LAYER
+	body.continuous_cd = true
+	body.linear_damp = 0.25
+	body.angular_damp = 0.9
+
+	var h := residue_height(item.type)
+	var shape := CollisionShape3D.new()
+	shape.name = "Shape"
+	var cap := CapsuleShape3D.new()
+	cap.radius = residue_radius(item.type)
+	cap.height = maxf(h, cap.radius * 2.0 + 0.01)
+	shape.shape = cap
+	shape.position = Vector3(0, h * 0.5, 0)
+	body.add_child(shape)
+	return body
 
 
 static func rebuild(item: CarryItem) -> void:
 	if item.node == null:
 		return
 	for c in item.node.get_children():
+		if c is CollisionShape3D:
+			continue          # la física no se toca: solo se redibuja la geometría
 		item.node.remove_child(c)
 		c.queue_free()
 	if item.is_bag():
@@ -45,9 +121,13 @@ static func rebuild(item: CarryItem) -> void:
 
 
 static func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos := Vector3.ZERO, metallic := 0.0) -> MeshInstance3D:
+	return _mesh_mat(parent, mesh, material(color, metallic), pos)
+
+
+static func _mesh_mat(parent: Node3D, mesh: Mesh, mat: Material, pos := Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
-	mi.material_override = material(color, metallic)
+	mi.material_override = mat
 	mi.position = pos
 	parent.add_child(mi)
 	return mi
@@ -84,28 +164,69 @@ static func pet_bottle() -> Node3D:
 	return root
 
 
-## Botella de vidrio: más alta, cuello largo, etiqueta crema.
+## Botella de vidrio: verde translúcido, cuello largo, etiqueta crema.
 static func glass_bottle() -> Node3D:
 	var root := Node3D.new()
 	var c: Color = GameConfig.RESIDUES["vidrio"]["color"]
 	var lab: Color = GameConfig.RESIDUES["vidrio"]["accent"]
-	_cyl(root, 0.086, 0.094, 0.20, c, Vector3(0, 0.10, 0))                   # cuerpo
-	_cyl(root, 0.033, 0.086, 0.11, c, Vector3(0, 0.255, 0))                  # hombro
-	_cyl(root, 0.031, 0.031, 0.085, c, Vector3(0, 0.3525, 0))                # cuello
-	_cyl(root, 0.040, 0.040, 0.022, c.darkened(0.35), Vector3(0, 0.406, 0))  # boca
+	var glass := glass_material(c)
+	var dark := glass_material(c.darkened(0.35))
+
+	var body := CylinderMesh.new()
+	body.top_radius = 0.086
+	body.bottom_radius = 0.094
+	body.height = 0.20
+	body.radial_segments = 16
+	_mesh_mat(root, body, glass, Vector3(0, 0.10, 0))                        # cuerpo
+	var shoulder := CylinderMesh.new()
+	shoulder.top_radius = 0.033
+	shoulder.bottom_radius = 0.086
+	shoulder.height = 0.11
+	shoulder.radial_segments = 16
+	_mesh_mat(root, shoulder, glass, Vector3(0, 0.255, 0))                   # hombro
+	var neck := CylinderMesh.new()
+	neck.top_radius = 0.031
+	neck.bottom_radius = 0.031
+	neck.height = 0.085
+	neck.radial_segments = 14
+	_mesh_mat(root, neck, glass, Vector3(0, 0.3525, 0))                      # cuello
+	var lip := CylinderMesh.new()
+	lip.top_radius = 0.040
+	lip.bottom_radius = 0.040
+	lip.height = 0.022
+	lip.radial_segments = 14
+	_mesh_mat(root, lip, dark, Vector3(0, 0.406, 0))                         # boca
 	_cyl(root, 0.095, 0.095, 0.075, lab, Vector3(0, 0.095, 0))               # etiqueta
 	return root
 
 
-## Lata: metal, banda de color y anilla. Sin la banda parece un tarro.
+## Lata: metal brillante, banda de color y anilla.
 static func metal_can() -> Node3D:
 	var root := Node3D.new()
 	var c: Color = GameConfig.RESIDUES["lata"]["color"]
 	var lab: Color = GameConfig.RESIDUES["lata"]["accent"]
-	_cyl(root, 0.080, 0.080, 0.21, c, Vector3(0, 0.105, 0), 0.55)            # cuerpo
+	var steel := metal_material(c, 0.75)
+	var shine := metal_material(c.lightened(0.25), 1.0)
+
+	var body := CylinderMesh.new()
+	body.top_radius = 0.080
+	body.bottom_radius = 0.080
+	body.height = 0.21
+	body.radial_segments = 16
+	_mesh_mat(root, body, steel, Vector3(0, 0.105, 0))                       # cuerpo
 	_cyl(root, 0.082, 0.082, 0.105, lab, Vector3(0, 0.115, 0))               # banda
-	_cyl(root, 0.073, 0.073, 0.020, c.lightened(0.20), Vector3(0, 0.220, 0), 0.75)  # tapa
-	_cyl(root, 0.070, 0.070, 0.012, c.darkened(0.12), Vector3(0, 0.006, 0), 0.55)   # fondo
+	var lid := CylinderMesh.new()
+	lid.top_radius = 0.073
+	lid.bottom_radius = 0.073
+	lid.height = 0.020
+	lid.radial_segments = 16
+	_mesh_mat(root, lid, shine, Vector3(0, 0.220, 0))                        # tapa
+	var base := CylinderMesh.new()
+	base.top_radius = 0.070
+	base.bottom_radius = 0.070
+	base.height = 0.012
+	base.radial_segments = 16
+	_mesh_mat(root, base, steel, Vector3(0, 0.006, 0))                       # fondo
 	var tab := BoxMesh.new()
 	tab.size = Vector3(0.055, 0.008, 0.024)
 	_mesh(root, tab, c.darkened(0.28), Vector3(0.012, 0.232, 0), 0.7)        # anilla
@@ -139,8 +260,7 @@ static func _bag_color(item: CarryItem) -> Color:
 static func _build_bag(item: CarryItem) -> void:
 	var n := item.contents.size()
 	var body_color := _bag_color(item)
-	# más chica que la bolsa del contenedor: en la mano va comprimida y, si no,
-	# tapaba al personaje entero (parecía una bata)
+	# más chica que la bolsa del contenedor: en la mano va comprimida
 	var h_body := 0.28 + 0.02 * n
 	var top := 0.14 + h_body * 0.5
 
@@ -231,7 +351,6 @@ static func _build_bin_liner(item: CarryItem) -> void:
 	lip.rings = 20
 	lip.ring_segments = 6
 	_mesh(item.node, lip, plastic, Vector3(0, mouth_y, 0))
-
 
 	# la basura que ya tiene adentro: se apila y asoma más cuanto más llena está
 	var slots := [Vector3(-0.16, 0, -0.14), Vector3(0.16, 0, -0.14),

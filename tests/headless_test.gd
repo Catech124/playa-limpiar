@@ -357,6 +357,51 @@ func _run() -> void:
 	check("entre gaviota y gaviota pasa más de medio minuto con un jugador",
 		solo_gap >= 40.0, "cada %.0f s" % solo_gap)
 
+	# --- física de la basura ---------------------------------------------
+	main.start_game(1)
+	await frames(2)
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
+
+	var dropped: CarryItem = main.spawner.spawn_one("pet")
+	var drop_body := dropped.node as RigidBody3D
+	check("la basura es un cuerpo rígido (se puede patear)", drop_body != null)
+	var y0 := drop_body.global_position.y
+	check("aparece desde un poco arriba", y0 > 0.20, "y=%.2f" % y0)
+	for i in 100:
+		await get_tree().physics_frame
+	check("no se hunde en la arena",
+		drop_body.global_position.y < 0.35, "y=%.2f" % drop_body.global_position.y)
+	var up := drop_body.global_transform.basis.y.y
+	check("al caer queda acostada (no plantada)", absf(up) < 0.75, "up.y=%.2f" % up)
+
+	# patear: el jugador camina sobre la basura y la corre
+	var kick_me: CarryItem = main.spawner.spawn_one("lata")
+	for i in 80:
+		await get_tree().physics_frame
+	p = main.players[0]
+	p.teleport(10, 6, Vector2i(0, -1))
+	main.move_item_to_tile(kick_me, main.world.tile_at(10, 5))
+	main.drop_from_above(kick_me)
+	for i in 60:
+		await get_tree().physics_frame
+	var kicked_from := (kick_me.node as Node3D).global_position
+	for i in 30:
+		p.velocity = Vector3(0.0, 0.0, -GameConfig.PLAYER_SPEED)
+		p.move_and_slide()
+		await get_tree().physics_frame
+	var kicked_to := (kick_me.node as Node3D).global_position
+	check("la basura se puede patear",
+		kicked_to.distance_to(kicked_from) > 0.20,
+		"se movió %.2f" % kicked_to.distance_to(kicked_from))
+
+	main.move_item_to_player(kick_me, p)
+	check("en la mano el residuo queda sin física",
+		(kick_me.node as RigidBody3D).freeze and (kick_me.node as RigidBody3D).collision_layer == 0)
+
 	# --- avisos contextuales ---------------------------------------------
 	main.start_game(1)
 	await frames(2)

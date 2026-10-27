@@ -40,6 +40,14 @@ const GULL_FIRST_DELAY := {1: 55.0, 2: 30.0}
 const GULL_INTERVAL := {1: 50.0, 2: 34.0}
 const GULL_SPEED := 3.2
 
+# --- física de la basura -------------------------------------------------
+## Capa 2: la basura es dinámica y el jugador la patea (no la choca).
+const ITEM_LAYER := 2
+## Altura desde la que cae cada residuo al aparecer (baja: se ve caer, no
+## llueve basura del cielo).
+const ITEM_DROP_HEIGHT := 0.55
+const ITEM_MASS := 0.30
+
 # --- residuos ------------------------------------------------------------
 ## `order` fija el orden de las barras de cuota en el HUD.
 const RESIDUE_ORDER := ["pet", "vidrio", "lata"]

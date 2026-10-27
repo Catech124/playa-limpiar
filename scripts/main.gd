@@ -35,6 +35,7 @@ var player_count := 1
 var sandbox := false
 
 var toasts: Array = []
+var _sync_cd := 0.0
 var flying: Array = []
 
 
@@ -302,11 +303,42 @@ func _process(delta: float) -> void:
 	_update_toasts(delta)
 	_update_light()
 
+	# la basura rueda: la celda lógica tiene que seguir al cuerpo
+	_sync_cd -= delta
+	if _sync_cd <= 0.0:
+		_sync_cd = 0.12
+		_sync_item_tiles()
+
 	if not sandbox:
 		if quota_met():
 			_finish(true)
 		elif time_left <= 0.0:
 			_finish(false)
+
+
+## La basura es física: si rueda dos celdas, la celda donde estaba quedaría
+## apuntando a una botella que ya no está (y no se podría levantar del piso
+## nuevo). Se reasigna la celda siguiendo la posición real del cuerpo.
+func _sync_item_tiles() -> void:
+	var moving: Array = []
+	for row in world.tiles:
+		for t in row:
+			if t.item == null or not t.item.is_residue() or t.item.node == null:
+				continue
+			var gx := int(floor(t.item.node.global_position.x))
+			var gy := int(floor(t.item.node.global_position.z))
+			if gx != t.x or gy != t.y:
+				moving.append([t, t.item, gx, gy])
+	for m in moving:
+		var from: CellData = m[0]
+		var it: CarryItem = m[1]
+		var dest := world.tile_at(int(m[2]), int(m[3]))
+		if dest == null or not dest.can_hold():
+			continue
+		if dest.item != null:
+			continue          # ocupada: se resuelve cuando el otro se mueva
+		from.item = null
+		dest.item = it
 
 
 func _update_toasts(delta: float) -> void:
@@ -620,6 +652,7 @@ func throw_item(p: Player) -> void:
 
 	p.carrying = null
 	stats["thrown"] = int(stats["thrown"]) + 1
+	_hold(item)
 	parent_item(item.node, world.items_root)
 
 	var from := p.position + Vector3(0, 1.3, 0)
@@ -677,6 +710,29 @@ func item_blocker(item: CarryItem, on: bool) -> void:
 		node.queue_free()
 
 
+## Un residuo en la mano (o en el pico de una gaviota) no tiene física: se
+## congela y se saca de toda colisión. Si no, empuja al jugador y se cae solo.
+func _hold(item: CarryItem) -> void:
+	var body := item.node as RigidBody3D
+	if body == null:
+		return
+	body.freeze = true
+	body.collision_layer = 0
+	body.collision_mask = 0
+	body.linear_velocity = Vector3.ZERO
+	body.angular_velocity = Vector3.ZERO
+
+
+## Vuelve a la playa: dinámico y con colisión (para poder patearlo).
+func _drop(item: CarryItem) -> void:
+	var body := item.node as RigidBody3D
+	if body == null:
+		return
+	body.collision_layer = GameConfig.ITEM_LAYER
+	body.collision_mask = 1 | GameConfig.ITEM_LAYER
+	body.freeze = false
+
+
 func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 	tile.item = item
 	_unhang(item)
@@ -684,9 +740,34 @@ func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 		return
 	item_blocker(item, item.is_bag())
 	parent_item(item.node, world.items_root)
-	item.node.position = world.item_position(tile)
-	item.node.rotation = Vector3.ZERO
-	item.node.scale = Vector3.ONE
+	var pos := world.item_position(tile)
+	if item.node is RigidBody3D:
+		var body := item.node as RigidBody3D
+		body.freeze = true
+		body.position = Vector3(pos.x, pos.y, pos.z)
+		body.rotation = Vector3(0.0, randf() * TAU, 0.0)
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+		_drop(item)
+	else:
+		item.node.position = pos
+		item.node.rotation = Vector3.ZERO
+		item.node.scale = Vector3.ONE
+
+
+## La basura no aparece plantada: cae desde un poco más arriba, inclinada, y la
+## física la acuesta. Es la animación de aparición del bucle.
+func drop_from_above(item: CarryItem) -> void:
+	var body := item.node as RigidBody3D
+	if body == null:
+		return
+	body.freeze = true
+	body.position += Vector3(0.0, GameConfig.ITEM_DROP_HEIGHT, 0.0)
+	body.rotation = Vector3(randf_range(-1.1, 1.1), randf() * TAU, randf_range(-1.1, 1.1))
+	body.linear_velocity = Vector3(0.0, -0.6, 0.0)
+	body.angular_velocity = Vector3(randf_range(-5.0, 5.0), randf_range(-2.0, 2.0),
+		randf_range(-5.0, 5.0))
+	_drop(item)
 
 
 ## Nodo visual del ítem (se crea si todavía no existe).
@@ -728,6 +809,7 @@ func move_item_to_player(item: CarryItem, p: Player) -> void:
 	_unhang(item)
 	if item.node == null:
 		return
+	_hold(item)
 	item_blocker(item, false)
 	parent_item(item.node, p.carry_anchor)
 	item.node.position = Vector3.ZERO

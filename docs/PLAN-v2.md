@@ -40,6 +40,13 @@ Decisiones que se resolvieron al implementar (no estaban en el plan):
   al costado: al pecho tapaba al personaje entero.
 - **La gaviota depende de cuántos jugadores hay** (55 s / cada 50 s solo;
   30 s / cada 34 s de a dos): con un jugador era imposible cubrir la playa.
+- **La basura es un cuerpo rígido** (cápsula) con piso físico propio: cae desde
+  0.55 m al aparecer, queda acostada y se puede patear. En la mano o en el pico
+  de la gaviota se congela.
+- **Materiales**: vidrio translúcido (alfa + rim), metal satinado (0.7) y PET
+  opaco. Con metallic 1 la lata quedaba azul oscura por el reflejo del cielo.
+- **El ítem va entre las manos** (pose de cargar), no al costado: era el bug de
+  "aparecen al lado de las manos".
 
 ## Fase 2 — Presión
 

@@ -52,6 +52,32 @@ func _ready() -> void:
 		await _shoot(1.2)
 		return
 
+	if "--kick" in args:
+		# basura pateada: los residuos ruedan y quedan acostados
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.7
+		var p: Player = main.players[0]
+		p.teleport(9, 8, Vector2i(0, -1))
+		for spot in [[9, 6, "pet"], [10, 6, "vidrio"], [11, 6, "lata"]]:
+			var r := CarryItem.residue(spot[2])
+			ItemVisuals.build(r)
+			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
+			main.drop_from_above(r)
+		for i in 90:
+			await get_tree().physics_frame
+		# camina por encima: los patea y salen despedidos
+		for i in 40:
+			p.velocity = Vector3(0.0, 0.0, -GameConfig.PLAYER_SPEED)
+			p.move_and_slide()
+			await get_tree().physics_frame
+		for i in 70:
+			await get_tree().physics_frame
+		main.camera.fov = 30.0
+		main.camera.look_at_from_position(Vector3(10.0, 3.0, 9.2), Vector3(10.0, 0.2, 6.2), Vector3.UP)
+		await _shoot(0.8)
+		return
+
 	if "--items" in args:
 		# los tres residuos de cerca: se tienen que reconocer de un vistazo
 		main.start_game(1)
@@ -99,6 +125,12 @@ func _ready() -> void:
 		await get_tree().process_frame
 		main.players[0].teleport(10, 9, Vector2i(0, 1))
 		main.players[1].teleport(13, 9, Vector2i(1, 0))
+		var one := CarryItem.residue("pet")
+		ItemVisuals.build(one)
+		main.move_item_to_player(one, main.players[0])
+		var other := CarryItem.bag(["lata", "lata"])
+		ItemVisuals.build(other)
+		main.move_item_to_player(other, main.players[1])
 		await _shoot(1.6)
 		return
 
@@ -114,14 +146,15 @@ func _ready() -> void:
 			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
 
 		var p: Player = main.players[0]
-		p.teleport(7, 3, Vector2i(0, -1))
+		# mirando a cámara: se ve lo que llevan en las manos
+		p.teleport(7, 3, Vector2i(0, 1))
 		var held := CarryItem.residue("pet")
 		ItemVisuals.build(held)
 		main.move_item_to_player(held, p)
 
 		if main.players.size() > 1:
 			var p2: Player = main.players[1]
-			p2.teleport(18, 3, Vector2i(0, -1))
+			p2.teleport(18, 3, Vector2i(0, 1))
 			var full := CarryItem.bag(["pet", "pet", "pet", "pet"])
 			ItemVisuals.build(full)
 			main.move_item_to_player(full, p2)
