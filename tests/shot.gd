@@ -74,6 +74,25 @@ func _ready() -> void:
 		await _shoot(0.8)
 		return
 
+	if "--bite" in args:
+		# mordida: el tiburón sale del agua y la cuenta atrás de reaparición
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var bp: Player = main.players[0]
+		bp.teleport(10, 12, Vector2i(0, -1))
+		for i in 3:
+			await get_tree().physics_frame
+		main._show_shark(bp)
+		main._update_sharks(0.34)
+		bp.down_time = 3.6
+		bp._body_mesh.visible = false
+		main.camera.fov = 34.0
+		main.camera.look_at_from_position(Vector3(10.0, 4.4, 17.2),
+			Vector3(10.0, 0.4, 11.6), Vector3.UP)
+		await _shoot(0.10)
+		return
+
 	if "--swim" in args:
 		# nadando con la aleta cerca: el agua es más lenta y da miedo
 		main.start_game(2)

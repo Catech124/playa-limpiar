@@ -170,7 +170,7 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
 `--kick` (basura pateada), `--pressure` (aros y basura flotante),
 `--map` (el mapa entero), `--diagonal` (giro en diagonal), `--swim` (nado y
-aleta), `--gull` (aro de la gaviota),
+aleta), `--bite` (mordida del tiburón y cuenta atrás), `--gull` (aro de la gaviota),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 
@@ -182,11 +182,16 @@ con estrellas y la presión de la Fase 2 (se hunde, se rompe, gaviota, aros y to
 de castigos). Funciona la cooperación de 2 jugadores en el mismo teclado.
 
 La **Fase 3** agrega el mar: se entra nadando (más lento), aparece la aleta y
-después el tiburón muerde: no quita puntos, te deja **5 s fuera de juego** y
-reaparecés en la arena. Cuanto más te quedás en el agua, antes vuelve. La basura
+después el tiburón muerde: no quita puntos, te deja **5 s fuera de juego** (con
+cuenta atrás en pantalla) y reaparecés en el spawn del nivel. Cuanto más te quedás en el agua, antes vuelve. La basura
 flotante suma doble a la cuota.
 
 ![nadando](docs/captura-nadar.png)
+
+Si te quedás en el agua aparece el tiburón: sale, muerde y te deja unos segundos
+fuera de juego con la cuenta atrás en pantalla.
+
+![mordida](docs/captura-mordida.png)
 
 Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 4 (NPCs que tiran
 basura y nivel bosque).

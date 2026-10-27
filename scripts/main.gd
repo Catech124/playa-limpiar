@@ -36,6 +36,7 @@ var sandbox := false
 
 var toasts: Array = []
 var puffs: Array = []            # polvo / salpicaduras
+var sharks: Array = []           # tiburones de la mordida (animación)
 var _sync_cd := 0.0
 var clock := 0.0                 # segundos de la jornada (para el tope de castigos)
 var penalty_log: Array = []      # instantes de los castigos que descontaron
@@ -174,6 +175,10 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 		if is_instance_valid(pf["node"]):
 			pf["node"].queue_free()
 	puffs.clear()
+	for sh in sharks:
+		if is_instance_valid(sh["node"]):
+			sh["node"].queue_free()
+	sharks.clear()
 	clock = 0.0
 	penalty_log.clear()
 	score = 0
@@ -314,6 +319,7 @@ func _process(delta: float) -> void:
 	_update_flying(delta)
 	_update_toasts(delta)
 	_update_puffs(delta)
+	_update_sharks(delta)
 	_update_light()
 
 	# la basura rueda: la celda lógica tiene que seguir al cuerpo
@@ -407,6 +413,7 @@ func _clear_fin(p: Player) -> void:
 func _bite(p: Player) -> void:
 	spawn_puff(p.position + Vector3(0, GameConfig.WATER_LEVEL, 0), Color(0.97, 1.0, 1.0), 14, 1.8)
 	toast(p.position + Vector3(0, 1.5, 0), "¡Mordida! Volvés en %d s" % int(GameConfig.SHARK_RESPAWN_TIME), "bad")
+	_show_shark(p)
 	var dest := _nearest_sand(p)
 	if p.carrying != null:
 		var item := p.carrying
@@ -415,10 +422,156 @@ func _bite(p: Player) -> void:
 			move_item_to_tile(item, dest)
 		else:
 			destroy_item(item)
-	p.keep_down(GameConfig.SHARK_RESPAWN_TIME, dest)
+	# reaparece en el spawn del nivel, no donde lo mordieron
+	var sp: Vector2i = world.spawns[p.index % world.spawns.size()]
+	p.keep_down(GameConfig.SHARK_RESPAWN_TIME, sp)
 	p.water_time = 0.0
 	p.shark_heat = minf(1.0, float(p.shark_heat) + 0.25)
 	_clear_fin(p)
+
+
+## Tiburón de la mordida: sale del agua, se abalanza y se vuelve a hundir.
+## Es rápido y de primitivas, como el resto del juego.
+func _show_shark(p: Player) -> void:
+	var shark := _make_shark()
+	world.add_child(shark)
+	var base := p.position
+	shark.position = base + Vector3(0.0, -1.1, 0.9)
+	shark.rotation.y = PI        # mira al jugador (viene desde el sur)
+	sharks.append({"node": shark, "base": base, "t": 0.0})
+
+
+func _update_sharks(delta: float) -> void:
+	for sh in sharks.duplicate():
+		sh["t"] = float(sh["t"]) + delta
+		var t: float = sh["t"]
+		var node: Node3D = sh["node"]
+		if not is_instance_valid(node):
+			sharks.erase(sh)
+			continue
+		var base: Vector3 = sh["base"]
+		if t < 0.22:
+			# sube desde el fondo
+			var k := t / 0.22
+			node.position = base + Vector3(0, lerpf(-1.1, 0.34, k), 0.9)
+			node.rotation.x = 0.35 * (1.0 - k)
+		elif t < 0.44:
+			# se abalanza con la boca abierta
+			var k := (t - 0.22) / 0.22
+			node.position = base + Vector3(0, 0.34 + sin(k * PI) * 0.10, lerpf(0.9, 0.18, k))
+			node.rotation.x = -0.28 * sin(k * PI)
+			node.scale = Vector3.ONE * (1.0 + 0.10 * sin(k * PI))
+		else:
+			# se hunde
+			var k := (t - 0.44) / 0.70
+			node.position = base + Vector3(0, lerpf(0.34, -1.4, k), lerpf(0.18, 0.5, k))
+			node.rotation.x = 0.55 * k
+			node.scale = Vector3.ONE
+		if t > 1.2:
+			node.queue_free()
+			sharks.erase(sh)
+
+
+func _make_shark() -> Node3D:
+	var root := Node3D.new()
+	var gray := Color(0.36, 0.42, 0.49)
+	var belly := Color(0.90, 0.92, 0.92)
+
+	var body := SphereMesh.new()
+	body.radius = 0.5
+	body.height = 1.0
+	body.radial_segments = 14
+	body.rings = 8
+	var bm := MeshInstance3D.new()
+	bm.mesh = body
+	bm.material_override = ItemVisuals.material(gray)
+	bm.scale = Vector3(0.62, 0.44, 1.05)
+	root.add_child(bm)
+
+	var bely := SphereMesh.new()
+	bely.radius = 0.5
+	bely.height = 1.0
+	bely.radial_segments = 12
+	bely.rings = 6
+	var blm := MeshInstance3D.new()
+	blm.mesh = bely
+	blm.material_override = ItemVisuals.material(belly)
+	blm.scale = Vector3(0.52, 0.28, 0.95)
+	blm.position = Vector3(0, -0.08, 0.03)
+	root.add_child(blm)
+
+	# hocico
+	var snout := CylinderMesh.new()
+	snout.top_radius = 0.03
+	snout.bottom_radius = 0.30
+	snout.height = 0.46
+	snout.radial_segments = 12
+	var sm := MeshInstance3D.new()
+	sm.mesh = snout
+	sm.material_override = ItemVisuals.material(gray)
+	sm.position = Vector3(0, 0.0, 0.60)
+	sm.rotation_degrees = Vector3(90, 0, 0)
+	root.add_child(sm)
+
+	# aleta dorsal
+	var dorsal := PrismMesh.new()
+	dorsal.size = Vector3(0.30, 0.44, 0.07)
+	var dm := MeshInstance3D.new()
+	dm.mesh = dorsal
+	dm.material_override = ItemVisuals.material(gray.darkened(0.12))
+	dm.position = Vector3(0, 0.26, -0.04)
+	root.add_child(dm)
+
+	# cola
+	var tail := PrismMesh.new()
+	tail.size = Vector3(0.44, 0.54, 0.07)
+	var tm := MeshInstance3D.new()
+	tm.mesh = tail
+	tm.material_override = ItemVisuals.material(gray.darkened(0.12))
+	tm.position = Vector3(0, 0.12, -0.98)
+	tm.rotation_degrees = Vector3(0, 0, 22)
+	root.add_child(tm)
+
+	# pectorales
+	for side in [-1.0, 1.0]:
+		var fin := PrismMesh.new()
+		fin.size = Vector3(0.34, 0.22, 0.05)
+		var fm := MeshInstance3D.new()
+		fm.mesh = fin
+		fm.material_override = ItemVisuals.material(gray.darkened(0.05))
+		fm.position = Vector3(side * 0.30, -0.05, 0.20)
+		fm.rotation_degrees = Vector3(0, side * 38.0, side * -58.0)
+		root.add_child(fm)
+
+	# ojos
+	for side in [-1.0, 1.0]:
+		var eye := SphereMesh.new()
+		eye.radius = 0.038
+		eye.height = 0.076
+		var em := MeshInstance3D.new()
+		em.mesh = eye
+		em.material_override = ItemVisuals.material(Color(0.06, 0.06, 0.08))
+		em.position = Vector3(side * 0.19, 0.10, 0.46)
+		root.add_child(em)
+
+	# boca y dientes
+	var mouth := BoxMesh.new()
+	mouth.size = Vector3(0.36, 0.06, 0.18)
+	var mm := MeshInstance3D.new()
+	mm.mesh = mouth
+	mm.material_override = ItemVisuals.material(Color(0.42, 0.09, 0.11))
+	mm.position = Vector3(0, -0.11, 0.56)
+	root.add_child(mm)
+	for i in 5:
+		var tooth := BoxMesh.new()
+		tooth.size = Vector3(0.045, 0.055, 0.03)
+		var tmi := MeshInstance3D.new()
+		tmi.mesh = tooth
+		tmi.material_override = ItemVisuals.material(Color(0.99, 0.98, 0.95))
+		tmi.position = Vector3(-0.12 + 0.06 * float(i), -0.066, 0.62)
+		root.add_child(tmi)
+
+	return root
 
 
 func _respawn(p: Player) -> void:

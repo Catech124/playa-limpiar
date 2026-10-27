@@ -108,6 +108,10 @@ Decisiones de implementación:
 - **La mordida no destruye lo que llevabas**: lo deja en la orilla.
 - **Las penalizaciones son solo de puntos**: la mordida del tiburón no descuenta,
   cuesta 5 s de espera; el contenedor equivocado no castiga, solo rechaza.
+- **El tiburón es un modelo**: sale del agua, se abalanza y se hunde; la mordida
+  deja una cuenta atrás en pantalla y se reaparece en el spawn del nivel.
+- **El personaje nada parado** (flotando), no acostado: acostado se hundía la
+  cara en un agua de 30 cm.
 - **El tiburón se calienta**: cuanto más tiempo seguís en el agua, antes aparece
   la aleta y antes muerde (hasta la mitad del tiempo). Después de una mordida
   arranca más caliente todavía.

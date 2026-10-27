@@ -131,15 +131,19 @@ palmera ni debajo del muelle.
 
 ## El mar y el tiburón (Fase 3)
 
-- **Se entra al agua nadando**: el personaje se acuesta sobre la lámina con la
-  cabeza afuera, **flota como un corcho** (sube y baja), rola con la brazada y
-  deja **ondas que se abren** alrededor, estela y salpicaduras. Nadar es **más lento** que caminar
+- **Se entra al agua nadando**: el personaje flota **parado** (no acostado como
+  nadador de competencia), con el agua al pecho y la cabeza afuera; rema con los
+  brazos a los costados, **sube y baja como un corcho** y deja **ondas que se
+  abren** alrededor. Nadar es **más lento** que caminar
   (2,5 contra 4,6) y el impulso en el agua también es más corto (4,2 contra 9,2).
 - **A los 3 s** de estar en el agua aparece la **aleta** (un triángulo oscuro que
   rodea al jugador) y **a los 6 s muerde**. Cuanto más tiempo pasás en el agua,
   más se calienta: la aleta y la mordida llegan antes (hasta la mitad de tiempo).
-- La mordida **no quita puntos**: te deja **5 s fuera de juego** y reaparecés en
-  la arena. Lo que llevabas queda en la orilla (no se pierde).
+- La mordida la hace un **tiburón que sale del agua** (cuerpo, aleta dorsal,
+  cola y dientes): sube, se abalanza y se vuelve a hundir.
+- La mordida **no quita puntos**: te deja **5 s fuera de juego** con una
+  **cuenta atrás en pantalla** y reaparecés en el **spawn del nivel**. Lo que
+  llevabas queda en la orilla (no se pierde).
 - La **basura flotante** aparece en cualquier fila del agua (una de cada tres,
   mar adentro) y **suma doble a la cuota**: es el premio por el riesgo.
 - La basura del agua **se hunde a los 10 s** si no se rescata.
@@ -172,6 +176,8 @@ tiburón tampoco descuenta: cuesta 5 segundos de espera.
 Todo son primitivas de Godot; lo que hace que se reconozca cada cosa es la
 silueta:
 
+- **Personaje**: 0,84 de escala (antes tapaba media pantalla) y con la cara
+  detallada: ojos con esclerótica y brillo, cejas, sonrisa y cachetes.
 - **Botella PET**: cuerpo ancho, etiqueta blanca y tapa azul oscura.
 - **Botella de vidrio**: verde, cuello largo y etiqueta crema.
 - **Lata**: metal con banda roja y anilla en la tapa.

@@ -17,6 +17,9 @@ func _chef() -> PackedScene:
 	return _chef_scene
 
 
+## Escala del modelo con respecto al asset original.
+const CHAR_SCALE := 0.84
+
 var index := 0
 var color := Color.WHITE
 var keymap: Dictionary = {}
@@ -74,6 +77,9 @@ func _build_body() -> void:
 
 	# personaje low-poly (asset generado con tools/make_chef.py)
 	var model := _chef().instantiate()
+	# un poco más chico: a tamaño completo tapaba media pantalla y el agua le
+	# llegaba al cuello
+	model.scale = Vector3(CHAR_SCALE, CHAR_SCALE, CHAR_SCALE)
 	_body_mesh.add_child(model)
 	_tint_shirt(model)
 	_add_outline(model)
@@ -82,6 +88,7 @@ func _build_body() -> void:
 		var node := model.find_child(hinge, true, false)
 		if node is Node3D:
 			_hinges[hinge] = node
+	_add_face_details()
 
 
 ## El ala del sombrero proyecta sombra sobre la cara y la deja ilegible a 45 px:
@@ -146,8 +153,100 @@ func _add_outline(root: Node) -> void:
 	# quedan en (±0.09, 0.39, 0.28) en el espacio del cuerpo, así que el punto
 	# medio es donde el personaje sostiene lo que lleva. Antes colgaba al
 	# costado y los objetos aparecían flotando al lado de las manos.
-	carry_anchor.position = Vector3(0.0, 0.40, 0.28)
+	carry_anchor.position = Vector3(0.0, 0.40, 0.28) * CHAR_SCALE
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
+
+
+## Cara más expresiva: ojos con esclerótica y brillo, cejas gruesas, sonrisa y
+## cachetes. Son piezas chicas colgadas de la bisagra de la cabeza, así que
+## acompañan el cabeceo. A 12 unidades de cámara, sin esto la cara es un punto.
+func _add_face_details() -> void:
+	var head: Node3D = _hinges.get("head")
+	if head == null:
+		return
+	var white := Color(0.98, 0.98, 0.97)
+	var dark := Color(0.12, 0.11, 0.13)
+	var cheek := Color(0.95, 0.55, 0.55)
+
+	for side in [-1.0, 1.0]:
+		# esclerótica
+		var eye := SphereMesh.new()
+		eye.radius = 0.048
+		eye.height = 0.096
+		eye.radial_segments = 12
+		eye.rings = 6
+		var em := MeshInstance3D.new()
+		em.mesh = eye
+		em.material_override = ItemVisuals.material(white)
+		em.position = Vector3(side * 0.057, 0.288, 0.292)
+		em.scale = Vector3(1.0, 1.15, 0.55)
+		head.add_child(em)
+
+		# pupila
+		var pupil := SphereMesh.new()
+		pupil.radius = 0.026
+		pupil.height = 0.052
+		pupil.radial_segments = 10
+		pupil.rings = 5
+		var pm := MeshInstance3D.new()
+		pm.mesh = pupil
+		pm.material_override = ItemVisuals.material(dark)
+		pm.position = Vector3(side * 0.057, 0.286, 0.318)
+		pm.scale = Vector3(1.0, 1.1, 0.5)
+		head.add_child(pm)
+
+		# brillo del ojo
+		var glint := SphereMesh.new()
+		glint.radius = 0.010
+		glint.height = 0.020
+		var gm := MeshInstance3D.new()
+		gm.mesh = glint
+		gm.material_override = ItemVisuals.material(white)
+		gm.position = Vector3(side * 0.047, 0.298, 0.330)
+		gm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		head.add_child(gm)
+
+		# ceja gruesa
+		var brow := BoxMesh.new()
+		brow.size = Vector3(0.085, 0.024, 0.024)
+		var bm := MeshInstance3D.new()
+		bm.mesh = brow
+		bm.material_override = ItemVisuals.material(Color(0.32, 0.20, 0.14))
+		bm.position = Vector3(side * 0.058, 0.352, 0.290)
+		bm.rotation_degrees = Vector3(0, 0, side * 9.0)
+		head.add_child(bm)
+
+		# cachete
+		var ck := SphereMesh.new()
+		ck.radius = 0.050
+		ck.height = 0.100
+		var cm := MeshInstance3D.new()
+		cm.mesh = ck
+		cm.material_override = ItemVisuals.material(Color(cheek.r, cheek.g, cheek.b, 0.55))
+		cm.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		cm.position = Vector3(side * 0.145, 0.245, 0.252)
+		cm.scale = Vector3(1.0, 0.7, 0.25)
+		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		head.add_child(cm)
+
+		# comisura de la sonrisa
+		var corner := BoxMesh.new()
+		corner.size = Vector3(0.034, 0.020, 0.020)
+		var km := MeshInstance3D.new()
+		km.mesh = corner
+		km.material_override = ItemVisuals.material(Color(0.30, 0.12, 0.12))
+		km.position = Vector3(side * 0.045, 0.213, 0.297)
+		km.rotation_degrees = Vector3(0, 0, side * 28.0)
+		head.add_child(km)
+
+	# boca: una barra y las dos comisuras ya forman la sonrisa
+	var mouth := BoxMesh.new()
+	mouth.size = Vector3(0.075, 0.020, 0.020)
+	var mm := MeshInstance3D.new()
+	mm.mesh = mouth
+	mm.material_override = ItemVisuals.material(Color(0.30, 0.12, 0.12))
+	mm.position = Vector3(0.0, 0.202, 0.300)
+	head.add_child(mm)
 
 
 ## Pinta la remera y la cinta del sombrero con el color del jugador.
@@ -357,12 +456,9 @@ func _ensure_wake() -> void:
 
 
 ## El tiburón lo mordió: desaparece del agua y vuelve a la arena en `seconds`.
-func keep_down(seconds: float, at: CellData) -> void:
+func keep_down(seconds: float, tile: Vector2i) -> void:
 	down_time = seconds
-	if at != null:
-		respawn_tile = Vector2i(at.x, at.y)
-	else:
-		respawn_tile = Vector2i(tile_x(), tile_y())
+	respawn_tile = tile if tile.x >= 0 else Vector2i(tile_x(), tile_y())
 	_body_mesh.visible = false
 	velocity = Vector3.ZERO
 	if wake != null:
@@ -421,12 +517,11 @@ func _animate(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 
 	if swim > 0.35:
-		# Nadando: brazada alternada que pasa POR DELANTE de la cara. El ala del
-		# sombrero tapa los hombros, así que si el brazo no sale adelante no se ve.
-		var stroke := sin(now * 7.0)
-		# el brazo pasa de "adentro del agua" a "afuera" en cada brazada
-		if arm_l: arm_l.rotation = Vector3(-1.6 + stroke * 1.0, 0.0, 0.55)
-		if arm_r: arm_r.rotation = Vector3(-1.6 - stroke * 1.0, 0.0, -0.55)
+		# Flotando parado: los brazos reman a los costados, a la altura del agua,
+		# alternados. (Acostado "de nadador profesional" se hundía la cara.)
+		var stroke := sin(now * 5.5)
+		if arm_l: arm_l.rotation = Vector3(-0.45 + stroke * 0.55, 0.0, 1.00 + stroke * 0.22)
+		if arm_r: arm_r.rotation = Vector3(-0.45 - stroke * 0.55, 0.0, -1.00 - stroke * 0.22)
 	elif dash > 0.05 and not carry:
 		# pique: brazos atrás y cuerpo estirado, como saliendo disparado
 		if arm_l: arm_l.rotation = Vector3(1.15 * dash, 0.0, 0.35)
@@ -458,13 +553,14 @@ func _animate(delta: float) -> void:
 			0.0,
 			(0.03 * sin(t) if moving else breath * 0.02))
 
-	# postura del cuerpo: acostado en el agua, inclinado en el pique
-	_body_mesh.rotation.x = swim * 1.15 - 0.30 * dash * (1.0 - swim)
-	_body_mesh.rotation.z = sin(now * 7.0) * 0.20 * swim
-	_body_mesh.position.z = -0.26 * swim
-	var target_y := (GameConfig.WATER_LEVEL - 0.13) * swim
+	# postura del cuerpo: erguido en el agua (flotando parado), inclinado al picar
+	_body_mesh.rotation.x = -0.10 * swim - 0.30 * dash * (1.0 - swim)
+	_body_mesh.rotation.z = sin(now * 5.5) * 0.06 * swim
+	_body_mesh.position.z = 0.0
+	# se hunde apenas: el agua le llega al pecho y la cabeza queda afuera
+	var target_y := -0.10 * swim
 	if swim > 0.35:
-		target_y += sin(now * 5.0) * 0.03        # flota como un corcho
+		target_y += sin(now * 4.0) * 0.018       # flota como un corcho
 	elif moving:
 		target_y += absf(sin(t)) * 0.025
 	_body_mesh.position.y = lerpf(_body_mesh.position.y, target_y, minf(1.0, delta * 12.0))

@@ -42,6 +42,7 @@ func _draw() -> void:
 	_draw_quota(size)
 	_draw_score(size)
 	_draw_players(size)
+	_draw_respawn(size)
 	_draw_prompts(size)
 	_draw_toasts()
 
@@ -180,6 +181,23 @@ func _draw_players(size: Vector2) -> void:
 		draw_arc(Vector2(x + 8, y), 9, 0, TAU, 16, Color(0, 0, 0, 0.4), 2.0)
 		_text(Vector2(x + 22, y + 6), "J%d" % (p.index + 1), 16, Color(1, 1, 1, 0.85))
 		x += 58.0
+
+
+## Cuenta atrás del que se comió el tiburón: cuánto falta para reaparecer.
+func _draw_respawn(size: Vector2) -> void:
+	var y := size.y * 0.60
+	for p in game.players:
+		if float(p.down_time) <= 0.0:
+			continue
+		var txt := "J%d · reaparece en %.1f s" % [p.index + 1, float(p.down_time)]
+		var w := _text_width(txt, 20) + 44.0
+		var rect := Rect2(size.x * 0.5 - w * 0.5, y, w, 42)
+		_panel(rect, Color(0.42, 0.10, 0.10, 0.88), 12)
+		var k := clampf(float(p.down_time) / GameConfig.SHARK_RESPAWN_TIME, 0.0, 1.0)
+		draw_rect(Rect2(rect.position.x + 12, rect.position.y + rect.size.y - 8,
+			(rect.size.x - 24) * k, 3), Color(1.0, 0.55, 0.45))
+		_text_centered(Vector2(size.x * 0.5, rect.position.y + 27), txt, 20, Color(1, 1, 1))
+		y += 50.0
 
 
 func _draw_prompts(_size: Vector2) -> void:
