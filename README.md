@@ -73,6 +73,11 @@ para rescatarlo.
 
 ![orilla](docs/captura-orilla.png)
 
+**Los NPCs** (1 a 3 según el día) pasean por la arena con su gorrita y tiran
+basura: son los que ensucian la playa.
+
+![npc](docs/captura-npc.png)
+
 La playa tiene **palmeras, sombrillas con toalla, la torre del guardavidas y un
 muelle** sobre el agua. Los props grandes bloquean el paso y reservan su celda:
 la basura no aparece dentro de ellos. Detrás del paseo se ve la **ciudad**
@@ -102,12 +107,13 @@ scripts/spawner.gd       tira basura en la playa, pesada por lo que falta de cuo
 scripts/player.gd        movimiento, colisión, acción contextual y animación
 scripts/main.gd          reglas, cámara de cooperativo, cuota, reloj y estados
 scripts/gulls.gd         gaviotas (se llevan la basura tirada)
+scripts/npcs.gd          NPCs que pasean y tiran basura
 scripts/hud.gd           HUD y pantallas, dibujados a mano
 scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   101 comprobaciones de reglas (headless)
+tests/headless_test.gd   106 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -116,7 +122,9 @@ docs/                    diseño, plan, mecánicas y comparaciones
 
 `assets/chef.glb` se **genera por script**: proporciones medidas sobre una lámina
 de referencia (cabeza ancha, torso corto, ala del sombrero 0.59 de la altura),
-~3.5k triángulos y 7 materiales. La remera y la cinta del sombrero se tiñen con
+3.4k triángulos y 7 materiales. La cara (v3) está medida contra la lámina con
+`tools/cara_metrics.py`: ojo 0.055 del ancho de cabeza, alto/ancho 1.2 y dos
+brillos en unidades absolutas. Ver [`docs/CARA-v3.md`](docs/CARA-v3.md). La remera y la cinta del sombrero se tiñen con
 el color de cada jugador.
 
 El GLB trae **bisagras** (`arm_l`, `arm_r`, `leg_l`, `leg_r`, `head`, `hat`): no
@@ -152,7 +160,7 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**101 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**106 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),
@@ -170,13 +178,13 @@ xvfb-run -a godot --path . -- --shot=/tmp/pl.png --demo2
 Modos: `--demo`, `--demo2` (co-op), `--items` (los tres residuos de cerca),
 `--kick` (basura pateada), `--pressure` (aros y basura flotante),
 `--map` (el mapa entero), `--diagonal` (giro en diagonal), `--swim` (nado y
-aleta), `--bite` (mordida del tiburón y cuenta atrás), `--gull` (aro de la gaviota),
+aleta), `--bite` (mordida del tiburón y cuenta atrás), `--npc` (NPCs tirando basura), `--gull` (aro de la gaviota),
 `--shore` (orilla), `--closeup` (contenedores con bolsa), `--menu`, `--results`,
 `--win`, `--facing`, `--carry`.
 
 ## Estado
 
-**v0.4 — Fases 1, 2 y 3 del rediseño completas**: bucle de cuota (basura tirada →
+**v0.5 — Fases 1 a 4 del rediseño completas**: bucle de cuota (basura tirada →
 contenedor con bolsa → camión), reloj de 24 h, HUD con las 3 barras, fin de día
 con estrellas y la presión de la Fase 2 (se hunde, se rompe, gaviota, aros y tope
 de castigos). Funciona la cooperación de 2 jugadores en el mismo teclado.
@@ -193,5 +201,5 @@ fuera de juego con la cuenta atrás en pantalla.
 
 ![mordida](docs/captura-mordida.png)
 
-Lo que sigue está en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): Fase 4 (NPCs que tiran
-basura y nivel bosque).
+Lo que queda en [`docs/PLAN-v2.md`](docs/PLAN-v2.md): el nivel bosque con río
+(Fase 4.2), que reusa los mismos sistemas con otros datos.

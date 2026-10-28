@@ -39,9 +39,11 @@ La bolsa **sale del dispensador** (infinitas: la entrega se lleva la bolsa puest
 | 3 · Último día | 300 s | 12 / 8 / 8 | 2.4 s | hasta 8 |
 
 **La basura que aparece no es al azar puro**: el spawner pesa el tipo por lo que
-falta de la cuota. Si te falta PET, salen más PET. Así el nivel nunca se vuelve
-imposible por mala suerte (hay un test que además verifica que el ritmo de
-aparición alcance para llenar la cuota).
+falta de la cuota **y por un sesgo fijo por tipo** (`SPAWN_BIAS`). El vidrio
+pesa 1,9 porque su cuota es más chica que la de PET y, sin el sesgo, el jugador
+se quedaba sin botellas de vidrio a mitad del día (medido: pasa de ~28 % a ~45 %
+de las apariciones). Hay un test que además verifica que el ritmo de aparición
+alcance para llenar la cuota.
 
 ## Gaviotas
 
@@ -170,6 +172,15 @@ tiburón tampoco descuenta: cuesta 5 segundos de espera.
 - Los tiempos son más largos que los 6 s del diseño (10 s el agua, 14 s el
   vidrio): con 6 s, 15 segundos de simulación sin jugador daban 5 castigos. La
   playa es grande, hay que cruzarla caminando y el aro ya avisa.
+
+## NPCs (Fase 4)
+
+- **1, 2 o 3 NPCs** según el día. Caminan por la arena, se acercan a la orilla,
+  **tiran una basura** con la misma parábola que el jugador y siguen paseando.
+- Son la explicación visual de por qué la playa se ensucia (y atan la ciudad del
+  fondo con la arena).
+- Llevan **gorrita de color** y no el sombrero del chef, así se distinguen de los
+  jugadores de un vistazo.
 
 ## Cómo se ve (sin assets importados)
 

@@ -74,6 +74,23 @@ func _ready() -> void:
 		await _shoot(0.8)
 		return
 
+	if "--npc" in args:
+		# NPCs caminando por la playa y tirando basura
+		main.start_game(2, false, 2)      # Día 3: tres NPCs
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		for i in 150:
+			main.npcs.tick(1.0 / 60.0)
+		var talker = main.npcs.list[0]
+		main.npc_throw(talker.pos + Vector3(0, 1.15, 0), main.spawner.pick_tile())
+		for i in 8:
+			main._update_flying(0.03)
+		main.camera.fov = 40.0
+		main.camera.look_at_from_position(Vector3(10.0, 6.0, 14.0),
+			Vector3(10.0, 0.6, 5.0), Vector3.UP)
+		await _shoot(0.05)
+		return
+
 	if "--bite" in args:
 		# mordida: el tiburón sale del agua y la cuenta atrás de reaparición
 		main.start_game(1)

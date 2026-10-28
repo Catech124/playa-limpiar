@@ -463,6 +463,38 @@ func _run() -> void:
 	check("en la mano el residuo queda sin física",
 		(kick_me.node as RigidBody3D).freeze and (kick_me.node as RigidBody3D).collision_layer == 0)
 
+	# --- NPCs y reparto de tipos -----------------------------------------
+	main.start_game(1, false, 2)          # Día 3: tres NPCs
+	await frames(2)
+	check("hay NPCs caminando por la playa", main.npcs.list.size() == 3,
+		"%d" % main.npcs.list.size())
+
+	# el NPC tira basura: cae en una celda libre con la misma parábola
+	for row in main.world.tiles:
+		for t in row:
+			if t.item != null:
+				main.destroy_item(t.item)
+				t.item = null
+	var npc_tile: CellData = main.spawner.pick_tile()
+	main.npc_throw(Vector3(4.0, 1.2, 3.0), npc_tile)
+	check("el NPC tira basura", main.flying.size() == 1)
+	for i in 40:
+		main._update_flying(0.03)
+	check("la basura del NPC cae en la arena",
+		npc_tile.item != null and npc_tile.item.is_residue())
+
+	# el vidrio pesa más: es el que se acababa siempre
+	var w_glass: float = main.spawner.type_weight("vidrio")
+	var w_pet: float = main.spawner.type_weight("pet")
+	check("el vidrio pesa más que el PET en el reparto", w_glass > w_pet,
+		"vidrio %.1f · pet %.1f" % [w_glass, w_pet])
+	var counts := {"pet": 0, "vidrio": 0, "lata": 0}
+	for i in 400:
+		counts[main.spawner.pick_type()] += 1
+	var glass_share := float(counts["vidrio"]) / 400.0
+	check("el vidrio sale al menos una de cada cuatro veces", glass_share > 0.25,
+		"%.0f%%" % (glass_share * 100.0))
+
 	# --- el agua tira basura ---------------------------------------------
 	main.start_game(1, false, 1)          # Día 2: marea alta
 	await frames(2)

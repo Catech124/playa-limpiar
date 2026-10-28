@@ -82,6 +82,12 @@ const ITEM_MASS := 0.30
 # --- residuos ------------------------------------------------------------
 ## `order` fija el orden de las barras de cuota en el HUD.
 const RESIDUE_ORDER := ["pet", "vidrio", "lata"]
+## Cuánto pesa cada tipo en el reparto, además de lo que falta de la cuota.
+## El vidrio venía saliendo poco (la cuota es más chica que la de PET) y el
+## jugador se quedaba sin botellas de vidrio a mitad del día.
+const SPAWN_BIAS := {"pet": 1.0, "vidrio": 1.9, "lata": 1.1}
+## NPCs que caminan por la playa y tiran basura (Fase 4).
+const NPC_COUNT := {1: 1, 2: 2, 3: 3}
 const RESIDUES := {
 	"pet": {
 		"label": "PET",

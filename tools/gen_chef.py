@@ -31,6 +31,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # --------------------------------------------------------------------------- #
 DEFAULTS = {
     "id": "chef",
+    "face": {
+        # v3 = rasgos en VOLUMEN (esclerótica + iris + pupila + brillo + párpado,
+        # cejas arqueadas, nariz de puente y aletas, boca con labios). v1 = las
+        # primitivas planas de 2026-09, que se leían como pegatinas.
+        "preset": "v3",
+    },
     "body": {
         "preset": "v1_frozen",
         "pose": "t",          # t = hoja de referencia · down = pose de juego
@@ -60,6 +66,7 @@ DEFAULTS = {
         "boots": "#F2F2EE",
         "gloves": "#EDEFEC",
         "eyes": "#15181D",
+        "iris": "#59392B",      # castaño: sin esto el ojo es un botón negro
         "mouth": "#A85A4E",
         "band": "#B98683",
     },
@@ -273,7 +280,7 @@ def box(part, size, loc, mat, rotation=(0, 0, 0), bevel=0.012, smooth=False):
     if bevel > 0:
         mod = o.modifiers.new("bevel", "BEVEL")
         mod.width = bevel
-        mod.segments = 2
+        mod.segments = 1
         with bpy.context.temp_override(object=o):
             bpy.ops.object.modifier_apply(modifier=mod.name)
     return part.add(o)
@@ -282,40 +289,27 @@ def box(part, size, loc, mat, rotation=(0, 0, 0), bevel=0.012, smooth=False):
 # --------------------------------------------------------------------------- #
 # cuerpo
 # --------------------------------------------------------------------------- #
-def head_point(P, direction, t=1.0):
-    """Punto del elipsoide craneal en una dirección (t=1 superficie, t<1 dentro).
-
-    Colocar los ojos/nariz/boca a mano en coordenadas planas es lo que dejaba
-    los detalles FLOTANDO fuera de la cara: la superficie de un elipsoide no
-    está a un y constante. Aquí cada detalle se ancla a la superficie real.
-    """
-    from mathutils import Vector
-    hr = P["body"]["head_r"]
-    hz = P["body"]["head_z"]
-    d = Vector(direction).normalized()
-    sx, sy, sz = HEAD_SCALE
-    k = 1.0 / math.sqrt((d.x / (hr * sx)) ** 2 + (d.y / (hr * sy)) ** 2 + (d.z / (hr * sz)) ** 2)
-    return (d.x * k * t, d.y * k * t, hz + d.z * k * t)
-
-
-# --------------------------------------------------------------------------- #
 # forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano.
 # La lámina tiene la cabeza MÁS ANCHA QUE ALTA (0.74 de ancho x 0.57 de alto).
+#
+# NOTA (2026-10-28): esta función estaba definida TRES veces en el archivo, con
+# HEAD_SCALE y H_TOTAL triplicados. Como gana la última, editar la primera no tenía
+# ningún efecto (la trampa perfecta para perder una tarde). Ahora hay UNA.
 # --------------------------------------------------------------------------- #
 HEAD_SCALE = (1.19, 1.08, 1.00)
 
-# Medidas tomadas de la lámina de referencia (tools/ref_metrics.py), en
-# fracciones de la altura total H del personaje:
-#   ala del sombrero 0.59 H · cabeza 0.45 H de ancho y 0.41 de alto
-#   camiseta 0.17 H de alto y 0.25 de ancho · pantalón 0.23 H
-#   brazos en T-pose, envergadura 0.75 H
+# Medidas tomadas de la lámina (tools/ref_metrics.py), en fracciones de la altura
+# total H del personaje:
+#   ala 0.61 H · cabeza 0.51 H de ancho (con orejas) y 0.47 de alto
+#   camiseta 0.17 H de alto y 0.25 de ancho · piernas+calzado 0.26 H
+#   brazos en T-pose, envergadura 0.78 H
 H_TOTAL = 1.45
 
 
 def head_point(P, direction, t=1.0):
     """Punto del elipsoide craneal en una dirección (t=1 superficie, t<1 dentro).
 
-    Colocar los detalles de la cara a mano en coordenadas planas es lo que los
+    Poner los detalles de la cara a mano en coordenadas planas es lo que los
     dejaba FLOTANDO fuera de la cara: la superficie de un elipsoide no está a
     un y constante. Aquí cada detalle se ancla a la superficie real.
     """
@@ -328,32 +322,40 @@ def head_point(P, direction, t=1.0):
     return (d.x * k * t, d.y * k * t, hz + d.z * k * t)
 
 
-# --------------------------------------------------------------------------- #
-# forma del cráneo: la cara se apoya sobre ESTE elipsoide, no sobre un plano
-# --------------------------------------------------------------------------- #
-HEAD_SCALE = (1.19, 1.08, 1.00)
-
-# Medidas tomadas de la lámina (tools/ref_metrics.py), en fracciones de la
-# altura total H del personaje:
-#   ala 0.61 H · cabeza 0.51 H de ancho (con orejas) y 0.47 de alto
-#   camiseta 0.17 H de alto y 0.25 de ancho · piernas+calzado 0.26 H
-#   brazos en T-pose, envergadura 0.78 H
-H_TOTAL = 1.45
+def cara_punto(P, direction, fuera=0.0):
+    """Punto del elipsoide en una DIRECCIÓN + normal unitaria (para anclar detalles)."""
+    from mathutils import Vector
+    hz = P["body"]["head_z"]
+    S = Vector(head_point(P, direction, 1.0))
+    n = (S - Vector((0.0, 0.0, hz))).normalized()
+    return S + n * fuera, n
 
 
-def head_point(P, direction, t=1.0):
-    """Punto del elipsoide craneal en una dirección (t=1 superficie, t<1 dentro).
+def superficie(P, x, z_rel, fuera=0.0):
+    """Punto de la cara con coordenadas de PANTALLA (x, z) + normal.
 
-    Poner los detalles de la cara a mano en coordenadas planas es lo que los
-    dejaba FLOTANDO: la superficie de un elipsoide no está a un y constante.
+    `x` es el desplazamiento lateral en unidades y `z_rel` la altura respecto del
+    centro de la cabeza. Devuelve (punto, normal).
+
+    Por qué existe: pasar direcciones normalizadas ("x=1.79") parece lo mismo que
+    pasar unidades, y no lo es — (1.79, -1, 0.5) normalizado apunta 60° al COSTADO,
+    así que los ojos salían pegados al borde de la cabeza. Aquí se resuelve la
+    superficie del elipsoide para la x,z pedidas:
+
+        x²/a² + y²/b² + z²/c² = 1   ->   y = -b·sqrt(1 - x²/a² - z²/c²)
+
+    y la normal es (x/a², y/b², z/c²). Con esto "ojo a ±0.10 del centro" es
+    literalmente eso, en las mismas unidades que el resto del modelo.
     """
     from mathutils import Vector
     hr = P["body"]["head_r"]
     hz = P["body"]["head_z"]
-    d = Vector(direction).normalized()
-    sx, sy, sz = HEAD_SCALE
-    k = 1.0 / math.sqrt((d.x / (hr * sx)) ** 2 + (d.y / (hr * sy)) ** 2 + (d.z / (hr * sz)) ** 2)
-    return (d.x * k * t, d.y * k * t, hz + d.z * k * t)
+    a, b, c = hr * HEAD_SCALE[0], hr * HEAD_SCALE[1], hr * HEAD_SCALE[2]
+    z = z_rel
+    k = max(1e-6, 1.0 - (x * x) / (a * a) - (z * z) / (c * c))
+    y = -b * math.sqrt(k)
+    n = Vector((x / (a * a), y / (b * b), z / (c * c))).normalized()
+    return Vector((x, y, hz + z)) + n * fuera, n
 
 
 def hinge(objs, pivot, name):
@@ -369,6 +371,165 @@ def hinge(objs, pivot, name):
         o.parent = e
         o.matrix_parent_inverse = Matrix.Translation(-Vector(pivot))
     return e
+
+
+# --------------------------------------------------------------------------- #
+# caras
+# --------------------------------------------------------------------------- #
+def build_ears(P, head, skin):
+    """Oreja INTEGRADA: no es un disco pegado al costado.
+
+    La versión anterior era una esfera achatada con centro en la superficie y un
+    aro (hélix) alrededor: en el render se veía como una rueda pegada al cráneo.
+    Una oreja se lee cuando (a) nace de dentro, (b) es más alta que ancha y (c)
+    tiene un borde que se pliega hacia adentro. Aquí: pabellón hundido 40 % y
+    hélix como casquete del MISMO material, sin aro suelto.
+    """
+    for side in (-1, 1):
+        a, n = superficie(P, side * (P["body"]["head_r"] * HEAD_SCALE[0]), 0.0)
+        from mathutils import Vector
+        base = Vector(a) + n * 0.004        # apoyada, no flotando ni hundida
+        # pabellón: más alto que ancho, ligeramente inclinado hacia atrás
+        sphere(head, 0.068, base, skin, scale=(0.40, 0.82, 1.00),
+               segments=10, rings=7)
+        # hélix: el reborde que se pliega, apoyado en el borde de atrás
+        helix = base + Vector((side * 0.004, 0.014, 0.006))
+        sphere(head, 0.050, helix, skin, scale=(0.30, 0.66, 0.82),
+               segments=9, rings=6)
+
+
+def build_face_v1(P, face, mats):
+    """Cara v1 (2026-09): primitivas planas. Se conserva para el A/B."""
+    dark = mats["dark"]
+    skin = mats["skin"]
+    for side in (-1, 1):
+        sphere(face, 0.031, head_point(P, (side * 0.205, -1.0, 0.02), t=0.940),
+               dark, segments=10, rings=7)
+        box(face, (0.046, 0.012, 0.012), head_point(P, (side * 0.200, -0.95, 0.20), t=0.985),
+            dark, rotation=(0, math.radians(side * 4), 0), bevel=0.005, smooth=True)
+    nose = cylinder(face, 0.050, 0.068, head_point(P, (0, -1.0, -0.10), t=1.03),
+                    skin, vertices=8, top=0.019)
+    nose.rotation_euler = (math.radians(90), 0, 0)
+    nose.scale = (1.0, 0.72, 1.0)
+    for sx_ in (-1, 1):
+        arc(face, 0.016, 0.0042, head_point(P, (sx_ * 0.036, -1.0, -0.28), t=0.976),
+            dark, rotation=(math.radians(90), 0, 0), segments=10)
+
+
+# medidas de la cara v3, en unidades del modelo (la cabeza mide 0.66 de ancho).
+# Salen de la lámina (docs/referencia.png): ojo ≈0.076 del ancho de cabeza, separación
+# entre centros ≈0.32, boca a 0.30 del alto por debajo de los ojos.
+F3 = {
+    "ojo_r": 0.056,        # esclerótica: casquete visible ≈ 0.078 de diámetro
+    "ojo_sep": 0.100,      # x del centro de cada ojo
+    "ojo_alto": 0.030,     # dirección (se normaliza con la esfera)
+    "hundido": 0.62,       # fracción del radio que va por dentro del cráneo
+    "parpado": 0.72,       # cuánto sube el párpado (fracción del radio)
+    "ceja_largo": 0.098,
+    "boca_r": 0.055,
+}
+
+
+# medidas de la cara v3, en UNIDADES del modelo (la cabeza mide 0.66 de ancho y
+# 0.56 de alto). Salen de la lámina docs/referencia.png medida con tools/ref_metrics.py:
+# ojo 0.076 del ancho de cabeza · separación entre centros 0.32 · boca 0.30 por
+# debajo de los ojos.
+F3 = {
+    # Objetivos medidos en la lámina (tools/cara_metrics.py sobre docs/referencia.png):
+    #   ojo 0.068 del ancho de cabeza · alto/ancho 1.20 · separación 0.309 · 4.5 ojos
+    #   entre centros. Con el cráneo de 0.662 de ancho eso es un ojo visible de 0.045
+    #   y una separación de 0.205. Un ojo de 0.052 de radio daba 0.095 visibles: el
+    #   DOBLE de la referencia, y eso es lo que hacía la cara "de alien".
+    "ojo_x": 0.086,        # centro horizontal de cada ojo (= separación 0.172)
+    "ojo_z": 0.022,        # altura respecto del centro de la cabeza
+    "ojo_r": 0.026,        # radio de la esfera; visible ≈ 0.055 por el hundido
+    "hundido": 0.30,       # fracción del radio que entra en el cráneo
+    "ceja_z": 0.098,
+    "ceja_x0": 0.048,      # arranque (junto a la nariz)
+    "ceja_x1": 0.138,      # punta
+    "nariz_z": -0.030,
+    "boca_z": -0.090,
+    "boca_r": 0.058,
+}
+
+
+def build_face_v3(P, head, face, mats):
+    """Cara v3: pocas piezas, bien formadas y asimétricas (como la lámina).
+
+    La primera versión de esta cara puso esclerótica blanca + iris + pupila + un
+    párpado de bola por ojo: el resultado se leía como "ojos hinchados", no como
+    un personaje. La lámina (docs/referencia.png) y Overcooked usan lo contrario:
+    OJO NEGRO CON BRILLO, sin blanco. Menos piezas y mejor forma:
+
+      · ojo negro ovalado (más alto que ancho) con DOS brillos: el grande arriba
+        a la izquierda y uno chico abajo a la derecha. El brillo es lo que lo hace
+        parecer húmedo y vivo; sin él, es una pegatina.
+      · ceja de tres segmentos con grosor decreciente y arco: una caja recta se
+        lee como pestaña postiza.
+      · nariz de botón con dos aletas hundidas, sin puente cilíndrico.
+      · boca de arco fino con labio inferior de volumen y sonrisa LEVEMENTE
+        torcida: la simetría perfecta es la firma de la máquina.
+
+    Lo que NO lleva (y por qué): pómulos, mentón y rubor como esferas sueltas se
+    ven como protuberancias pegadas, que es exactamente el efecto "generado".
+    """
+    from mathutils import Vector
+    dark, white, skin = mats["dark"], mats["white"], mats["skin"]
+    mouth = mats["mouth"]
+
+    # ---------------------------------------------------------------- ojos
+    for lado in (-1, 1):
+        # asimetría de mano: el derecho 2 % más grande y 0.6 mm más bajo
+        R = F3["ojo_r"] * (1.02 if lado > 0 else 1.0)
+        dz = -0.006 if lado > 0 else 0.0
+        S, n = superficie(P, lado * F3["ojo_x"], F3["ojo_z"] + dz)
+        # ojo negro: casquete ovalado (más alto que ancho), hundido en el cráneo
+        sphere(face, R, S - n * (R * F3["hundido"]), dark,
+               scale=(0.98, 0.55, 1.20), segments=10, rings=7)
+        # Brillos en unidades ABSOLUTAS, no proporcionales al radio: el reflejo de un
+        # ojo no encoge cuando el ojo es más chico.
+        b1 = S + n * (R * 0.55) + Vector((-lado * 0.0075, 0.0, 0.010))
+        sphere(face, 0.0058, b1, white, segments=8, rings=6)
+        b2 = S + n * (R * 0.62) + Vector((lado * 0.0062, 0.0, -0.0078))
+        sphere(face, 0.0026, b2, white, segments=6, rings=5)
+
+    # ---------------------------------------------------------------- cejas
+    for lado in (-1, 1):
+        # arco con el pico al 45 %; la derecha sube 4 mm (cara despierta)
+        alza = 0.004 if lado > 0 else 0.0
+        xs = (F3["ceja_x0"], (F3["ceja_x0"] + F3["ceja_x1"]) * 0.52, F3["ceja_x1"])
+        zs = (F3["ceja_z"], F3["ceja_z"] + 0.013 + alza, F3["ceja_z"] + 0.006 + alza)
+        pts = []
+        for x_, z_ in zip(xs, zs):
+            p_, n_ = superficie(P, lado * x_, z_)
+            pts.append(p_ + n_ * 0.005)
+        for k in range(len(pts) - 1):
+            limb(face, pts[k], pts[k + 1], 0.0068 - 0.0018 * k, dark,
+                 vertices=6, taper=0.58)
+
+    # ---------------------------------------------------------------- nariz
+    # nariz de botón: una esfera achatada + dos aletas hundidas. Sin puente.
+    base, n1 = superficie(P, 0.0, F3["nariz_z"])
+    punta = base + n1 * 0.010
+    sphere(face, 0.027, punta, skin, scale=(1.02, 0.86, 0.92), segments=10, rings=7)
+    for sx_ in (-1, 1):
+        al, na = superficie(P, sx_ * 0.026, F3["nariz_z"] - 0.004)
+        sphere(face, 0.015, al + na * 0.004, skin,
+               scale=(0.95, 0.80, 0.74), segments=8, rings=6)
+
+    # ---------------------------------------------------------------- boca
+    Son, nb = superficie(P, 0.0, F3["boca_z"])
+    # sonrisa torcida 2°: un lado sube apenas; el ojo humano lo registra
+    giro = math.radians(2.0)
+    eje = Vector((math.cos(giro), 0.0, math.sin(giro)))
+    # Sin labio de color: en la lámina la boca es UNA LÍNEA. Un labio más oscuro
+    # dentro del arco se lee como lengua (pasó en la iteración v3h).
+    # línea de la boca
+    linea = arc(face, F3["boca_r"], 0.0052, Son + nb * 0.005, dark,
+                rotation=(math.radians(90), 0, 0), segments=16)
+    linea.rotation_euler = (math.radians(90), 0, giro)
+    # Sin comisuras: dos bolas negras en los extremos se leen como piercings. El
+    # arco ya sugiere la comisura; el labio inferior le da el volumen.
 
 
 def build_body(P):
@@ -387,12 +548,12 @@ def build_body(P):
     for side, tag in ((-1, "l"), (1, "r")):
         leg = Part(f"leg_{tag}", "legs")
         foot = Part(f"boot_{tag}", "boots")
-        cylinder(leg, 0.052, 0.295, (side * 0.068, 0, 0.228), pants, vertices=12, top=0.060)
-        cylinder(leg, 0.068, 0.028, (side * 0.068, 0, 0.096), pants, vertices=12)   # ruedo
+        cylinder(leg, 0.052, 0.295, (side * 0.068, 0, 0.228), pants, vertices=10, top=0.060)
+        cylinder(leg, 0.068, 0.028, (side * 0.068, 0, 0.096), pants, vertices=10)   # ruedo
         box(foot, (0.124, 0.178, 0.056), (side * 0.068, -0.022, 0.050), white, bevel=0.024)
         sphere(foot, 0.055, (side * 0.068, -0.090, 0.045), white,
-               scale=(1.0, 0.92, 0.66), segments=10, rings=6)
-        box(foot, (0.132, 0.190, 0.016), (side * 0.068, -0.026, 0.008), white, bevel=0.006)
+               scale=(1.0, 0.92, 0.66), segments=8, rings=5)
+        box(foot, (0.132, 0.190, 0.016), (side * 0.068, -0.026, 0.008), white, bevel=0)
         parts[f"leg_{tag}"] = leg
         parts[f"boot_{tag}"] = foot
 
@@ -410,7 +571,7 @@ def build_body(P):
         (0.094, 0.242),
         (0.080, 0.249),
         (0.080, 0.256),
-    ], (0, 0, 0.318), shirt, segments=30)
+    ], (0, 0, 0.318), shirt, segments=12)
     tee.scale = (1.0, 0.88, 1.0)
     # sin aro de cuello: el remate de la camiseta ya lo da el perfil
 
@@ -443,18 +604,18 @@ def build_body(P):
             glove = (side * 0.364, 0.000, 0.457)
             thumb = (side * 0.347, -0.060, 0.483)
             cuff_rot = (0, math.radians(90), 0)
-        limb(arms, sh, sl, 0.066, shirt, vertices=12, taper=0.94)          # manga
-        limb(arms, sl, wr, 0.050, skin, vertices=10)
+        limb(arms, sh, sl, 0.066, shirt, vertices=10, taper=0.94)          # manga
+        limb(arms, sl, wr, 0.050, skin, vertices=9)
         g_scale = (1.00, 1.02, 1.28) if pose == "down" else (1.28, 1.02, 1.00)
-        sphere(hands, 0.078, glove, white, scale=g_scale, segments=12, rings=8)
+        sphere(hands, 0.078, glove, white, scale=g_scale, segments=9, rings=6)
 
     # --- cabeza enorme, orejas a la altura de los ojos ---------------------
     head = Part("head", "head")
     hz = P["body"]["head_z"]
     hr = P["body"]["head_r"]
     skull = sphere(head, hr, (0, 0, hz), skin, scale=HEAD_SCALE, segments=22, rings=13)
-    # mandíbula: sin esto la cabeza es un huevo simétrico; la lámina la tiene
-    # ancha en las sienes y más angosta hacia el mentón
+    # mandíbula y frente: sin esto la cabeza es un huevo simétrico; la lámina la
+    # tiene ancha en las sienes y más angosta hacia el mentón
     for v in skull.data.vertices:
         k = v.co.z / (hr * 1.05)
         if k < 0:      # mandíbula: se angosta hacia el mentón
@@ -463,24 +624,18 @@ def build_body(P):
             f = 1.0 - 0.24 * (min(k, 1.0) ** 1.8)
         v.co.x *= f
         v.co.y *= f
-    for side in (-1, 1):
-        ear = head_point(P, (side * 1.0, -0.01, -0.06), t=0.93)
-        sphere(head, 0.086, ear, skin, scale=(0.52, 0.94, 1.02), segments=12, rings=9)
+    build_ears(P, head, skin)
 
-    # --- cara: ojos grandes, cejas gruesas, nariz de cuña y boca de omega ---
+    # --- cara ---------------------------------------------------------------
     face = Part("face", "face")
-    for side in (-1, 1):
-        sphere(face, 0.031, head_point(P, (side * 0.205, -1.0, 0.02), t=0.940),
-               dark, segments=10, rings=7)
-        box(face, (0.046, 0.012, 0.012), head_point(P, (side * 0.200, -0.95, 0.20), t=0.985),
-            dark, rotation=(0, math.radians(side * 4), 0), bevel=0.005, smooth=True)
-    nose = cylinder(face, 0.050, 0.068, head_point(P, (0, -1.0, -0.10), t=1.03),
-                    skin, vertices=8, top=0.019)
-    nose.rotation_euler = (math.radians(90), 0, 0)
-    nose.scale = (1.0, 0.72, 1.0)
-    for sx_ in (-1, 1):
-        arc(face, 0.016, 0.0042, head_point(P, (sx_ * 0.036, -1.0, -0.28), t=0.976),
-            dark, rotation=(math.radians(90), 0, 0), segments=10)
+    mats = {"skin": skin, "dark": dark, "white": white,
+            "iris": material("iris", pal.get("iris", "#59392B"), 0.55),
+            "mouth": material("mouth", pal["mouth"], 0.72),
+            "blush": material("blush", pal.get("band", "#B98683"), 0.85)}
+    if str(P.get("face", {}).get("preset", "v3")) == "v1":
+        build_face_v1(P, face, mats)
+    else:
+        build_face_v3(P, head, face, mats)
 
     parts.update({"torso": torso, "neck": neck, "head": head, "face": face})
     return parts
@@ -515,31 +670,30 @@ def build_hat(P):
     brim_r = float(h.get("brim_r", 0.370))
     copa = float(h.get("copa_h", 0.136))
 
+    # Perfil SIN puntos redundantes: cada punto cuesta segmentos x 2 triángulos.
+    # Se conservan los que definen la SILUETA (canto del ala, quiebre copa/ala,
+    # cima) y se quitan los intermedios de curvas que el sombreado suave resuelve.
     profile = [
-        # ala: del borde hacia adentro por la cara de abajo
         (0.000, -0.052),
         (crown_r * 0.55, -0.052),
         (brim_r - 0.055, -0.048),
-        (brim_r - 0.018, -0.042),
-        (brim_r - 0.004, -0.036),
+        (brim_r - 0.018, -0.042),   # canto inferior: sin este par el ala se ve
+        (brim_r - 0.004, -0.036),   # como un plato plano de dos caras
         (brim_r, -0.026),          # canto redondeado
-        (brim_r - 0.004, -0.014),
         (brim_r - 0.020, -0.006),
         (brim_r - 0.060, -0.002),
         (crown_r + 0.055, 0.000),
-        # copa: pared apenas abombada
         (crown_r, 0.004),
-        (crown_r + 0.004, 0.030),
+        (crown_r + 0.004, 0.030),   # abombamiento de la copa (se ve de perfil)
         (crown_r + 0.006, 0.060),
-        (crown_r + 0.002, 0.090),
         (crown_r - 0.012, 0.112),
-        (crown_r - 0.045, 0.126),
-        (crown_r - 0.095, 0.133),
+        (crown_r - 0.045, 0.126),   # cúpula: sin estos dos puntos la copa se ve
+        (crown_r - 0.095, 0.133),   # truncada, y es lo más grande de la silueta
         (crown_r - 0.150, copa - 0.002),
         (crown_r - 0.190, copa),
         (0.000, copa),
     ]
-    cap = lathe(part, profile, (0, 0, base_z), hat_mat, segments=32)
+    cap = lathe(part, profile, (0, 0, base_z), hat_mat, segments=18)
 
     # el ala ondula apenas en los costados (la lámina no es un círculo perfecto)
     for v in cap.data.vertices:
@@ -550,8 +704,12 @@ def build_hat(P):
             v.co.z -= 0.008 * abs(math.sin(ang)) * k
 
     # cinta: sigue la pared de la copa, ancha como en la lámina
-    cylinder(part, crown_r + 0.006, 0.030, (0, 0, base_z + 0.026), band_mat,
-             vertices=32, top=crown_r + 0.009, smooth=True)
+    # cinta: MISMO número de lados que la copa (18) y un poco por fuera.
+    # Bug real (2026-10-28): con 16 lados sobre una copa de 18, las caras de una
+    # y otra se cruzan y la cinta aparece llena de PUAS triangulares. Dos
+    # superficies concéntricas tienen que compartir el número de lados.
+    cylinder(part, crown_r + 0.010, 0.030, (0, 0, base_z + 0.026), band_mat,
+             vertices=18, top=crown_r + 0.012, smooth=True)
 
     return part
 

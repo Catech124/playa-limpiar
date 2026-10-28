@@ -15,6 +15,7 @@ var state: State = State.MENU
 var world: GridWorld
 var players: Array = []
 var gulls: Gulls
+var npcs: Npcs
 var spawner: TrashSpawner
 var hud: Hud
 var camera: Camera3D
@@ -130,6 +131,12 @@ func _reset_world(count: int) -> void:
 		gulls.list.clear()
 		gulls = null
 	spawner = null
+	if npcs != null:
+		for n in npcs.list:
+			if n.node != null and is_instance_valid(n.node):
+				n.node.queue_free()
+		npcs.list.clear()
+		npcs = null
 	flying.clear()
 
 	if world != null:
@@ -168,6 +175,8 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 	gulls = Gulls.new(self, world)
 	spawner = TrashSpawner.new(self, world)
 	spawner.setup(level)
+	npcs = Npcs.new(self, world)
+	npcs.spawn_all(int(level.get("npcs", 1)))
 
 	toasts.clear()
 	flying.clear()
@@ -313,6 +322,7 @@ func _process(delta: float) -> void:
 	_tick_water(delta)
 
 	spawner.tick(delta)
+	npcs.tick(delta)
 	if not sandbox:
 		gulls.tick(delta)
 
@@ -1002,6 +1012,20 @@ func nearest_item_tile(p: Player) -> CellData:
 	return best
 
 
+## Un NPC tira basura: vuela con la misma parábola que el lanzamiento del
+## jugador y aterriza en una celda libre del arenal.
+func npc_throw(from: Vector3, tile: CellData) -> void:
+	if tile == null:
+		return
+	var item := CarryItem.residue(spawner.pick_type())
+	ItemVisuals.build(item)
+	item.node.position = from
+	world.items_root.add_child(item.node)
+	_hold(item)
+	flying.append({"item": item, "from": from, "to": world.item_position(tile),
+		"tile": tile, "t": 0.0, "player": null})
+
+
 ## Entregar en el camión: cada residuo suma a su barra de cuota.
 func deliver(p: Player, bag: CarryItem) -> void:
 	if bag.contents.is_empty():
@@ -1114,7 +1138,7 @@ func _land(f: Dictionary) -> void:
 		floors = world.free_floors_near(tile.x, tile.y, 4)
 	if not floors.is_empty():
 		move_item_to_tile(item, floors[0])
-	elif f["player"].carrying == null:
+	elif f["player"] != null and f["player"].carrying == null:
 		move_item_to_player(item, f["player"])
 	else:
 		destroy_item(item)

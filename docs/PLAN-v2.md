@@ -118,11 +118,21 @@ Decisiones de implementación:
 
 ## Fase 4 — Mundo y vida
 
-| # | Paso |
-|---|---|
-| 4.1 | NPCs que caminan a la orilla y tiran basura (visual) |
-| 4.2 | Nivel bosque con río (mismos sistemas, otros datos) |
-| 4.3 | Luz que va de mañana a atardecer según el reloj |
+| # | Paso | Estado |
+|---|---|---|
+| 4.1 | NPCs que caminan a la orilla y tiran basura (visual) | ✅ |
+| 4.2 | Nivel bosque con río (mismos sistemas, otros datos) | pendiente |
+| 4.3 | Luz que va de mañana a atardecer según el reloj | ✅ (desde la Fase 1) |
+
+Decisiones de la 4.1:
+
+- Los NPCs **reusan el modelo del chef** (sin el sombrero, con gorrita de color y
+  0,76 de escala): cero assets nuevos y se distinguen de los jugadores.
+- La basura que tiran **entra por el mismo camino que la del spawner** (parábola
+  del lanzamiento y aterrizaje en una celda libre), así no hay un segundo sistema
+  de basura que mantener.
+- El reparto de tipos ahora tiene **sesgo por tipo** (`SPAWN_BIAS`): el vidrio
+  pesa 1,9 porque el jugador se quedaba sin botellas de vidrio.
 
 ## Assets
 

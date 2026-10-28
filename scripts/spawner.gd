@@ -127,16 +127,23 @@ func _player_on(t: CellData) -> bool:
 
 ## Peso por tipo = lo que falta para la cuota (mínimo 1). Sin cuota (caja de
 ## arena) el reparto es uniforme.
+## Peso de un tipo: lo que falta para la cuota (mínimo 1) multiplicado por su
+## sesgo. El vidrio pesa casi el doble porque su cuota es más chica que la de
+## PET y, sin el sesgo, el jugador se quedaba sin botellas a mitad del día.
+func type_weight(t: String) -> float:
+	var need := 1
+	if game.quota.has(t):
+		need = maxi(1, int(game.quota[t]) - int(game.delivered.get(t, 0)))
+	return float(need) * float(GameConfig.SPAWN_BIAS.get(t, 1.0))
+
+
 func pick_type() -> String:
 	var types: Array = GameConfig.RESIDUE_ORDER
 	var total := 0.0
 	var weights := {}
 	for t in types:
-		var need := 1
-		if game.quota.has(t):
-			need = maxi(1, int(game.quota[t]) - int(game.delivered.get(t, 0)))
-		weights[t] = need
-		total += float(need)
+		weights[t] = type_weight(t)
+		total += float(weights[t])
 
 	var r := randf() * total
 	for t in types:

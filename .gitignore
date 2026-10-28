@@ -12,3 +12,7 @@ export/
 corpus/*
 !corpus/features/
 !corpus/LICENCIAS.md
+
+# Python
+__pycache__/
+*.pyc
