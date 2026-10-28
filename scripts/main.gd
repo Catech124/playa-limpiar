@@ -1014,10 +1014,10 @@ func nearest_item_tile(p: Player) -> CellData:
 
 ## Un NPC tira basura: vuela con la misma parábola que el lanzamiento del
 ## jugador y aterriza en una celda libre del arenal.
-func npc_throw(from: Vector3, tile: CellData) -> void:
+func npc_throw(from: Vector3, tile: CellData, in_water := false) -> void:
 	if tile == null:
 		return
-	var item := CarryItem.residue(spawner.pick_type())
+	var item := CarryItem.residue(spawner.pick_type(), "water" if in_water else "beach")
 	ItemVisuals.build(item)
 	item.node.position = from
 	world.items_root.add_child(item.node)
@@ -1130,6 +1130,10 @@ func _land(f: Dictionary) -> void:
 	var item: CarryItem = f["item"]
 	var tile: CellData = f["tile"]
 
+	# al agua se cae directo: es lo que hacen los NPCs al tirar basura
+	if tile != null and tile.kind == "water":
+		move_item_to_tile(item, tile)
+		return
 	if tile != null and try_place(tile, item):
 		return
 

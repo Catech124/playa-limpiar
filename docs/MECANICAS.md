@@ -175,8 +175,11 @@ tiburón tampoco descuenta: cuesta 5 segundos de espera.
 
 ## NPCs (Fase 4)
 
-- **1, 2 o 3 NPCs** según el día. Caminan por la arena, se acercan a la orilla,
-  **tiran una basura** con la misma parábola que el jugador y siguen paseando.
+- **1, 2 o 3 veraneantes** según el día, cada uno con su plan: uno **toma sol**
+  panza arriba en una toalla, y dos **charlan** frente a frente gesticulando.
+- Cada tanto uno **se levanta** (con transición, no teletransporte), camina hasta
+  la orilla y **tira basura al mar** con un armado y un latigazo: la basura vuela
+  al agua, flota y se hunde a los 10 s si nadie la rescata.
 - Son la explicación visual de por qué la playa se ensucia (y atan la ciudad del
   fondo con la arena).
 - Llevan **gorrita de color** y no el sombrero del chef, así se distinguen de los
@@ -188,7 +191,9 @@ Todo son primitivas de Godot; lo que hace que se reconozca cada cosa es la
 silueta:
 
 - **Personaje**: 0,84 de escala (antes tapaba media pantalla) y con la cara
-  detallada: ojos con esclerótica y brillo, cejas, sonrisa y cachetes.
+  detallada: ojos con esclerótica y brillo, cejas, sonrisa y cachetes. El GLB
+  viene en **T-pose**, así que la animación baja los brazos con una rotación base
+  (`ARM_REST_L/R`) y suma el movimiento encima.
 - **Botella PET**: cuerpo ancho, etiqueta blanca y tapa azul oscura.
 - **Botella de vidrio**: verde, cuello largo y etiqueta crema.
 - **Lata**: metal con banda roja y anilla en la tapa.

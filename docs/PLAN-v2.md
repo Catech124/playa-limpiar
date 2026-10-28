@@ -120,12 +120,15 @@ Decisiones de implementación:
 
 | # | Paso | Estado |
 |---|---|---|
-| 4.1 | NPCs que caminan a la orilla y tiran basura (visual) | ✅ |
+| 4.1 | NPCs veraneantes que se levantan y tiran basura al mar | ✅ |
 | 4.2 | Nivel bosque con río (mismos sistemas, otros datos) | pendiente |
 | 4.3 | Luz que va de mañana a atardecer según el reloj | ✅ (desde la Fase 1) |
 
 Decisiones de la 4.1:
 
+- Cada NPC tiene **su plan** (tomar sol, charlar) y una transición real al
+  levantarse; no pasean sin rumbo. Tiran al **mar**, así la basura flota y se
+  hunde: cierra el circuito con el nado y el tiburón.
 - Los NPCs **reusan el modelo del chef** (sin el sombrero, con gorrita de color y
   0,76 de escala): cero assets nuevos y se distinguen de los jugadores.
 - La basura que tiran **entra por el mismo camino que la del spawner** (parábola

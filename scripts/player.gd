@@ -19,6 +19,10 @@ func _chef() -> PackedScene:
 
 ## Escala del modelo con respecto al asset original.
 const CHAR_SCALE := 0.84
+## El GLB viene en T-pose (brazos en cruz): para animar hay que bajarlos. Es la
+## rotación base de cada bisagra y la animación se suma a esto.
+const ARM_REST_L := 1.57
+const ARM_REST_R := -1.57
 
 var index := 0
 var color := Color.WHITE
@@ -520,20 +524,20 @@ func _animate(delta: float) -> void:
 		# Flotando parado: los brazos reman a los costados, a la altura del agua,
 		# alternados. (Acostado "de nadador profesional" se hundía la cara.)
 		var stroke := sin(now * 5.5)
-		if arm_l: arm_l.rotation = Vector3(-0.45 + stroke * 0.55, 0.0, 1.00 + stroke * 0.22)
-		if arm_r: arm_r.rotation = Vector3(-0.45 - stroke * 0.55, 0.0, -1.00 - stroke * 0.22)
+		if arm_l: arm_l.rotation = Vector3(-0.45 + stroke * 0.55, 0.0, ARM_REST_L + 0.55 + stroke * 0.22)
+		if arm_r: arm_r.rotation = Vector3(-0.45 - stroke * 0.55, 0.0, ARM_REST_R - 0.55 - stroke * 0.22)
 	elif dash > 0.05 and not carry:
 		# pique: brazos atrás y cuerpo estirado, como saliendo disparado
-		if arm_l: arm_l.rotation = Vector3(1.15 * dash, 0.0, 0.35)
-		if arm_r: arm_r.rotation = Vector3(1.15 * dash, 0.0, -0.35)
+		if arm_l: arm_l.rotation = Vector3(1.15 * dash, 0.0, ARM_REST_L + 0.35)
+		if arm_r: arm_r.rotation = Vector3(1.15 * dash, 0.0, ARM_REST_R - 0.35)
 	elif carry:
 		# brazos adelante y un poco abiertos, como sosteniendo la caja
-		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, 0.35)
-		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, -0.35)
+		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, ARM_REST_L + 0.35)
+		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, ARM_REST_R - 0.35)
 	else:
 		var swing := sin(t) * 0.55 if moving else 0.0
-		if arm_l: arm_l.rotation = Vector3(swing, 0.0, -0.06 + breath * 0.02)
-		if arm_r: arm_r.rotation = Vector3(-swing, 0.0, 0.06 - breath * 0.02)
+		if arm_l: arm_l.rotation = Vector3(swing, 0.0, ARM_REST_L - 0.06 + breath * 0.02)
+		if arm_r: arm_r.rotation = Vector3(-swing, 0.0, ARM_REST_R + 0.06 - breath * 0.02)
 
 	if swim > 0.35:
 		var kick := sin(now * 9.0) * (0.45 if moving else 0.15)

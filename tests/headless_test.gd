@@ -483,6 +483,21 @@ func _run() -> void:
 	check("la basura del NPC cae en la arena",
 		npc_tile.item != null and npc_tile.item.is_residue())
 
+	# los NPCs tiran al MAR: la basura flota y se hunde a los 10 s
+	var water_tile: CellData = main.world.tile_at(8, 12)
+	if water_tile != null and water_tile.item != null:
+		main.destroy_item(water_tile.item)
+		water_tile.item = null
+	main.npc_throw(Vector3(8.0, 1.2, 9.0), water_tile, true)
+	for i in 40:
+		main._update_flying(0.03)
+	check("el NPC tira basura al mar",
+		water_tile.item != null and water_tile.item.origin == "water")
+	var sunk_before: int = int(main.stats["penalties"])
+	main._tick_decay(GameConfig.SEA_SINK_TIME + 0.1)
+	check("lo que tiró al mar se hunde si nadie lo saca",
+		water_tile.item == null and int(main.stats["penalties"]) > sunk_before)
+
 	# el vidrio pesa más: es el que se acababa siempre
 	var w_glass: float = main.spawner.type_weight("vidrio")
 	var w_pet: float = main.spawner.type_weight("pet")

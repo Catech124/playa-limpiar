@@ -73,8 +73,9 @@ para rescatarlo.
 
 ![orilla](docs/captura-orilla.png)
 
-**Los NPCs** (1 a 3 según el día) pasean por la arena con su gorrita y tiran
-basura: son los que ensucian la playa.
+**Los NPCs** (1 a 3 según el día) son veraneantes: uno toma sol en su toalla,
+otros charlan frente a frente y cada tanto uno se levanta, camina a la orilla y
+**tira basura al mar**.
 
 ![npc](docs/captura-npc.png)
 
@@ -113,7 +114,7 @@ scripts/model_viewer.gd  visor standalone del asset
 tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
-tests/headless_test.gd   106 comprobaciones de reglas (headless)
+tests/headless_test.gd   108 comprobaciones de reglas (headless)
 tests/shot.gd            capturas automáticas para verificación visual
 docs/                    diseño, plan, mecánicas y comparaciones
 ```
@@ -160,7 +161,7 @@ godot --headless --path . --import
 godot --headless --path . -- --test
 ```
 
-**106 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
+**108 comprobaciones** sobre las mismas funciones que usa el input real: reloj y
 cuota, basura que aparece, colgar / sacar la bolsa del contenedor, tirar basura
 (tipo correcto y equivocado), entrega en el camión, fin de día (ganar y perder),
 gaviotas (incluido que aparezcan más espaciadas con un solo jugador),

@@ -75,19 +75,33 @@ func _ready() -> void:
 		return
 
 	if "--npc" in args:
-		# NPCs caminando por la playa y tirando basura
+		# veraneantes: uno toma sol, otro sentado y otro charlando
 		main.start_game(2, false, 2)      # Día 3: tres NPCs
 		await get_tree().process_frame
 		main.time_left = main.level_seconds * 0.6
-		for i in 150:
+		main.players[0].teleport(2, 2)
+		main.players[1].teleport(21, 2)
+		for i in 30:
 			main.npcs.tick(1.0 / 60.0)
-		var talker = main.npcs.list[0]
-		main.npc_throw(talker.pos + Vector3(0, 1.15, 0), main.spawner.pick_tile())
-		for i in 8:
-			main._update_flying(0.03)
 		main.camera.fov = 40.0
-		main.camera.look_at_from_position(Vector3(10.0, 6.0, 14.0),
-			Vector3(10.0, 0.6, 5.0), Vector3.UP)
+		main.camera.look_at_from_position(Vector3(10.0, 5.6, 15.0),
+			Vector3(10.0, 0.5, 6.2), Vector3.UP)
+		await _shoot(0.05)
+		return
+
+	if "--npcthrow" in args:
+		# uno se levanta, camina a la orilla y tira basura al mar
+		main.start_game(2, false, 2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var actor = main.npcs.list[0]
+		actor.phase = "walk_out"
+		actor.target = main.npcs._shore_point(actor.home)
+		for i in 260:
+			main.npcs.tick(1.0 / 60.0)
+		main.camera.fov = 36.0
+		main.camera.look_at_from_position(Vector3(4.5, 4.4, 15.0),
+			Vector3(4.5, 0.6, 9.6), Vector3.UP)
 		await _shoot(0.05)
 		return
 
