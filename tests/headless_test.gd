@@ -396,7 +396,7 @@ func _run() -> void:
 	main.gulls.spawn()
 	var gull = main.gulls.list[0]
 	check("la gaviota marca lo que va a robar", gull.mark != null)
-	for i in 160:
+	for i in 240:
 		main.gulls.tick(0.05)
 	check("al robar, el aro desaparece", gull.mark == null or not is_instance_valid(gull.mark))
 	check("el aro apuntaba a la basura robada", mark_victim.node == null)

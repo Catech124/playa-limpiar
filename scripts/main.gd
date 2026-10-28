@@ -356,7 +356,8 @@ func _tick_water(delta: float) -> void:
 				_respawn(p)
 			continue
 
-		if p.swimming:
+		# el tiburón también acecha si estás en la orilla, no solo nadando
+		if p.swimming or _near_water(p):
 			p.water_time += delta
 			# Cuanto más se queda en el agua, más se calienta el tiburón: la
 			# aleta sale antes y la mordida también.
@@ -588,6 +589,15 @@ func _respawn(p: Player) -> void:
 	spawn_puff(p.position + Vector3(0, 0.1, 0), Color(0.85, 0.92, 1.0), 8, 1.2)
 	p.revive()
 	spawn_puff(p.position, Color(0.88, 0.82, 0.66), 8, 1.0)
+
+
+## ¿Está a un paso del agua? En la orilla el tiburón ya empieza a contar.
+func _near_water(p: Player) -> bool:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var t := world.tile_at(p.tile_x() + d.x, p.tile_y() + d.y)
+		if t != null and t.kind == "water":
+			return true
+	return false
 
 
 func _nearest_sand(p: Player) -> CellData:
@@ -978,6 +988,8 @@ func _use_bin(p: Player, tile: CellData, held: CarryItem) -> void:
 	if tile.bag != null:
 		var bag := tile.bag
 		tile.bag = null
+		if tile.bin_hole != null:
+			tile.bin_hole.visible = true
 		move_item_to_player(bag, p)
 		if bag.is_full():
 			toast(at, "¡Bolsa llena! Llevala al camión", "good")
@@ -1258,6 +1270,9 @@ func _update_bin_visual(tile: CellData) -> void:
 	if not bag.hung:
 		bag.hung = true
 		ItemVisuals.rebuild(bag)      # si todavía no existe el nodo, no hace nada
+	# la bolsa tapa la boca oscura del contenedor (si no, se ve un plato negro)
+	if tile.bin_hole != null:
+		tile.bin_hole.visible = false
 	var node := _item_node(bag)       # y acá se construye ya como forro
 	item_blocker(bag, false)
 	parent_item(node, world.items_root)

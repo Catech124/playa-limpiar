@@ -11,6 +11,7 @@ var item: CarryItem = null   # ítem apoyado en la celda (suelo)
 var bin: String = ""     # tipo de residuo que acepta un contenedor (pet/lata/vidrio)
 var bag: CarryItem = null    # bolsa colgada en la boca de un contenedor
 var decor := ""              # prop decorativo grande (palmera, torre, muelle)
+var bin_hole: Node3D = null  # boca oscura del contenedor (se oculta con bolsa)
 
 
 func is_solid() -> bool:

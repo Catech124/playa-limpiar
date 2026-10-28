@@ -85,6 +85,8 @@ entera, solo lo justo para que el lugar no se sienta una isla perdida.
 
 - **Arena continua**: no hay cuadrícula. La textura son manchas de duna (elipses
   planas de tonos apenas distintos) y la orilla de arena mojada.
+- **El muelle es sólido**: tiene colisión, no se pasa a través (ni se puede
+  tirar basura encima).
 - **Rocas naturales**: el borde son grupos de piedras superpuestas de distinto
   tamaño y tono (antes era un cubo gris por celda).
 - **Mar animado y OPACO**: una sola lámina con shader. Ondula con `TIME`, tiene
@@ -133,6 +135,8 @@ palmera ni debajo del muelle.
 
 ## El mar y el tiburón (Fase 3)
 
+- El **tiburón también acecha en la orilla**: con solo estar al borde del agua
+  el reloj corre igual que nadando.
 - **Se entra al agua nadando**: el personaje flota **parado** (no acostado como
   nadador de competencia), con el agua al pecho y la cabeza afuera; rema con los
   brazos a los costados, **sube y baja como un corcho** y deja **ondas que se
@@ -190,16 +194,17 @@ tiburón tampoco descuenta: cuesta 5 segundos de espera.
 Todo son primitivas de Godot; lo que hace que se reconozca cada cosa es la
 silueta:
 
-- **Personaje**: 0,84 de escala (antes tapaba media pantalla) y con la cara
-  detallada: ojos con esclerótica y brillo, cejas, sonrisa y cachetes. El GLB
-  viene en **T-pose**, así que la animación baja los brazos con una rotación base
-  (`ARM_REST_L/R`) y suma el movimiento encima.
+- **Personaje**: el modelo anterior (brazos caídos, no T-pose), a 0,78 de
+  escala y con **cabeza y sombrero al 0,88** para que no quede cabezón. La cara
+  lleva ojos con esclerótica y brillo, cejas, sonrisa y cachetes.
 - **Botella PET**: cuerpo ancho, etiqueta blanca y tapa azul oscura.
 - **Botella de vidrio**: verde, cuello largo y etiqueta crema.
 - **Lata**: metal con banda roja y anilla en la tapa.
 - **Materiales**: el vidrio es translúcido (alfa + borde iluminado), el metal es
   satinado (metallic 0.7 con rugosidad baja) y el PET es plástico opaco.
-- **Bolsa colgada**: va **expandida como forro**. El plástico cubre el marco de
+- **Bolsa colgada**: va **expandida como forro cuadrado** (el bote es cuadrado):
+  paredes, borde doblado sobre el marco, falda arrugada por fuera, pliegues y un
+  nudo atado en una esquina. El plástico cubre el marco de
   la boca, cuelga por fuera del contenedor y la basura asoma desde adentro. En
   la mano es una bolsa chica atada, que se lleva al costado para no tapar al
   personaje.

@@ -293,64 +293,74 @@ static func _build_bag(item: CarryItem) -> void:
 		item.node.add_child(mini)
 
 
-## Bolsa colgada en un contenedor: va EXPANDIDA como forro. El contenedor es una
-## caja sólida (debajo de su cara superior no se ve nada), así que la bolsa se
-## arma en tres piezas que es como se ve una bolsa real de arriba:
-##   - el saco abierto (cilindro sin tapa y de doble cara: se ve el interior),
-##   - el plástico tapando el marco de la boca,
-##   - la falda que cuelga por FUERA del contenedor (lo que la delata como bolsa).
+## Bolsa colgada en un contenedor: va EXPANDIDA como forro. El bote es cuadrado,
+## así que la bolsa también: cuatro paredes, el borde doblado sobre el marco, la
+## falda arrugada por fuera y un nudo atado en una esquina. Un cilindro en el
+## medio no se leía como bolsa.
 static func _build_bin_liner(item: CarryItem) -> void:
 	var bin_top := float(GameConfig.STATION_HEIGHT.get("bin", 0.78))
 	var plastic := _bag_color(item)
 	var n := item.contents.size()
-	var mouth_y := bin_top + 0.17        # sobresale un poco, como una bolsa real
-	var bottom_y := bin_top - 0.30       # el fondo queda dentro del contenedor
+	var mouth_y := bin_top + 0.02
+	var bottom_y := bin_top - 0.34
+	var w := 0.70
+	var h := mouth_y - bottom_y
 
-	var sack := CylinderMesh.new()
-	sack.top_radius = 0.335
-	sack.bottom_radius = 0.30
-	sack.height = mouth_y - bottom_y
-	sack.radial_segments = 18
-	sack.cap_top = false
-	var sm := _mesh(item.node, sack, plastic, Vector3(0, (mouth_y + bottom_y) * 0.5, 0))
-	sm.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# el interior de un cilindro recibe la luz por la espalda: sin un poco de
-	# emisión queda un pozo negro y no se ve la basura que hay adentro
-	sm.material_override.emission_enabled = true
-	sm.material_override.emission = plastic
-	sm.material_override.emission_energy_multiplier = 0.45
-
-	# fondo: es lo que se ve cuando la bolsa todavía está vacía
-	var bottom := _cyl(item.node, 0.30, 0.30, 0.02, plastic.darkened(0.12),
-		Vector3(0, bottom_y + 0.01, 0), 0.0, 18)
-	bottom.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-	# plástico sobre el marco (deja libre el círculo del saco)
-	var cover_y := bin_top + 0.075
-	for sz in [-1.0, 1.0]:
-		_box(item.node, Vector3(1.00, 0.02, 0.16), plastic, Vector3(0, cover_y, sz * 0.42))
+	# fondo y paredes del forro
+	# el fondo bien claro: adentro del bote hay sombra y parecía un pozo
+	_box(item.node, Vector3(w, 0.02, w), plastic.lightened(0.04), Vector3(0, bottom_y, 0))
 	for sx in [-1.0, 1.0]:
-		_box(item.node, Vector3(0.16, 0.02, 0.68), plastic, Vector3(sx * 0.42, cover_y, 0))
+		var wall_x := _box(item.node, Vector3(0.025, h, w), plastic,
+			Vector3(sx * w * 0.5, bottom_y + h * 0.5, 0))
+		_wall_light(wall_x, plastic)
+	for sz in [-1.0, 1.0]:
+		var wall_z := _box(item.node, Vector3(w, h, 0.025), plastic,
+			Vector3(0, bottom_y + h * 0.5, sz * w * 0.5))
+		_wall_light(wall_z, plastic)
 
-	# falda que cuelga por fuera: alturas distintas para que no parezca una caja
-	var skirt_top := bin_top + 0.06
-	var skirts := [
-		[Vector3(1.04, 0.17, 0.03), Vector3(0, skirt_top - 0.085, 0.48), Vector3(-4, 0, 0)],
-		[Vector3(1.02, 0.13, 0.03), Vector3(0, skirt_top - 0.065, -0.48), Vector3(3, 0, 0)],
-		[Vector3(0.03, 0.15, 1.00), Vector3(0.48, skirt_top - 0.075, 0), Vector3(0, 0, 4)],
-		[Vector3(0.03, 0.19, 1.02), Vector3(-0.48, skirt_top - 0.095, 0.01), Vector3(0, 0, -3)],
-	]
-	for sk in skirts:
-		var flap := _box(item.node, sk[0], plastic, sk[1])
-		flap.rotation_degrees = sk[2]
+	# borde doblado sobre el marco (4 tiras apenas torcidas = plástico, no marco)
+	for sz in [-1.0, 1.0]:
+		var strip_z := _box(item.node, Vector3(1.02, 0.02, 0.17), plastic,
+			Vector3(0, mouth_y + 0.06, sz * 0.42))
+		strip_z.rotation_degrees = Vector3(0, 2.0 * sz, 0)
+	for sx in [-1.0, 1.0]:
+		var strip_x := _box(item.node, Vector3(0.17, 0.02, 0.70), plastic,
+			Vector3(sx * 0.42, mouth_y + 0.062, 0))
+		strip_x.rotation_degrees = Vector3(0, -2.0 * sx, 0)
 
-	# borde enrollado: le da espesor al plástico de la boca
-	var lip := TorusMesh.new()
-	lip.inner_radius = 0.322
-	lip.outer_radius = 0.350
-	lip.rings = 20
-	lip.ring_segments = 6
-	_mesh(item.node, lip, plastic, Vector3(0, mouth_y, 0))
+	# arrugas: dos tiras finas cruzadas sobre el borde
+	var wrinkle_a := _box(item.node, Vector3(0.72, 0.018, 0.05), plastic.lightened(0.05),
+		Vector3(0.10, mouth_y + 0.075, 0.30))
+	wrinkle_a.rotation_degrees = Vector3(0, 14, 0)
+	var wrinkle_b := _box(item.node, Vector3(0.05, 0.018, 0.60), plastic.lightened(0.05),
+		Vector3(-0.30, mouth_y + 0.073, -0.06))
+	wrinkle_b.rotation_degrees = Vector3(0, 9, 0)
+
+	# falda que cuelga por fuera del bote
+	for sz in [-1.0, 1.0]:
+		var flap_z := _box(item.node, Vector3(1.04, 0.17, 0.03), plastic,
+			Vector3(0, bin_top + 0.02, sz * 0.475))
+		flap_z.rotation_degrees = Vector3(-3.0 * sz, 0, 0)
+	for sx in [-1.0, 1.0]:
+		var flap_x := _box(item.node, Vector3(0.03, 0.14, 1.02), plastic,
+			Vector3(sx * 0.475, bin_top + 0.01, 0))
+		flap_x.rotation_degrees = Vector3(0, 0, 3.0 * sx)
+
+	# nudo atado en una esquina, con las orejas del plástico
+	var knot := SphereMesh.new()
+	knot.radius = 0.075
+	knot.height = 0.15
+	_mesh(item.node, knot, plastic.darkened(0.12), Vector3(0.36, mouth_y + 0.12, 0.36))
+	for i in 2:
+		var ear := BoxMesh.new()
+		ear.size = Vector3(0.14, 0.03, 0.04)
+		var em := _mesh(item.node, ear, plastic.darkened(0.08),
+			Vector3(0.40 + 0.02 * float(i), mouth_y + 0.19 + 0.02 * float(i),
+				0.33 - 0.05 * float(i)))
+		em.rotation = Vector3(0.55 - 0.35 * float(i), 0.8, -0.5 + 0.4 * float(i))
+		em.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 
 	# la basura que ya tiene adentro: se apila y asoma más cuanto más llena está
 	var slots := [Vector3(-0.16, 0, -0.14), Vector3(0.16, 0, -0.14),
@@ -359,10 +369,21 @@ static func _build_bin_liner(item: CarryItem) -> void:
 		slots = [Vector3.ZERO]
 	elif n == 2:
 		slots = [Vector3(-0.14, 0, -0.10), Vector3(0.14, 0, 0.10)]
-	var pile := bottom_y + 0.19 + 0.05 * n
+	var pile := bottom_y + 0.19 + 0.05 * float(n)
 	for i in n:
 		var mini := residue_piece(String(item.contents[i]))
 		mini.scale = Vector3(0.85, 0.85, 0.85)
 		mini.position = Vector3(0, pile, 0) + slots[i % slots.size()]
 		mini.rotation_degrees = Vector3(-7.0 + (i % 3) * 7.0, i * 61.0, 6.0 - (i % 2) * 12.0)
 		item.node.add_child(mini)
+
+
+## Las caras internas del forro reciben la luz por la espalda y quedan negras:
+## un poco de emisión las deja del color del plástico (como una bolsa real).
+static func _wall_light(mi: MeshInstance3D, plastic: Color) -> void:
+	var m := mi.material_override as StandardMaterial3D
+	if m == null:
+		return
+	m.emission_enabled = true
+	m.emission = plastic
+	m.emission_energy_multiplier = 0.42

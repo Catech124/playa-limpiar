@@ -361,8 +361,6 @@ func _build_decor() -> void:
 				_tower(pos)
 				_decor_collider(pos + Vector3(0, 0, 0), 0.55, 1.8)
 			"pier":
-				if tile != null:
-					tile.decor = kind
 				_pier(int(d[0]), 10, 13)
 			"rock":
 				var m := SphereMesh.new()
@@ -594,6 +592,11 @@ func _tower(pos: Vector3) -> void:
 func _pier(cx: int, from_y: int, to_y: int) -> void:
 	for y in range(from_y, to_y + 1):
 		var z := float(y) + 0.5
+		# el muelle es sólido: no se pasa a través
+		var tile := tile_at(cx, y)
+		if tile != null:
+			tile.decor = "pier"
+		_decor_collider(Vector3(cx + 0.5, 0.0, z), 0.55, 2.0)
 		_box_mesh(Vector3(1.10, 0.06, 1.0), Color(0.62, 0.47, 0.30),
 			Vector3(cx + 0.5, 0.34, z))
 		_box_mesh(Vector3(1.10, 0.008, 0.03), Color(0.42, 0.31, 0.20),
@@ -679,6 +682,7 @@ func _build_station(t: CellData) -> void:
 		hm.position = Vector3(t.x + 0.5, height + 0.005, t.y + 0.5)
 		hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(hm)
+		t.bin_hole = hm
 		var rim_mat := ItemVisuals.material(color.lightened(0.35))
 		for off in [Vector3(0, 0, 0.40), Vector3(0, 0, -0.40), Vector3(0.40, 0, 0), Vector3(-0.40, 0, 0)]:
 			var rim := BoxMesh.new()

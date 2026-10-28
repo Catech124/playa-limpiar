@@ -18,11 +18,13 @@ func _chef() -> PackedScene:
 
 
 ## Escala del modelo con respecto al asset original.
-const CHAR_SCALE := 0.84
-## El GLB viene en T-pose (brazos en cruz): para animar hay que bajarlos. Es la
-## rotación base de cada bisagra y la animación se suma a esto.
-const ARM_REST_L := 1.57
-const ARM_REST_R := -1.57
+const CHAR_SCALE := 0.78
+## El modelo viene con los brazos caídos (poses del GLB anterior): la animación
+## se suma desde cero. Si se cambia a un GLB en T-pose, acá va ±1.57.
+const ARM_REST_L := 0.0
+const ARM_REST_R := 0.0
+## Cabeza y sombrero un poco más chicos: el personaje quedaba cabezón.
+const HEAD_SCALE := 0.88
 
 var index := 0
 var color := Color.WHITE
@@ -92,6 +94,13 @@ func _build_body() -> void:
 		var node := model.find_child(hinge, true, false)
 		if node is Node3D:
 			_hinges[hinge] = node
+	# cabeza y gorro un poco más chicos (el cuerpo ya es más bajo)
+	var head: Node3D = _hinges.get("head")
+	if head != null:
+		head.scale = Vector3.ONE * HEAD_SCALE
+	var hat: Node3D = _hinges.get("hat")
+	if hat != null:
+		hat.scale = Vector3.ONE * HEAD_SCALE
 	_add_face_details()
 
 
