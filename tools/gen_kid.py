@@ -1,49 +1,54 @@
 """
 Generador del personaje (Blender headless) — chico de playa.
 
-Uso:
-    blender --background --python tools/gen_kid.py -- --out /tmp/kid --render
+Proporciones tomadas del feedback de Claude sobre el render (torso corto y
+ancho, cabeza baja, ala grande con pitch para que la cámara alta no tape los
+ojos, brazos con codo y guantes que rompen la silueta).
 
-Salidas:
-    <out>/kid.glb      modelo para el juego (con bisagras arm_l/arm_r/leg_l/leg_r/head/hat)
-    <out>/kid.png      render de referencia para mirar a ojo
+Uso:
+    blender --background --python tools/gen_kid.py -- --out /tmp/kid --render --vista tres
+
+Salidas: <out>/kid.glb (con bisagras arm_l/arm_r/leg_l/leg_r/head/hat) y
+<out>/kid_<vista>.png.  KID_SUELO=1 agrega piso y sombra para las capturas.
 """
 
 import argparse
 import math
 import os
+import sys
 
 import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
 # --------------------------------------------------------------------------- #
-# materiales
+# paleta (sRGB; se convierte a lineal al asignar)
 # --------------------------------------------------------------------------- #
 PALETTE = {
-    "skin": (0.96, 0.75, 0.60),
-    "skin_dark": (0.90, 0.63, 0.50),
-    "white": (0.97, 0.97, 0.95),
-    "stripe": (0.33, 0.50, 0.78),
-    "shorts": (0.13, 0.19, 0.38),
-    "straw": (0.80, 0.66, 0.42),
-    "straw_light": (0.87, 0.74, 0.50),
-    "straw_dark": (0.63, 0.48, 0.29),
-    "hair": (0.38, 0.23, 0.13),
-    "hair_dark": (0.28, 0.16, 0.09),
-    "dark": (0.08, 0.07, 0.09),
-    "iris": (0.56, 0.35, 0.18),
-    "mouth": (0.42, 0.18, 0.16),
-    "blush": (0.97, 0.62, 0.58),
-    "sandal": (0.30, 0.50, 0.80),
-    "glove": (0.55, 0.38, 0.24),
+    "skin": (0.90, 0.65, 0.45),        # #E5A673
+    "skin_dark": (0.84, 0.57, 0.40),
+    "white": (0.96, 0.95, 0.92),       # #F6F2EA
+    "stripe": (0.31, 0.49, 0.73),      # #4F7DBB
+    "shorts": (0.12, 0.17, 0.37),      # #1E2B5E
+    "straw": (0.82, 0.66, 0.40),       # #D2A866
+    "straw_light": (0.88, 0.74, 0.48),
+    "straw_dark": (0.68, 0.53, 0.30),
+    "band": (0.93, 0.89, 0.80),        # #EDE3CC
+    "hair": (0.42, 0.23, 0.12),        # #6B3B1F
+    "hair_dark": (0.33, 0.17, 0.08),
+    "dark": (0.10, 0.08, 0.06),        # #1A1410
+    "eyewhite": (0.98, 0.97, 0.95),
+    "mouth": (0.44, 0.19, 0.16),
+    "blush": (0.91, 0.54, 0.45),       # #E88A74
+    "sandal": (0.94, 0.90, 0.82),      # suela #EFE6D2
+    "strap": (0.31, 0.49, 0.73),
+    "glove": (0.66, 0.44, 0.23),       # #A8713A
 }
 
 MATS = {}
 
 
 def srgb_to_linear(c):
-    """Blender espera el Base Color en lineal; la paleta está en sRGB."""
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
@@ -65,7 +70,7 @@ def material(name):
         nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     bsdf.inputs["Base Color"].default_value = (
         srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b), 1.0)
-    bsdf.inputs["Roughness"].default_value = 0.65
+    bsdf.inputs["Roughness"].default_value = 0.7
     bsdf.inputs["Metallic"].default_value = 0.0
     MATS[name] = m
     return m
@@ -83,9 +88,8 @@ def clear():
 # --------------------------------------------------------------------------- #
 # geometría
 # --------------------------------------------------------------------------- #
-def lathe(name, profile, segments=32, mats=None, smooth=True):
-    """Superficie de revolución. `profile` = [(radio, z), ...] de abajo a arriba.
-    `mats` = lista de nombres de material, uno por tramo (banda)."""
+def lathe(name, profile, segments=40, mats=None, smooth=True):
+    """Superficie de revolución. `profile` = [(radio, z), ...] de abajo a arriba."""
     me = bpy.data.meshes.new(name)
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
@@ -98,11 +102,9 @@ def lathe(name, profile, segments=32, mats=None, smooth=True):
             a = 2.0 * math.pi * i / segments
             ring.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
         rings.append(ring)
-
     bm.verts.ensure_lookup_table()
     for k in range(len(rings) - 1):
-        a_ring = rings[k]
-        b_ring = rings[k + 1]
+        a_ring, b_ring = rings[k], rings[k + 1]
         for i in range(segments):
             j = (i + 1) % segments
             f = bm.faces.new((a_ring[i], a_ring[j], b_ring[j], b_ring[i]))
@@ -110,31 +112,44 @@ def lathe(name, profile, segments=32, mats=None, smooth=True):
             f.smooth = smooth
     bm.to_mesh(me)
     bm.free()
-
-    if mats:
-        for m in mats:
-            me.materials.append(material(m))
-    else:
-        me.materials.append(material("skin"))
+    for m in (mats or ["skin"]):
+        me.materials.append(material(m))
     return ob
 
 
-def sphere(name, radius, loc, mat, scale=(1, 1, 1), segments=32, rings=16):
+def sphere(name, radius, loc, mat, scale=(1, 1, 1), segments=32, rings=16, smooth=True):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=rings,
                                          radius=radius, location=loc)
     ob = bpy.context.object
     ob.name = name
     ob.scale = scale
     ob.data.materials.append(material(mat))
-    bpy.ops.object.shade_smooth()
+    if smooth:
+        bpy.ops.object.shade_smooth()
     return ob
 
 
-def cylinder(name, r1, r2, height, loc, mat, rot=(0, 0, 0), verts=32):
+def cylinder(name, r1, r2, height, loc, mat, rot=(0, 0, 0), verts=32, smooth=True):
     bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r1, radius2=r2,
                                     depth=height, location=loc, rotation=rot)
     ob = bpy.context.object
     ob.name = name
+    ob.data.materials.append(material(mat))
+    if smooth:
+        bpy.ops.object.shade_smooth()
+    return ob
+
+
+def limb(name, p0, p1, r0, r1, mat, verts=16):
+    """Cilindro cónico que une dos puntos (para brazos y piernas sin huecos)."""
+    a, b = Vector(p0), Vector(p1)
+    d = b - a
+    h = max(d.length, 0.001)
+    bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r0, radius2=r1,
+                                    depth=h, location=(a + b) * 0.5)
+    ob = bpy.context.object
+    ob.name = name
+    ob.rotation_euler = d.to_track_quat("Z", "Y").to_euler()
     ob.data.materials.append(material(mat))
     bpy.ops.object.shade_smooth()
     return ob
@@ -177,13 +192,12 @@ def join(objs, name):
 
 
 def hinge(name, pivot, objs, parent=None):
-    """Nodo vacío en la bisagra: Godot lo rota y mueve la extremidad."""
     e = bpy.data.objects.new(name, None)
     bpy.context.scene.collection.objects.link(e)
     e.location = Vector(pivot)
+    e.empty_display_size = 0.04
     if parent is not None:
         e.parent = parent
-    e.empty_display_size = 0.04
     for o in objs:
         o.parent = e
         o.matrix_parent_inverse = Matrix.Translation(-Vector(pivot))
@@ -191,214 +205,197 @@ def hinge(name, pivot, objs, parent=None):
 
 
 # --------------------------------------------------------------------------- #
-# piezas
+# layout (suela en Z=0; el personaje mira a +Y en el build, se gira 180° al exportar)
 # --------------------------------------------------------------------------- #
-HEAD_R = 0.200
-HEAD_Z = 0.700
-HINGE_Z = 0.520
+HEAD_R = 0.160
+HEAD_Z = 0.590            # centro del cráneo (mentón 0.43)
+HINGE_Z = 0.455           # bisagra del cuello
+SHOULDER_X = 0.190
+SHOULDER_Z = 0.385
+ARM_SPLAY = 30.0          # apertura del brazo superior
+ELBOW = (0.235, 0.0, 0.307)
+GLOVE_C = (0.255, 0.140, 0.240)   # adelante del torso (Y+ = frente)
+HAT_Z = 0.690
+HAT_PITCH = 14.0          # ala delantera arriba (la cámara mira desde arriba)
+HAT_ROLL = 5.0
 
 
 def build_legs(root):
     for side, tag in ((-1, "l"), (1, "r")):
         parts = []
-        x = side * 0.068
-        parts.append(cylinder(f"leg_{tag}", 0.050, 0.056, 0.16, (x, 0, 0.120), "skin"))
-        # sandalia: suela ovalada + tiras
-        sole = sphere(f"sole_{tag}", 0.075, (x, 0.035, 0.018), "sandal",
-                      scale=(1.0, 1.55, 0.38))
-        parts.append(sole)
+        x = side * 0.080
+        parts.append(cylinder(f"leg_{tag}", 0.040, 0.044, 0.10, (x, 0, 0.095), "skin"))
+        # pie de piel + suela ovalada + tira
+        parts.append(sphere(f"foot_{tag}", 0.055, (x, 0.035, 0.048), "skin",
+                            scale=(0.80, 1.35, 0.55), segments=18, rings=10))
+        parts.append(sphere(f"sole_{tag}", 0.075, (x, 0.030, 0.012), "sandal",
+                            scale=(0.62, 1.10, 0.20), segments=20, rings=10))
         for i in (-1, 1):
-            strap = cube(f"strap_{tag}{i}", (0.020, 0.090, 0.016),
-                         (x + i * 0.028, 0.060, 0.040), "white",
-                         rot=(0, 0, math.radians(i * 26)), bevel=0.006)
-            parts.append(strap)
-        parts.append(cube(f"strap_back_{tag}", (0.018, 0.060, 0.016),
-                          (x, 0.012, 0.040), "white", bevel=0.006))
+            parts.append(cube(f"strap_{tag}{i}", (0.020, 0.085, 0.016),
+                              (x + i * 0.030, 0.060, 0.040), "strap",
+                              rot=(0, 0, math.radians(i * 28)), bevel=0.006))
         leg = join(parts, f"leg_{tag}_mesh")
-        hinge(f"leg_{tag}", (x, 0, 0.205), [leg], root)
+        hinge(f"leg_{tag}", (x, 0, 0.130), [leg], root)
 
 
 def build_torso(root):
-    # short: cadera + dos perneras cortas
+    # short: leve campana
     shorts = lathe("shorts", [
-        (0.176, 0.196), (0.184, 0.230), (0.182, 0.270), (0.176, 0.300),
-    ], mats=["shorts", "shorts", "shorts"])
+        (0.185, 0.130), (0.192, 0.170), (0.195, 0.230),
+    ], mats=["shorts", "shorts"])
     shorts.parent = root
-    for side, tag in ((-1, "l"), (1, "r")):
-        leg_shorts = cylinder(f"shorts_{tag}", 0.090, 0.086, 0.075,
-                              (side * 0.080, 0, 0.185), "shorts", verts=20)
-        leg_shorts.parent = root
-        hem = torus(f"shorts_hem_{tag}", 0.086, 0.010, (side * 0.080, 0, 0.150), "shorts")
-        hem.parent = root
 
-    # camiseta a rayas: 7 bandas
-    bands = 9
-    z0, z1 = 0.285, 0.520
-    r0, r1 = 0.184, 0.150
+    # camiseta: cintura 0.18 → pecho 0.19 → hombro 0.16, elíptica (Y ×0.84)
+    bands = 7
+    z0, z1 = 0.240, 0.440
     profile = []
-    mats = []
     for i in range(bands + 1):
         t = i / bands
-        profile.append((r0 + (r1 - r0) * t, z0 + (z1 - z0) * t))
-    for i in range(bands):
-        mats.append("white" if i % 2 == 0 else "stripe")
+        r = 0.172 + 0.026 * math.sin(math.pi * min(1.0, t * 1.6)) - 0.018 * max(0.0, t - 0.6) / 0.4
+        profile.append((r, z0 + (z1 - z0) * t))
+    mats = ["white" if i % 2 == 0 else "stripe" for i in range(bands)]
     shirt = lathe("shirt", profile, segments=40, mats=mats)
+    shirt.scale = (1.0, 0.84, 1.0)
     shirt.parent = root
 
-    # cuello de la camiseta
-    collar = torus("collar", 0.118, 0.014, (0, 0, 0.520), "white")
+    collar = torus("collar", 0.150, 0.012, (0, 0, 0.438), "white")
+    collar.scale = (1.0, 0.84, 1.0)
     collar.parent = root
-    neck = cylinder("neck", 0.070, 0.078, 0.07, (0, 0, 0.545), "skin")
+
+    neck = cylinder("neck", 0.062, 0.070, 0.06, (0, 0, 0.452), "skin")
     neck.parent = root
 
 
 def build_arms(root):
     for side, tag in ((-1, "l"), (1, "r")):
         parts = []
-        # hombro y manga (se funden con el torso)
-        parts.append(sphere(f"shoulder_{tag}", 0.062, (side * 0.148, 0, 0.452), "stripe",
-                            scale=(1.0, 0.95, 1.0)))
-        parts.append(cylinder(f"sleeve_{tag}", 0.054, 0.050, 0.080,
-                              (side * 0.158, 0, 0.408), "stripe",
-                              rot=(0, math.radians(side * 10), 0)))
-        parts.append(torus(f"cuff_{tag}", 0.049, 0.009, (side * 0.163, 0, 0.368), "white",
+        drop = 0.025 if side < 0 else 0.0
+        sx = side * SHOULDER_X
+        sz = SHOULDER_Z - drop
+        elbow = (side * 0.225, 0.010, 0.300 - drop)
+        glove = (side * 0.245, 0.150, 0.250 - drop)
+
+        parts.append(sphere(f"shoulder_{tag}", 0.062, (sx, 0, sz), "stripe",
+                            scale=(1.05, 1.0, 1.0)))
+        # manga corta
+        parts.append(limb(f"sleeve_{tag}", (sx, 0, sz - 0.010),
+                          (side * 0.205, 0.004, 0.330 - drop), 0.056, 0.048, "stripe"))
+        parts.append(torus(f"cuff_{tag}", 0.050, 0.009,
+                           (side * 0.205, 0.004, 0.330 - drop), "white",
                            rot=(math.radians(90), 0, 0)))
-        # antebrazo y guante
-        parts.append(cylinder(f"forearm_{tag}", 0.038, 0.035, 0.09,
-                              (side * 0.168, 0, 0.325), "skin",
-                              rot=(0, math.radians(side * 6), 0)))
-        parts.append(sphere(f"glove_{tag}", 0.066, (side * 0.174, 0, 0.252), "glove",
-                            scale=(1.0, 1.05, 1.18)))
-        parts.append(sphere(f"thumb_{tag}", 0.030, (side * 0.212, 0.035, 0.250), "glove"))
+        # brazo y antebrazo de piel
+        parts.append(limb(f"upper_{tag}", (side * 0.205, 0.004, 0.330 - drop),
+                          elbow, 0.036, 0.032, "skin"))
+        parts.append(limb(f"forearm_{tag}", elbow, glove, 0.032, 0.030, "skin"))
+        parts.append(sphere(f"glove_{tag}", 0.060, glove, "glove",
+                            scale=(0.95, 1.05, 1.20), segments=20, rings=12))
+        parts.append(sphere(f"thumb_{tag}", 0.026, (glove[0] - side * 0.018,
+                                                    glove[1] - 0.035, glove[2] + 0.015), "glove"))
         arm = join(parts, f"arm_{tag}_mesh")
-        hinge(f"arm_{tag}", (side * 0.145, 0, 0.455), [arm], root)
+        hinge(f"arm_{tag}", (sx, 0, sz), [arm], root)
 
 
 def build_head(root):
-    head_parts = []
-    head_parts.append(sphere("skull", HEAD_R, (0, 0, HEAD_Z), "skin",
-                             scale=(1.06, 0.95, 1.0), segments=40, rings=24))
-    # orejas
+    parts = []
+    parts.append(sphere("skull", HEAD_R, (0, 0, HEAD_Z), "skin",
+                        scale=(1.05, 0.98, 1.0), segments=40, rings=24))
     for side in (-1, 1):
-        head_parts.append(sphere(f"ear_{side}", 0.048, (side * HEAD_R * 0.94, 0.010, HEAD_Z - 0.02),
-                                 "skin_dark", scale=(0.45, 0.80, 1.0), segments=16, rings=10))
+        parts.append(sphere(f"ear_{side}", 0.042, (side * HEAD_R * 0.97, 0.005, HEAD_Z - 0.02),
+                            "skin_dark", scale=(0.45, 0.75, 1.0), segments=16, rings=10))
 
-    # pelo: casquete de rizos
+    # pelo: masa + rizos
+    parts.append(sphere("hair_mass", HEAD_R * 1.04, (0, -0.010, HEAD_Z + 0.020), "hair",
+                        scale=(1.05, 1.0, 0.95), segments=32, rings=16))
     curls = [
-        # corona (arriba y atrás)
-        (0.000, 0.010, 0.175, 0.120), (-0.105, 0.010, 0.160, 0.108),
-        (0.105, 0.010, 0.160, 0.108), (-0.175, -0.010, 0.105, 0.095),
-        (0.175, -0.010, 0.105, 0.095),
-        # rizos de adelante, asomando bajo el ala
-        (-0.085, 0.140, 0.105, 0.095), (0.000, 0.150, 0.100, 0.092),
-        (0.085, 0.140, 0.105, 0.095),
-        # nuca
-        (0.000, -0.130, 0.120, 0.105), (-0.105, -0.115, 0.105, 0.095),
-        (0.105, -0.115, 0.105, 0.095), (-0.170, -0.060, 0.060, 0.085),
-        (0.170, -0.060, 0.060, 0.085),
-        # laterales, por detrás de las orejas
-        (-0.185, 0.010, 0.030, 0.072), (0.185, 0.010, 0.030, 0.072),
+        (0.000, 0.020, 0.115, 0.070), (-0.095, 0.010, 0.108, 0.066),
+        (0.095, 0.010, 0.108, 0.066), (-0.150, 0.000, 0.070, 0.058),
+        (0.150, 0.000, 0.070, 0.058), (-0.060, 0.115, 0.090, 0.058),
+        (0.060, 0.115, 0.090, 0.058), (0.000, -0.130, 0.075, 0.066),
+        (-0.100, -0.115, 0.068, 0.058), (0.100, -0.115, 0.068, 0.058),
     ]
     for i, (x, y, z, r) in enumerate(curls):
-        head_parts.append(sphere(f"curl_{i}", r, (x, y, HEAD_Z + z), "hair",
-                                 scale=(1.0, 0.92, 0.95), segments=16, rings=10))
-    # flequillo: por encima de las cejas, sin tapar los ojos
-    for i in range(3):
-        head_parts.append(sphere(f"fringe_{i}", 0.062, (-0.082 + 0.082 * i, 0.150, HEAD_Z + 0.115),
-                                 "hair", scale=(1.05, 0.75, 0.70), segments=16, rings=10))
+        parts.append(sphere(f"curl_{i}", r, (x, y, HEAD_Z + z), "hair",
+                            scale=(1.0, 0.95, 0.95), segments=16, rings=10))
 
-    # cara
+    # ojos: esclerótica 0.036, pupila 0.019, brillo 0.007 (medidas de Claude)
+    eye_z = HEAD_Z - 0.050
     for side in (-1, 1):
-        ex = side * 0.080
-        ez = HEAD_Z + 0.020
-        # esclerótica
-        head_parts.append(sphere(f"eye_{side}", 0.052, (ex, 0.170, ez), "white",
-                                 scale=(1.0, 0.42, 1.14), segments=20, rings=12))
-        head_parts.append(sphere(f"iris_{side}", 0.040, (ex, 0.186, ez - 0.004), "iris",
-                                 scale=(1.0, 0.30, 1.02), segments=18, rings=10))
-        head_parts.append(sphere(f"pupil_{side}", 0.023, (ex, 0.196, ez - 0.004), "dark",
-                                 scale=(1.0, 0.26, 1.02), segments=14, rings=8))
-        head_parts.append(sphere(f"glint_{side}", 0.013, (ex - 0.014, 0.203, ez + 0.020), "white",
-                                 segments=10, rings=6))
-        # ceja
-        head_parts.append(cube(f"brow_{side}", (0.098, 0.032, 0.026),
-                               (ex, 0.184, ez + 0.104), "hair_dark",
-                               rot=(0, math.radians(side * 10), 0), bevel=0.008))
-        # cachete
-        head_parts.append(sphere(f"cheek_{side}", 0.048, (side * 0.135, 0.150, HEAD_Z - 0.055),
-                                 "blush", scale=(1.0, 0.45, 0.70), segments=16, rings=10))
+        ex = side * 0.075
+        ey = 0.130
+        parts.append(sphere(f"eye_{side}", 0.040, (ex, ey, eye_z), "eyewhite",
+                            scale=(1.0, 0.45, 1.05), segments=18, rings=10))
+        parts.append(sphere(f"pupil_{side}", 0.021, (ex, ey + 0.016, eye_z), "dark",
+                            scale=(1.0, 0.40, 1.05), segments=14, rings=8))
+        parts.append(sphere(f"glint_{side}", 0.008, (ex - 0.010, ey + 0.024, eye_z + 0.012),
+                            "eyewhite", segments=10, rings=6))
+        parts.append(cube(f"brow_{side}", (0.070, 0.026, 0.022), (ex, ey - 0.006, eye_z + 0.062),
+                          "hair_dark", rot=(0, math.radians(side * 8), 0), bevel=0.007))
+        parts.append(sphere(f"cheek_{side}", 0.024, (side * 0.105, ey - 0.050, eye_z - 0.045),
+                            "blush", scale=(1.0, 0.45, 0.70), segments=14, rings=9))
 
-    # nariz
-    head_parts.append(sphere("nose", 0.027, (0, 0.196, HEAD_Z - 0.024), "skin",
-                             scale=(1.0, 0.85, 0.80), segments=16, rings=10))
-
-    # boca: sonrisa (línea fina + comisuras levantadas)
-    head_parts.append(cube("mouth", (0.042, 0.012, 0.012), (0, 0.186, HEAD_Z - 0.070),
-                           "mouth", bevel=0.004))
+    parts.append(sphere("nose", 0.024, (0, ey - 0.010, eye_z - 0.040), "skin_dark",
+                        scale=(1.0, 0.85, 0.80), segments=14, rings=9))
+    parts.append(cube("mouth", (0.040, 0.012, 0.011), (0, ey - 0.020, eye_z - 0.080),
+                      "mouth", bevel=0.004))
     for i in (-1, 1):
-        head_parts.append(cube(f"mouth_corner_{i}", (0.020, 0.011, 0.011),
-                               (i * 0.028, 0.186, HEAD_Z - 0.064), "mouth",
-                               rot=(0, 0, math.radians(-i * 26)), bevel=0.004))
+        parts.append(cube(f"mouth_corner_{i}", (0.018, 0.011, 0.011),
+                          (i * 0.026, ey - 0.020, eye_z - 0.074), "mouth",
+                          rot=(0, 0, math.radians(-i * 26)), bevel=0.004))
 
-    head = join(head_parts, "head_mesh")
+    head = join(parts, "head_mesh")
     hinge("head", (0, 0, HINGE_Z), [head], root)
 
 
 def build_hat(root):
-    # ala: perfil que se abre, con el borde ondulado
+    # ala: radio 0.24 → 0.35 con caída de 0.025, grosor 0.03
     brim = lathe("brim", [
-        (0.130, 0.897), (0.225, 0.903), (0.300, 0.907), (0.340, 0.905),
-        (0.345, 0.898), (0.310, 0.892), (0.215, 0.888), (0.130, 0.887),
-    ], segments=64, mats=["straw", "straw_light", "straw_dark", "straw_dark",
-                         "straw_dark", "straw_light", "straw"])
+        (0.230, 0.0000), (0.290, -0.012), (0.330, -0.020), (0.340, -0.024),
+        (0.340, -0.052), (0.310, -0.049), (0.250, -0.042), (0.230, -0.030),
+    ], segments=56, mats=["straw", "straw_light", "straw_dark", "straw_dark",
+                          "straw_dark", "straw_light", "straw"])
+    # borde redondeado
+    rim = torus("rim", 0.335, 0.013, (0, 0, -0.038), "straw_dark")
+    # copa: media elipsoide
+    crown = sphere("crown", 0.185, (0, 0, 0.012), "straw_light",
+                   scale=(1.0, 0.98, 0.55), segments=32, rings=16)
+    band = torus("band", 0.186, 0.012, (0, 0, -0.012), "band")
+    band.scale = (1.0, 0.98, 1.0)
+    band.scale = (1.0, 0.92, 1.0)
 
-    # onda del borde: desplazar los vértices del borde en Z
-    me = brim.data
-    for v in me.vertices:
-        r = math.hypot(v.co.x, v.co.y)
-        if r > 0.295:
-            ang = math.atan2(v.co.y, v.co.x)
-            v.co.z += 0.016 * math.sin(ang * 5.0) + 0.008 * math.sin(ang * 9.0)
-
-    # copa
-    crown = lathe("crown", [
-        (0.186, 0.889), (0.192, 0.905), (0.190, 0.930), (0.182, 0.950),
-        (0.170, 0.964), (0.150, 0.974), (0.115, 0.980), (0.060, 0.983),
-    ], segments=40, mats=["straw_dark", "straw", "straw", "straw_light",
-                          "straw_light", "straw_light", "straw"])
-
-    hat = join([brim, crown], "hat_mesh")
-    hat.scale = (1.0, 0.94, 1.0)        # apenas elíptica: con 0.86 parecía orejas
-    # tilt hacia atrás: el ala delantera sube y deja ver los ojos desde la cámara alta
-    hat.rotation_euler = (math.radians(8), math.radians(3), 0)
-    hat.location = (0.0, -0.020, 0.004)
-    hinge("hat", (0, 0, HINGE_Z), [hat], root)
+    hat = join([brim, rim, crown, band], "hat_mesh")
+    # las piezas se arman alrededor del origen: se suben al pivote del sombrero
+    hat.location = (0, 0, HAT_Z)
+    hat.rotation_euler = (math.radians(HAT_PITCH), 0.0, math.radians(HAT_ROLL))
+    hinge("hat", (0, 0, HAT_Z), [hat], root)
 
 
 # --------------------------------------------------------------------------- #
-# escena + render
+# render
 # --------------------------------------------------------------------------- #
-def setup_render(path, cam_pos=(0.55, -2.75, 0.78), look_at=(0.0, 0.0, 0.52)):
+VISTAS = {
+    "frente": (0.0, -2.60, 0.55),
+    "tres": (1.75, -1.95, 0.62),
+    "lado": (2.60, 0.0, 0.55),
+    "atras": (0.0, 2.60, 0.55),
+}
+
+
+def setup_render(path, cam_pos=(0.55, -2.75, 0.78), look_at=(0.0, 0.0, 0.45)):
     scene = bpy.context.scene
-    # Cycles CPU: confiable en headless (Workbench/EEVEE necesitan contexto GL)
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = 24
     scene.cycles.use_denoising = False
     scene.render.resolution_x = 640
     scene.render.resolution_y = 640
-    scene.render.film_transparent = True   # alfa para medir la silueta
+    scene.render.film_transparent = True
 
     world = bpy.data.worlds.new("W")
     world.use_nodes = True
-    bg = None
     for node in world.node_tree.nodes:
         if node.type == "BACKGROUND":
-            bg = node
-            break
-    if bg is not None:
-        bg.inputs[0].default_value = (0.38, 0.52, 0.68, 1)
-        bg.inputs[1].default_value = 0.55
+            node.inputs[0].default_value = (0.38, 0.52, 0.68, 1)
+            node.inputs[1].default_value = 0.55
     scene.world = world
 
     bpy.ops.object.light_add(type="SUN", location=(2, -3, 5))
@@ -413,18 +410,15 @@ def setup_render(path, cam_pos=(0.55, -2.75, 0.78), look_at=(0.0, 0.0, 0.52)):
     cam.data.lens = 70
     scene.camera = cam
 
-    # piso opcional: sin él la silueta queda aislada (sirve para medir)
     if os.environ.get("KID_SUELO", "0") == "1":
         bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, -0.002))
-        floor = bpy.context.object
-        floor.data.materials.append(material("straw_light"))
+        bpy.context.object.data.materials.append(material("straw_light"))
 
-    # color fiel: sin el mapeo AgX los colores no se lavan
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
-    scene.render.filepath = path
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
+    scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     print("render ->", path, os.path.exists(path))
 
@@ -433,6 +427,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="/tmp/kid")
     parser.add_argument("--render", action="store_true")
+    parser.add_argument("--vista", default="tres")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
     clear()
@@ -455,10 +450,9 @@ def main():
     print("GLB ->", glb)
 
     if args.render:
-        setup_render(os.path.join(args.out, "kid.png"))
+        setup_render(os.path.join(args.out, f"kid_{args.vista}.png"),
+                     cam_pos=VISTAS.get(args.vista, VISTAS["tres"]))
 
-
-import sys  # noqa: E402
 
 if __name__ == "__main__":
     main()
