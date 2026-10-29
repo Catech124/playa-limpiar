@@ -14,6 +14,7 @@ const COLORS := {
 
 var w := 0
 var h := 0
+var bin_lids: Array = []      # [{lid, tile}] para abrir la tapa de los botes
 var map: Array = []
 var tiles: Array = []          # Array[Array[CellData]]
 var spawns: Array = []         # Array[Vector2i]
@@ -666,36 +667,24 @@ func _build_station(t: CellData) -> void:
 	if t.station == "bin":
 		color = GameConfig.BIN_COLOR.get(t.bin, color)
 
-	var box := BoxMesh.new()
-	box.size = Vector3(0.94, height, 0.94)
-	var mi := MeshInstance3D.new()
-	mi.mesh = box
-	mi.material_override = ItemVisuals.material(color)
-	mi.position = Vector3(t.x + 0.5, height * 0.5, t.y + 0.5)
-	add_child(mi)
-
 	if t.station == "bin":
-		# boca abierta: hueco oscuro + borde claro (la bolsa se cuelga ahí)
-		var hole := BoxMesh.new()
-		hole.size = Vector3(0.70, 0.03, 0.70)
-		var hm := MeshInstance3D.new()
-		hm.mesh = hole
-		hm.material_override = ItemVisuals.material(Color(0.10, 0.13, 0.12))
-		hm.position = Vector3(t.x + 0.5, height + 0.005, t.y + 0.5)
-		hm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(hm)
-		t.bin_hole = hm
-		var rim_mat := ItemVisuals.material(color.lightened(0.35))
-		for off in [Vector3(0, 0, 0.40), Vector3(0, 0, -0.40), Vector3(0.40, 0, 0), Vector3(-0.40, 0, 0)]:
-			var rim := BoxMesh.new()
-			rim.size = Vector3(0.14 if off.x != 0 else 0.94, 0.07, 0.14 if off.z != 0 else 0.94)
-			var rm := MeshInstance3D.new()
-			rm.mesh = rim
-			rm.material_override = rim_mat
-			rm.position = Vector3(t.x + 0.5, height + 0.03, t.y + 0.5) + off
-			rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(rm)
+		# bote reciclador low-poly retro (GLB): cuerpo, ruedas y tapa con bisagra
+		var bote: Node3D = BinModel.build(String(t.bin))
+		if bote != null:
+			bote.position = Vector3(t.x + 0.5, 0.0, t.y + 0.5)
+			add_child(bote)
+			t.bin_lid = bote.find_child("Lid", true, false)
+			if t.bin_lid != null:
+				bin_lids.append({"lid": t.bin_lid, "tile": t})
 	else:
+		var box := BoxMesh.new()
+		box.size = Vector3(0.94, height, 0.94)
+		var mi := MeshInstance3D.new()
+		mi.mesh = box
+		mi.material_override = ItemVisuals.material(color)
+		mi.position = Vector3(t.x + 0.5, height * 0.5, t.y + 0.5)
+		add_child(mi)
+
 		# tapa clara: se lee de un vistazo qué es cada estación
 		var top := BoxMesh.new()
 		top.size = Vector3(0.86, 0.06, 0.86)
@@ -874,7 +863,10 @@ func _build_collider(t: CellData) -> void:
 		body.collision_layer = GameConfig.WATER_LAYER
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(1.0, height, 1.0)
+	# el bote reciclador es angosto (0.47 de planta): con el bloque de 1x1 el
+	# jugador se frenaba a 25 cm del bote, contra el aire
+	var ancho := 0.62 if t.station == "bin" else 1.0
+	box.size = Vector3(ancho, height, ancho)
 	shape.shape = box
 	shape.position = Vector3(0, height * 0.5, 0)
 	body.add_child(shape)

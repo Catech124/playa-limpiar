@@ -129,7 +129,8 @@ func _run() -> void:
 	for i in 30:
 		p.move_step(Vector2(0, -1))
 		await get_tree().physics_frame
-	check("el contenedor bloquea (no atraviesa)", p.position.z > 2.25, "z=%.2f" % p.position.z)
+	# el bote es angosto (0.47 de planta): el tope está en su cara de adelante
+	check("el contenedor bloquea (no atraviesa)", p.position.z > 2.05, "z=%.2f" % p.position.z)
 
 	# --- spawner ----------------------------------------------------------
 	var trash: CarryItem = main.spawner.spawn_one("pet")
@@ -201,6 +202,13 @@ func _run() -> void:
 		give(r)
 		await tp(7, 2, Vector2i(0, -1))
 		use()
+		if p.carrying != null:
+			# solo aparece cuando el test falla: dice dónde quedó el jugador y qué
+			# tenía en la mano (es la pista que faltaba para cazar el fallo raro)
+			print("AVISO paso %d no entró: lleva=%s pos=%s frente=%s,%s bolsa=%d" % [
+				i, p.carrying.type, p.position,
+				p.front_tile().x if p.front_tile() else -1,
+				p.front_tile().y if p.front_tile() else -1, bag.contents.size()])
 	check("la bolsa se llena con 4 residuos", bag.contents.size() == 4 and bag.is_full(),
 		"%d/4" % bag.contents.size())
 

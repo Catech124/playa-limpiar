@@ -321,81 +321,56 @@ static func _build_bag(item: CarryItem) -> void:
 ## falda arrugada por fuera y un nudo atado en una esquina. Un cilindro en el
 ## medio no se leía como bolsa.
 static func _build_bin_liner(item: CarryItem) -> void:
-	var bin_top := float(GameConfig.STATION_HEIGHT.get("bin", 0.78))
+	# El bote del GLB es ESTRECHO (0.47 x 0.57 de planta, boca a 0.84): el forro
+	# entra justo y solo se dobla un poco sobre el labio. Con las medidas del
+	# contenedor viejo (caja de 0.94) quedaba una bandeja blanca gigante encima.
+	var mouth_y := 0.85
+	var bottom_y := 0.46
+	var wx := 0.40
+	var wz := 0.48
 	var plastic := _bag_color(item)
 	var n := item.contents.size()
-	var mouth_y := bin_top + 0.02
-	var bottom_y := bin_top - 0.34
-	var w := 0.70
 	var h := mouth_y - bottom_y
 
-	# fondo y paredes del forro
-	# el fondo bien claro: adentro del bote hay sombra y parecía un pozo
-	_box(item.node, Vector3(w, 0.02, w), plastic.lightened(0.04), Vector3(0, bottom_y, 0))
+	# fondo y paredes del forro (finas: casi no se ven, es una bolsa)
+	_box(item.node, Vector3(wx, 0.015, wz), plastic.lightened(0.04), Vector3(0, bottom_y, 0))
 	for sx in [-1.0, 1.0]:
-		var wall_x := _box(item.node, Vector3(0.025, h, w), plastic,
-			Vector3(sx * w * 0.5, bottom_y + h * 0.5, 0))
+		var wall_x := _box(item.node, Vector3(0.015, h, wz), plastic,
+			Vector3(sx * wx * 0.5, bottom_y + h * 0.5, 0))
 		_wall_light(wall_x, plastic)
 	for sz in [-1.0, 1.0]:
-		var wall_z := _box(item.node, Vector3(w, h, 0.025), plastic,
-			Vector3(0, bottom_y + h * 0.5, sz * w * 0.5))
+		var wall_z := _box(item.node, Vector3(wx, h, 0.015), plastic,
+			Vector3(0, bottom_y + h * 0.5, sz * wz * 0.5))
 		_wall_light(wall_z, plastic)
 
-	# borde doblado sobre el marco (4 tiras apenas torcidas = plástico, no marco)
+	# borde doblado sobre el labio: cuatro tiras finas, apenas más anchas que la
+	# boca (no un marco ancho, que se leía como una mesa)
 	for sz in [-1.0, 1.0]:
-		var strip_z := _box(item.node, Vector3(1.02, 0.02, 0.17), plastic,
-			Vector3(0, mouth_y + 0.06, sz * 0.42))
-		strip_z.rotation_degrees = Vector3(0, 2.0 * sz, 0)
+		var strip_z := _box(item.node, Vector3(wx + 0.08, 0.014, 0.07), plastic,
+			Vector3(0, mouth_y, sz * (wz * 0.5 - 0.005)))
+		strip_z.rotation_degrees = Vector3(0, 1.5 * sz, 0)
 	for sx in [-1.0, 1.0]:
-		var strip_x := _box(item.node, Vector3(0.17, 0.02, 0.70), plastic,
-			Vector3(sx * 0.42, mouth_y + 0.062, 0))
-		strip_x.rotation_degrees = Vector3(0, -2.0 * sx, 0)
+		var strip_x := _box(item.node, Vector3(0.07, 0.014, wz + 0.08), plastic,
+			Vector3(sx * (wx * 0.5 - 0.005), mouth_y + 0.002, 0))
+		strip_x.rotation_degrees = Vector3(0, -1.5 * sx, 0)
 
-	# arrugas: dos tiras finas cruzadas sobre el borde
-	var wrinkle_a := _box(item.node, Vector3(0.72, 0.018, 0.05), plastic.lightened(0.05),
-		Vector3(0.10, mouth_y + 0.075, 0.30))
-	wrinkle_a.rotation_degrees = Vector3(0, 14, 0)
-	var wrinkle_b := _box(item.node, Vector3(0.05, 0.018, 0.60), plastic.lightened(0.05),
-		Vector3(-0.30, mouth_y + 0.073, -0.06))
-	wrinkle_b.rotation_degrees = Vector3(0, 9, 0)
-
-	# falda que cuelga por fuera del bote
-	for sz in [-1.0, 1.0]:
-		var flap_z := _box(item.node, Vector3(1.04, 0.17, 0.03), plastic,
-			Vector3(0, bin_top + 0.02, sz * 0.475))
-		flap_z.rotation_degrees = Vector3(-3.0 * sz, 0, 0)
-	for sx in [-1.0, 1.0]:
-		var flap_x := _box(item.node, Vector3(0.03, 0.14, 1.02), plastic,
-			Vector3(sx * 0.475, bin_top + 0.01, 0))
-		flap_x.rotation_degrees = Vector3(0, 0, 3.0 * sx)
-
-	# nudo atado en una esquina, con las orejas del plástico
+	# nudo atado en una esquina
 	var knot := SphereMesh.new()
-	knot.radius = 0.075
-	knot.height = 0.15
-	_mesh(item.node, knot, plastic.darkened(0.12), Vector3(0.36, mouth_y + 0.12, 0.36))
-	for i in 2:
-		var ear := BoxMesh.new()
-		ear.size = Vector3(0.14, 0.03, 0.04)
-		var em := _mesh(item.node, ear, plastic.darkened(0.08),
-			Vector3(0.40 + 0.02 * float(i), mouth_y + 0.19 + 0.02 * float(i),
-				0.33 - 0.05 * float(i)))
-		em.rotation = Vector3(0.55 - 0.35 * float(i), 0.8, -0.5 + 0.4 * float(i))
-		em.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	knot.radius = 0.038
+	knot.height = 0.075
+	_mesh(item.node, knot, plastic.darkened(0.12), Vector3(0.13, mouth_y + 0.03, 0.17))
 
-
-
-	# la basura que ya tiene adentro: se apila y asoma más cuanto más llena está
-	var slots := [Vector3(-0.16, 0, -0.14), Vector3(0.16, 0, -0.14),
-		Vector3(-0.16, 0, 0.14), Vector3(0.16, 0, 0.14)]
+	# la basura que ya tiene adentro: asoma apenas por la boca
+	var slots := [Vector3(-0.08, 0, -0.11), Vector3(0.08, 0, -0.11),
+		Vector3(-0.08, 0, 0.11), Vector3(0.08, 0, 0.11)]
 	if n == 1:
 		slots = [Vector3.ZERO]
 	elif n == 2:
-		slots = [Vector3(-0.14, 0, -0.10), Vector3(0.14, 0, 0.10)]
-	var pile := bottom_y + 0.19 + 0.05 * float(n)
+		slots = [Vector3(-0.07, 0, -0.09), Vector3(0.07, 0, 0.09)]
+	var pile := 0.58 + 0.035 * float(n)
 	for i in n:
 		var mini := residue_piece(String(item.contents[i]))
-		mini.scale = Vector3(0.85, 0.85, 0.85)
+		mini.scale = Vector3(0.52, 0.52, 0.52)
 		mini.position = Vector3(0, pile, 0) + slots[i % slots.size()]
 		mini.rotation_degrees = Vector3(-7.0 + (i % 3) * 7.0, i * 61.0, 6.0 - (i % 2) * 12.0)
 		item.node.add_child(mini)

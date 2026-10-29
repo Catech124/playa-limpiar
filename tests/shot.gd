@@ -206,6 +206,47 @@ func _ready() -> void:
 		await _shoot(1.0)
 		return
 
+	if "--bins" in args:
+		# los tres botes de cerca: uno con bolsa colgada (tapa abierta)
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var bins: Array = []
+		for row in main.world.tiles:
+			for t in row:
+				if t.station == "bin":
+					bins.append(t)
+		bins.sort_custom(func(a, b): return a.x < b.x)
+		var con_bolsa: CellData = null
+		for t in bins:
+			if t.bin == "vidrio":
+				con_bolsa = t
+		if con_bolsa != null:
+			con_bolsa.bag = CarryItem.bag(["vidrio", "pet"])
+			ItemVisuals.build(con_bolsa.bag)
+			main._update_bin_visual(con_bolsa)
+			for i in 60:
+				main._tick_bin_lids(0.03)
+		# un jugador al lado del bote verde, para comparar tamaños
+		if con_bolsa != null:
+			main.players[0].teleport(con_bolsa.x, con_bolsa.y + 1, Vector2i(0, -1))
+			await get_tree().physics_frame
+		var cx := 0.0
+		for t in bins:
+			cx += float(t.x) + 0.5
+		cx /= float(maxi(bins.size(), 1))
+		var cz := 0.0
+		for t in bins:
+			cz += float(t.y) + 0.5
+		cz /= float(maxi(bins.size(), 1))
+		main.hud.visible = false
+		main.camera.fov = 40.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(cx, 1.9, cz + 5.2),
+			Vector3(cx, 0.5, cz), Vector3.UP)
+		await _shoot(0.5)
+		return
+
 	if "--shore" in args:
 		# jugador en la orilla: la aleta tiene que quedarse en el agua
 		main.start_game(1)

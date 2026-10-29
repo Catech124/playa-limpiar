@@ -115,7 +115,7 @@ const RESIDUES := {
 # --- estaciones ----------------------------------------------------------
 const STATION_HEIGHT := {
 	"bags": 0.80,
-	"bin": 0.78,
+	"bin": 0.95,
 	"delivery": 0.95,
 }
 

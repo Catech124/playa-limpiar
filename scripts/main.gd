@@ -345,6 +345,7 @@ func _process(delta: float) -> void:
 	_update_toasts(delta)
 	_update_puffs(delta)
 	_animate_items(delta)
+	_tick_bin_lids(delta)
 	_update_sharks(delta)
 	_update_light()
 
@@ -811,6 +812,20 @@ func spawn_puff(pos: Vector3, color: Color, count := 7, spread := 0.9) -> void:
 			"life": 0.0,
 			"ttl": randf_range(0.32, 0.50),
 		})
+
+
+## La tapa del bote se abre cuando le cuelgan una bolsa y se cierra al sacarla.
+## Es un detalle chico pero es lo que hace que el bote se lea "de verdad".
+func _tick_bin_lids(delta: float) -> void:
+	if world == null:
+		return
+	for entry in world.bin_lids:
+		var lid: Node3D = entry["lid"]
+		if lid == null or not is_instance_valid(lid):
+			continue
+		var tile: CellData = entry["tile"]
+		var target := deg_to_rad(104.0) if tile.bag != null else 0.0
+		lid.rotation.x = move_toward(lid.rotation.x, target, delta * 3.0)
 
 
 ## La basura flota apenas sobre la arena: así se ve desde la cámara alta y no
