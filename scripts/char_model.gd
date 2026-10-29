@@ -1,106 +1,53 @@
 class_name CharModel
 extends RefCounted
 ## Personaje jugable y NPC, armado con primitivas (sin GLB).
-##
-## Ingeniería inversa de la referencia (chico de playa):
-##   · sombrero de paja de ala ancha, copa redondeada
-##   · pelo castaño rizado asomando bajo el ala
-##   · ojos grandes con esclerótica, iris, pupila y brillo; cejas gruesas
-##   · camiseta a rayas blancas y azules
-##   · short azul marino, piernas cortas y sandalias azules con tiras blancas
-##   · cuerpo = trapecio (ancho en la base, angosto en el cuello) y remate en
-##     media luna del mismo ancho; brazos cortos con guante
+## Modelado a ojo sobre la referencia: chico de playa con sombrero de paja,
+## pelo castaño rizado, ojos grandes, camiseta a rayas, short azul, sandalias y
+## guantes de trabajo.
 ##
 ## Las bisagras se llaman arm_l, arm_r, leg_l, leg_r, head, hat: la animación
 ## del jugador no cambia.
 
-const SKIN := Color(0.95, 0.71, 0.56)
-const SKIN_DARK := Color(0.88, 0.60, 0.46)
-const WHITE := Color(0.97, 0.97, 0.95)
-const STRIPE := Color(0.32, 0.48, 0.78)
-const SHORTS := Color(0.16, 0.22, 0.42)
-const STRAW := Color(0.83, 0.68, 0.44)
-const STRAW_DARK := Color(0.72, 0.56, 0.34)
-const HAIR := Color(0.40, 0.25, 0.15)
+const SKIN := Color(0.96, 0.75, 0.60)
+const SKIN_DARK := Color(0.90, 0.65, 0.50)
+const WHITE := Color(0.98, 0.98, 0.96)
+const STRIPE := Color(0.35, 0.52, 0.80)
+const SHORTS := Color(0.14, 0.20, 0.40)
+const STRAW := Color(0.80, 0.66, 0.42)
+const STRAW_LIGHT := Color(0.86, 0.73, 0.49)
+const STRAW_DARK := Color(0.66, 0.51, 0.31)
+const HAIR := Color(0.38, 0.23, 0.13)
+const HAIR_DARK := Color(0.30, 0.18, 0.10)
 const DARK := Color(0.10, 0.09, 0.11)
-const IRIS := Color(0.45, 0.30, 0.18)
-const MOUTH := Color(0.45, 0.20, 0.18)
-const BLUSH := Color(0.96, 0.60, 0.56)
-const SANDAL := Color(0.30, 0.50, 0.80)
+const IRIS := Color(0.42, 0.27, 0.16)
+const MOUTH := Color(0.42, 0.18, 0.16)
+const BLUSH := Color(0.97, 0.62, 0.58)
+const SANDAL := Color(0.32, 0.52, 0.82)
+const GLOVE := Color(0.55, 0.38, 0.24)
 
-const HEAD_R := 0.170
-const HEAD_Y := 0.590
-const HINGE_Y := 0.470
-const SHOULDER_X := 0.150
-const SHOULDER_Y := 0.360
+const HEAD_R := 0.195
+const HEAD_Y := 0.700
+const HINGE_Y := 0.520
+const SHOULDER_X := 0.145
+const SHOULDER_Y := 0.435
 ## Punto donde quedan las manos con la pose de cargar (lo usa el jugador).
-const HAND_CARRY := Vector3(0.0, 0.245, 0.205)
+const HAND_CARRY := Vector3(0.0, 0.300, 0.215)
 
-const TORSO_BOTTOM := 0.200
-const TORSO_TOP := 0.430
-const TORSO_R_BOTTOM := 0.180
-const TORSO_R_TOP := 0.108
+const TORSO_BOTTOM := 0.285
+const TORSO_TOP := 0.520
+const TORSO_R_BOTTOM := 0.190
+const TORSO_R_TOP := 0.125
 
 
-static func build(shirt: Color, hat := "straw") -> Node3D:
+static func build(_shirt: Color, hat := "straw") -> Node3D:
 	var root := Node3D.new()
 	root.name = "CharModel"
 
-	_build_torso(root)
 	_build_legs(root)
+	_build_torso(root)
 	_build_arms(root)
 	_build_head(root, hat)
 	return root
-
-
-# ------------------------------------------------------------------ torso
-## Camiseta a rayas: el trapecio se arma con anillos alternados (blanco/azul).
-static func _build_torso(root: Node3D) -> void:
-	var bands := 5
-	var height := TORSO_TOP - TORSO_BOTTOM
-	for i in bands:
-		var t0 := float(i) / float(bands)
-		var t1 := float(i + 1) / float(bands)
-		var seg := CylinderMesh.new()
-		seg.top_radius = lerpf(TORSO_R_BOTTOM, TORSO_R_TOP, t1)
-		seg.bottom_radius = lerpf(TORSO_R_BOTTOM, TORSO_R_TOP, t0)
-		seg.height = height / float(bands)
-		seg.radial_segments = 24
-		var col := WHITE if i % 2 == 0 else STRIPE
-		_mesh(root, seg, col, Vector3(0, TORSO_BOTTOM + height * (t0 + t1) * 0.5, 0))
-
-	# cuello de la camiseta
-	var collar := CylinderMesh.new()
-	collar.top_radius = TORSO_R_TOP + 0.004
-	collar.bottom_radius = TORSO_R_TOP + 0.010
-	collar.height = 0.022
-	collar.radial_segments = 24
-	_mesh(root, collar, WHITE, Vector3(0, TORSO_TOP - 0.004, 0))
-
-	# media luna del short: mismo ancho que la base, no sobresale
-	var hips := SphereMesh.new()
-	hips.radius = TORSO_R_BOTTOM
-	hips.height = TORSO_R_BOTTOM * 2.0
-	hips.radial_segments = 24
-	hips.rings = 12
-	var hm := _mesh(root, hips, SHORTS, Vector3(0, TORSO_BOTTOM, 0))
-	hm.scale = Vector3(1.0, 0.62, 1.0)
-
-	# cintura: banda del short
-	var waist := CylinderMesh.new()
-	waist.top_radius = TORSO_R_BOTTOM + 0.002
-	waist.bottom_radius = TORSO_R_BOTTOM + 0.002
-	waist.height = 0.045
-	waist.radial_segments = 24
-	_mesh(root, waist, SHORTS, Vector3(0, TORSO_BOTTOM + 0.012, 0))
-
-	# cuello de piel
-	var neck := CylinderMesh.new()
-	neck.top_radius = 0.055
-	neck.bottom_radius = 0.062
-	neck.height = 0.05
-	neck.radial_segments = 14
-	_mesh(root, neck, SKIN, Vector3(0, TORSO_TOP + 0.010, 0))
 
 
 # ------------------------------------------------------------------ piernas
@@ -109,27 +56,80 @@ static func _build_legs(root: Node3D) -> void:
 		var tag := "l" if side < 0.0 else "r"
 		var pivot := Node3D.new()
 		pivot.name = "leg_" + tag
-		pivot.position = Vector3(side * 0.062, 0.150, 0)
+		pivot.position = Vector3(side * 0.068, 0.205, 0)
 		root.add_child(pivot)
 
 		var leg := CylinderMesh.new()
-		leg.top_radius = 0.048
-		leg.bottom_radius = 0.044
-		leg.height = 0.10
-		leg.radial_segments = 14
-		_mesh(pivot, leg, SKIN, Vector3(0, -0.050, 0))
+		leg.top_radius = 0.056
+		leg.bottom_radius = 0.050
+		leg.height = 0.16
+		leg.radial_segments = 16
+		_mesh(pivot, leg, SKIN, Vector3(0, -0.080, 0))
 
-		# sandalia: suela ovalada azul + tira blanca
+		# sandalia: suela ovalada + tira en Y blanca
 		var sole := SphereMesh.new()
-		sole.radius = 0.062
-		sole.height = 0.124
-		sole.radial_segments = 16
-		sole.rings = 9
-		var sm := _mesh(pivot, sole, SANDAL, Vector3(0, -0.100, 0.030))
-		sm.scale = Vector3(1.0, 0.42, 1.55)
-		var strap := BoxMesh.new()
-		strap.size = Vector3(0.085, 0.018, 0.045)
-		_mesh(pivot, strap, WHITE, Vector3(0, -0.082, 0.030))
+		sole.radius = 0.072
+		sole.height = 0.144
+		sole.radial_segments = 18
+		sole.rings = 10
+		var sm := _mesh(pivot, sole, SANDAL, Vector3(0, -0.150, 0.035))
+		sm.scale = Vector3(1.0, 0.40, 1.60)
+		for i in 2:
+			var strap := BoxMesh.new()
+			strap.size = Vector3(0.022, 0.020, 0.085)
+			var st := _mesh(pivot, strap, WHITE, Vector3(side * (0.028 - 0.056 * float(i)), -0.128, 0.060))
+			st.rotation_degrees = Vector3(0, side * (26.0 - 52.0 * float(i)), 0)
+		var strap2 := BoxMesh.new()
+		strap2.size = Vector3(0.022, 0.020, 0.060)
+		_mesh(pivot, strap2, WHITE, Vector3(0, -0.128, 0.010))
+
+
+# ------------------------------------------------------------------ torso
+static func _build_torso(root: Node3D) -> void:
+	# short: volumen redondeado, más ancho que las piernas
+	var shorts := CylinderMesh.new()
+	shorts.top_radius = TORSO_R_BOTTOM + 0.004
+	shorts.bottom_radius = 0.168
+	shorts.height = 0.120
+	shorts.radial_segments = 26
+	_mesh(root, shorts, SHORTS, Vector3(0, 0.248, 0))
+	# ruedo redondeado, apenas más ancho que el short
+	var hem := TorusMesh.new()
+	hem.inner_radius = 0.150
+	hem.outer_radius = 0.172
+	hem.rings = 26
+	hem.ring_segments = 6
+	_mesh(root, hem, SHORTS, Vector3(0, 0.190, 0))
+
+	# camiseta a rayas finas (7 bandas)
+	var bands := 7
+	var height := TORSO_TOP - TORSO_BOTTOM
+	for i in bands:
+		var t0 := float(i) / float(bands)
+		var t1 := float(i + 1) / float(bands)
+		var seg := CylinderMesh.new()
+		seg.top_radius = lerpf(TORSO_R_BOTTOM, TORSO_R_TOP, t1)
+		seg.bottom_radius = lerpf(TORSO_R_BOTTOM, TORSO_R_TOP, t0)
+		seg.height = height / float(bands)
+		seg.radial_segments = 26
+		var col := WHITE if i % 2 == 0 else STRIPE
+		_mesh(root, seg, col, Vector3(0, TORSO_BOTTOM + height * (t0 + t1) * 0.5, 0))
+
+	# cuello de la camiseta
+	var collar := CylinderMesh.new()
+	collar.top_radius = TORSO_R_TOP + 0.012
+	collar.bottom_radius = TORSO_R_TOP + 0.004
+	collar.height = 0.020
+	collar.radial_segments = 24
+	_mesh(root, collar, WHITE, Vector3(0, TORSO_TOP - 0.006, 0))
+
+	# cuello de piel
+	var neck := CylinderMesh.new()
+	neck.top_radius = 0.068
+	neck.bottom_radius = 0.078
+	neck.height = 0.07
+	neck.radial_segments = 16
+	_mesh(root, neck, SKIN, Vector3(0, TORSO_TOP + 0.024, 0))
 
 
 # ------------------------------------------------------------------ brazos
@@ -138,43 +138,54 @@ static func _build_arms(root: Node3D) -> void:
 		var tag := "l" if side < 0.0 else "r"
 		var pivot := Node3D.new()
 		pivot.name = "arm_" + tag
-		pivot.position = Vector3(side * SHOULDER_X, SHOULDER_Y, 0)
+		pivot.position = Vector3(side * 0.140, 0.440, 0)
+		pivot.rotation_degrees = Vector3(0, 0, side * 7.0)
 		root.add_child(pivot)
 
-		# manga corta (blanca con puño azul), arranca dentro del torso
-		var sleeve := CylinderMesh.new()
-		sleeve.top_radius = 0.052
-		sleeve.bottom_radius = 0.048
-		sleeve.height = 0.07
-		sleeve.radial_segments = 14
-		var sl := _mesh(pivot, sleeve, STRIPE, Vector3(side * 0.012, -0.030, 0))
-		sl.rotation_degrees = Vector3(0, 0, side * 10.0)
+		# hombro redondeado que se funde con la camiseta
+		var shoulder := SphereMesh.new()
+		shoulder.radius = 0.062
+		shoulder.height = 0.124
+		shoulder.radial_segments = 16
+		shoulder.rings = 8
+		_mesh(pivot, shoulder, STRIPE, Vector3(side * 0.006, -0.006, 0))
 
+		# manga corta a rayas
+		var sleeve := CylinderMesh.new()
+		sleeve.top_radius = 0.058
+		sleeve.bottom_radius = 0.052
+		sleeve.height = 0.070
+		sleeve.radial_segments = 16
+		_mesh(pivot, sleeve, STRIPE, Vector3(side * 0.010, -0.058, 0))
+
+		# puño blanco
 		var cuff := CylinderMesh.new()
-		cuff.top_radius = 0.049
-		cuff.bottom_radius = 0.047
-		cuff.height = 0.02
-		cuff.radial_segments = 14
-		var cf := _mesh(pivot, cuff, WHITE, Vector3(side * 0.020, -0.070, 0))
-		cf.rotation_degrees = Vector3(0, 0, side * 10.0)
+		cuff.top_radius = 0.053
+		cuff.bottom_radius = 0.051
+		cuff.height = 0.016
+		cuff.radial_segments = 16
+		_mesh(pivot, cuff, WHITE, Vector3(side * 0.014, -0.100, 0))
 
 		# antebrazo de piel
 		var arm := CylinderMesh.new()
 		arm.top_radius = 0.040
 		arm.bottom_radius = 0.036
-		arm.height = 0.075
-		arm.radial_segments = 14
-		var am := _mesh(pivot, arm, SKIN, Vector3(side * 0.026, -0.115, 0))
-		am.rotation_degrees = Vector3(0, 0, side * 8.0)
+		arm.height = 0.080
+		arm.radial_segments = 16
+		_mesh(pivot, arm, SKIN, Vector3(side * 0.018, -0.146, 0))
 
-		# guante blanco al final
+		# guante de trabajo
 		var glove := SphereMesh.new()
 		glove.radius = 0.052
-		glove.height = 0.110
-		glove.radial_segments = 14
-		glove.rings = 8
-		var gm := _mesh(pivot, glove, WHITE, Vector3(side * 0.032, -0.170, 0))
+		glove.height = 0.108
+		glove.radial_segments = 16
+		glove.rings = 9
+		var gm := _mesh(pivot, glove, GLOVE, Vector3(side * 0.022, -0.198, 0))
 		gm.scale = Vector3(1.0, 1.08, 1.0)
+		var thumb := SphereMesh.new()
+		thumb.radius = 0.026
+		thumb.height = 0.052
+		_mesh(pivot, thumb, GLOVE, Vector3(side * 0.056, -0.204, 0.024))
 
 
 # ------------------------------------------------------------------ cabeza
@@ -188,126 +199,135 @@ static func _build_head(root: Node3D, hat: String) -> void:
 	var skull := SphereMesh.new()
 	skull.radius = HEAD_R
 	skull.height = HEAD_R * 2.0
-	skull.radial_segments = 24
+	skull.radial_segments = 26
 	skull.rings = 14
 	_mesh(pivot, skull, SKIN, Vector3(0, hy, 0))
 
 	# orejas
 	for side in [-1.0, 1.0]:
 		var ear := SphereMesh.new()
-		ear.radius = 0.045
-		ear.height = 0.09
-		var em := _mesh(pivot, ear, SKIN_DARK, Vector3(side * HEAD_R * 0.94, hy - 0.010, 0.010))
-		em.scale = Vector3(0.5, 1.0, 0.8)
+		ear.radius = 0.048
+		ear.height = 0.096
+		var em := _mesh(pivot, ear, SKIN_DARK, Vector3(side * HEAD_R * 0.93, hy - 0.015, 0.012))
+		em.scale = Vector3(0.45, 1.0, 0.75)
 
 	_build_hair(pivot, hy)
 	_build_face(pivot, hy)
 	_build_hat(root, hy, hat)
 
 
-## Pelo rizado: racimos de esferas alrededor de la cabeza, más juntos adelante.
+## Pelo: casquete de rizos alrededor de la cabeza y mechones laterales.
 static func _build_hair(pivot: Node3D, hy: float) -> void:
-	var curls := [
-		[-0.115, 0.085, 0.075], [0.115, 0.085, 0.075],
-		[-0.075, 0.120, 0.105], [0.075, 0.120, 0.105],
-		[0.0, 0.128, 0.115],
-		[-0.135, 0.040, 0.020], [0.135, 0.040, 0.020],
-		[-0.060, 0.100, -0.120], [0.060, 0.100, -0.120], [0.0, 0.105, -0.135],
-		[-0.140, 0.075, -0.060], [0.140, 0.075, -0.060],
+	var locks := [
+		# corona
+		[0.000, 0.150, 0.020, 0.105], [-0.090, 0.140, 0.020, 0.095],
+		[0.090, 0.140, 0.020, 0.095], [-0.150, 0.100, 0.010, 0.085],
+		[0.150, 0.100, 0.010, 0.085], [-0.055, 0.155, 0.100, 0.085],
+		[0.055, 0.155, 0.100, 0.085],
+		# nuca
+		[0.000, 0.120, -0.120, 0.100], [-0.100, 0.100, -0.110, 0.090],
+		[0.100, 0.100, -0.110, 0.090], [-0.160, 0.060, -0.060, 0.080],
+		[0.160, 0.060, -0.060, 0.080],
+		# mechones que caen a los costados
+		[-0.180, 0.055, 0.045, 0.060], [0.180, 0.055, 0.045, 0.060],
 	]
-	for c in curls:
-		var curl := SphereMesh.new()
-		curl.radius = 0.070
-		curl.height = 0.140
-		curl.radial_segments = 12
-		curl.rings = 7
-		var cm := _mesh(pivot, curl, HAIR, Vector3(float(c[0]), hy + float(c[1]), float(c[2])))
-		cm.scale = Vector3(1.0, 0.92, 1.0)
+	for l in locks:
+		var lock := SphereMesh.new()
+		lock.radius = 0.058
+		lock.height = 0.116
+		lock.radial_segments = 12
+		lock.rings = 7
+		var lm := _mesh(pivot, lock, HAIR, Vector3(float(l[0]), hy + float(l[1]), float(l[2])))
+		lm.scale = Vector3(float(l[3]) / 0.058 * 0.85, float(l[3]) / 0.058 * 0.80, float(l[3]) / 0.058 * 0.85)
 
-	# flequillo: tres rizos al frente, sobre la frente
+	# flequillo: rizos sobre la frente
 	for i in 3:
 		var fringe := SphereMesh.new()
-		fringe.radius = 0.062
-		fringe.height = 0.124
+		fringe.radius = 0.070
+		fringe.height = 0.140
 		fringe.radial_segments = 12
 		fringe.rings = 7
 		var fx := -0.085 + 0.085 * float(i)
-		var fm := _mesh(pivot, fringe, HAIR, Vector3(fx, hy + 0.105, 0.135))
-		fm.scale = Vector3(1.05, 0.85, 0.85)
+		var fm := _mesh(pivot, fringe, HAIR, Vector3(fx, hy + 0.128, 0.140))
+		fm.scale = Vector3(1.05, 0.80, 0.80)
 
 
 static func _build_face(pivot: Node3D, hy: float) -> void:
 	for side in [-1.0, 1.0]:
-		var ex: float = float(side) * 0.062
-		var ey := 0.022
-		var ez: float = sqrt(maxf(0.0, HEAD_R * HEAD_R - ex * ex - ey * ey)) + 0.002
+		var ex: float = float(side) * 0.078
+		var ey := 0.020
+		var ez: float = sqrt(maxf(0.0, HEAD_R * HEAD_R - ex * ex - ey * ey))
 
-		# esclerótica
+		# esclerótica grande y apenas hundida
 		var sclera := SphereMesh.new()
-		sclera.radius = 0.052
-		sclera.height = 0.104
-		sclera.radial_segments = 14
-		sclera.rings = 8
-		var sc := _mesh(pivot, sclera, WHITE, Vector3(ex, hy + ey, ez - 0.024))
-		sc.scale = Vector3(1.0, 1.12, 0.34)
+		sclera.radius = 0.056
+		sclera.height = 0.124
+		sclera.radial_segments = 16
+		sclera.rings = 9
+		var sc := _mesh(pivot, sclera, WHITE, Vector3(ex, hy + ey, ez - 0.030))
+		sc.scale = Vector3(1.0, 1.08, 0.26)
 
-		# iris
 		var iris := SphereMesh.new()
-		iris.radius = 0.032
-		iris.height = 0.064
-		iris.radial_segments = 12
-		iris.rings = 7
-		var ir := _mesh(pivot, iris, IRIS, Vector3(ex, hy + ey - 0.002, ez - 0.002))
-		ir.scale = Vector3(1.0, 1.05, 0.34)
+		iris.radius = 0.036
+		iris.height = 0.076
+		iris.radial_segments = 14
+		iris.rings = 8
+		var ir := _mesh(pivot, iris, IRIS, Vector3(ex, hy + ey - 0.003, ez - 0.004))
+		ir.scale = Vector3(1.0, 1.02, 0.30)
 
-		# pupila
 		var pupil := SphereMesh.new()
-		pupil.radius = 0.018
-		pupil.height = 0.036
-		pupil.radial_segments = 10
-		pupil.rings = 5
-		var pu := _mesh(pivot, pupil, DARK, Vector3(ex, hy + ey - 0.002, ez + 0.010))
-		pu.scale = Vector3(1.0, 1.05, 0.30)
+		pupil.radius = 0.020
+		pupil.height = 0.042
+		pupil.radial_segments = 12
+		pupil.rings = 6
+		var pu := _mesh(pivot, pupil, DARK, Vector3(ex, hy + ey - 0.003, ez + 0.008))
+		pu.scale = Vector3(1.0, 1.02, 0.26)
 
-		# brillo
 		var glint := SphereMesh.new()
-		glint.radius = 0.009
-		glint.height = 0.018
-		var gm := _mesh(pivot, glint, WHITE, Vector3(ex - 0.010, hy + ey + 0.012, ez + 0.018))
+		glint.radius = 0.011
+		glint.height = 0.022
+		var gm := _mesh(pivot, glint, WHITE, Vector3(ex - 0.012, hy + ey + 0.016, ez + 0.016))
 		gm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-		# ceja gruesa
+		# ceja gruesa, arqueada
 		var brow := BoxMesh.new()
-		brow.size = Vector3(0.078, 0.024, 0.024)
-		var bm := _mesh(pivot, brow, HAIR, Vector3(ex, hy + ey + 0.088, ez - 0.006))
-		bm.rotation_degrees = Vector3(0, 0, side * 9.0)
+		brow.size = Vector3(0.080, 0.024, 0.024)
+		var bm := _mesh(pivot, brow, HAIR_DARK, Vector3(ex, hy + ey + 0.098, ez - 0.014))
+		bm.rotation_degrees = Vector3(0, 0, side * 10.0)
 
 		# cachete
 		var cheek := SphereMesh.new()
-		cheek.radius = 0.042
-		cheek.height = 0.084
-		var cm := _mesh(pivot, cheek, BLUSH, Vector3(side * 0.115, hy - 0.045, ez - 0.045))
-		cm.scale = Vector3(1.0, 0.72, 0.3)
+		cheek.radius = 0.048
+		cheek.height = 0.096
+		var cm := _mesh(pivot, cheek, BLUSH, Vector3(side * 0.130, hy - 0.052, ez - 0.060))
+		cm.scale = Vector3(1.0, 0.70, 0.28)
 		cm.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		cm.material_override.albedo_color.a = 0.6
+		cm.material_override.albedo_color.a = 0.55
 		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# boca: sonrisa chica
+	# nariz de botón
+	var nose := SphereMesh.new()
+	nose.radius = 0.026
+	nose.height = 0.052
+	var nm := _mesh(pivot, nose, SKIN_DARK, Vector3(0.0, hy - 0.028, sqrt(HEAD_R * HEAD_R - 0.0008) + 0.012))
+	nm.scale = Vector3(1.0, 0.85, 0.75)
+
+	# sonrisa
 	var mouth := BoxMesh.new()
-	mouth.size = Vector3(0.052, 0.011, 0.011)
+	mouth.size = Vector3(0.048, 0.010, 0.010)
 	var mm := MeshInstance3D.new()
 	mm.mesh = mouth
 	mm.material_override = ItemVisuals.material(MOUTH)
-	mm.position = Vector3(0.0, hy - 0.076, sqrt(HEAD_R * HEAD_R - 0.0058) - 0.003)
+	mm.position = Vector3(0.0, hy - 0.082, sqrt(HEAD_R * HEAD_R - 0.0067) - 0.002)
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	pivot.add_child(mm)
 	for side in [-1.0, 1.0]:
 		var corner := BoxMesh.new()
-		corner.size = Vector3(0.018, 0.011, 0.011)
+		corner.size = Vector3(0.020, 0.012, 0.012)
 		var km := MeshInstance3D.new()
 		km.mesh = corner
 		km.material_override = ItemVisuals.material(MOUTH)
-		km.position = Vector3(side * 0.030, hy - 0.070, sqrt(HEAD_R * HEAD_R - 0.0009) - 0.003)
+		km.position = Vector3(side * 0.033, hy - 0.076, sqrt(HEAD_R * HEAD_R - 0.0011) - 0.002)
 		km.rotation_degrees = Vector3(0, 0, side * 30.0)
 		km.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		pivot.add_child(km)
@@ -332,52 +352,38 @@ static func _build_hat(root: Node3D, hy: float, kind: String) -> void:
 		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var brim := BoxMesh.new()
 		brim.size = Vector3(0.24, 0.022, 0.14)
-		var bm := _mesh(pivot, brim, Color(0.28, 0.45, 0.72), Vector3(0, hy + 0.070, 0.155))
+		var bm := _mesh(pivot, brim, Color(0.28, 0.45, 0.72), Vector3(0, hy + 0.080, 0.160))
 		bm.rotation_degrees = Vector3(-8, 0, 0)
 		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return
 
-	# sombrero de paja: ala ancha y copa redondeada
-	var brim := CylinderMesh.new()
-	brim.top_radius = 0.285
-	brim.bottom_radius = 0.300
-	brim.height = 0.024
-	brim.radial_segments = 28
-	var brim_m := _mesh(pivot, brim, STRAW, Vector3(0, hy + HEAD_R - 0.018, 0))
-	brim_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# ala: disco ancho con el borde ondulado (tramos que se solapan)
+	var brim_y := hy + HEAD_R - 0.030
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.262
+	disc.bottom_radius = 0.272
+	disc.height = 0.020
+	disc.radial_segments = 30
+	var dm := _mesh(pivot, disc, STRAW, Vector3(0, brim_y, 0))
+	dm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# borde trenzado: aro más oscuro bajo el ala
-	var braid := TorusMesh.new()
-	braid.inner_radius = 0.285
-	braid.outer_radius = 0.312
-	braid.rings = 26
-	braid.ring_segments = 5
-	var bm2 := _mesh(pivot, braid, STRAW_DARK, Vector3(0, hy + HEAD_R - 0.028, 0))
-	bm2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-	# copa: cilindro con la tapa redondeada
+	# copa: cilindro bajo con tapa redondeada
 	var crown := CylinderMesh.new()
-	crown.top_radius = 0.145
-	crown.bottom_radius = 0.158
-	crown.height = 0.115
-	crown.radial_segments = 24
-	var cm2 := _mesh(pivot, crown, STRAW, Vector3(0, hy + HEAD_R + 0.040, 0))
-	var cap_top := SphereMesh.new()
-	cap_top.radius = 0.146
-	cap_top.height = 0.292
-	cap_top.radial_segments = 22
-	cap_top.rings = 10
-	var ct := _mesh(pivot, cap_top, STRAW, Vector3(0, hy + HEAD_R + 0.098, 0))
-	ct.scale = Vector3(1.0, 0.42, 1.0)
+	crown.top_radius = 0.146
+	crown.bottom_radius = 0.160
+	crown.height = 0.125
+	crown.radial_segments = 26
+	var cm2 := _mesh(pivot, crown, STRAW, Vector3(0, brim_y + 0.072, 0))
 	cm2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	var band := CylinderMesh.new()
-	band.top_radius = 0.152
-	band.bottom_radius = 0.158
-	band.height = 0.030
-	band.radial_segments = 24
-	var band_m := _mesh(pivot, band, STRAW_DARK, Vector3(0, hy + HEAD_R + 0.010, 0))
-	band_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var cap := SphereMesh.new()
+	cap.radius = 0.150
+	cap.height = 0.300
+	cap.radial_segments = 24
+	cap.rings = 10
+	var cp := _mesh(pivot, cap, STRAW_LIGHT, Vector3(0, brim_y + 0.118, 0))
+	cp.scale = Vector3(1.0, 0.72, 1.0)
+	cp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 # ------------------------------------------------------------------ util

@@ -57,11 +57,8 @@ func _ready() -> void:
 	cam.fov = 26.0
 	add_child(cam)
 	var side := "--side" in args
-	var eye := Vector3(1.9, 0.62, 2.3) if side else Vector3(0.0, 0.55, 2.4)
-	if side:
-		cam.look_at_from_position(eye, Vector3(0.0, 0.42, 0.0), Vector3.UP)
-	else:
-		cam.look_at_from_position(eye, Vector3(0.0, 0.40, 0.0), Vector3.UP)
+	var eye := Vector3(2.2, 0.70, 2.7) if side else Vector3(0.0, 0.62, 3.05)
+	cam.look_at_from_position(eye, Vector3(0.0, 0.46, 0.0), Vector3.UP)
 
 	# Modo ventana: queda abierto y el modelo gira lento para verlo en 3D.
 	if "--window" in args:
