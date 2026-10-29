@@ -85,22 +85,17 @@ static func _build_legs(root: Node3D) -> void:
 		pivot.position = Vector3(side * 0.064, 0.060, 0)
 		root.add_child(pivot)
 
-		# sin caña visible: el pie es la única pieza (el cuerpo tapa el resto)
-		var leg := CylinderMesh.new()
-		leg.top_radius = 0.030
-		leg.bottom_radius = 0.028
-		leg.height = 0.05
-		leg.radial_segments = 12
-		_mesh(pivot, leg, WHITE, Vector3(0, -0.012, 0))
+		# sin caña: el pie es la única pieza y queda pegado a la base
+
 
 		# zapatilla blanca
 		# pie: esfera deformada (óvalo alargado y aplastado), no un cubo
 		var foot := SphereMesh.new()
-		foot.radius = 0.058
-		foot.height = 0.116
+		foot.radius = 0.062
+		foot.height = 0.124
 		foot.radial_segments = 16
 		foot.rings = 9
-		var fm := _mesh(pivot, foot, WHITE, Vector3(0, -0.030, 0.048))
+		var fm := _mesh(pivot, foot, WHITE, Vector3(0, -0.020, 0.040))
 		fm.scale = Vector3(1.0, 0.62, 1.55)
 		fm.rotation_degrees = Vector3(0, side * 4.0, 0)
 
