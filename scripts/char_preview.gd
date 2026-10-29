@@ -5,6 +5,8 @@ extends Node3D
 ##   xvfb-run -a godot --path . scenes/CharPreview.tscn -- --out=/tmp/char.png [--npc] [--side]
 
 func _ready() -> void:
+	# título propio para no confundirla con la ventana del juego
+	get_window().title = "Preview personaje"
 	var args := OS.get_cmdline_user_args()
 	var out_path := "/tmp/char-preview.png"
 	for a in args:
@@ -61,6 +63,11 @@ func _ready() -> void:
 	else:
 		cam.look_at_from_position(eye, Vector3(0.0, 0.40, 0.0), Vector3.UP)
 
+	# Modo ventana: queda abierto y el modelo gira lento para verlo en 3D.
+	if "--window" in args:
+		print("ventana de preview abierta (cerrá la ventana para salir)")
+		return
+
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -68,3 +75,10 @@ func _ready() -> void:
 	img.save_png(out_path)
 	print("preview -> ", out_path)
 	get_tree().quit()
+
+
+func _process(delta: float) -> void:
+	# giro lento del modelo (sólo tiene efecto en modo ventana)
+	var m := get_node_or_null("CharModel")
+	if m != null:
+		m.rotation.y += delta * 0.5
