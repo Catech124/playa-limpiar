@@ -60,13 +60,46 @@ func spawn_all(count: int) -> void:
 
 func _build(npc: Npc) -> Node3D:
 	var root := Node3D.new()
-	# mismo modelo que el jugador, con gorrita en vez de sombrero de paja
-	var model := CharModel.build(npc.color, "cap")
+	# mismo modelo que el jugador; a los NPCs se les cambia el sombrero por gorrita
+	var model: Node3D = null
+	if ResourceLoader.exists("res://assets/kid.glb"):
+		var packed := load("res://assets/kid.glb") as PackedScene
+		if packed != null:
+			model = packed.instantiate()
+	if model == null:
+		model = CharModel.build(npc.color, "cap")
 	root.add_child(model)
 	for h in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(h, true, false)
 		if node is Node3D:
 			npc.hinges[h] = node
+
+	# gorrita: se oculta el sombrero de paja y se agrega una gorra al cráneo
+	var hat: Node3D = npc.hinges.get("hat")
+	if hat != null:
+		hat.visible = false
+	var head: Node3D = npc.hinges.get("head")
+	if head != null:
+		var cap := SphereMesh.new()
+		cap.radius = 0.205
+		cap.height = 0.41
+		cap.radial_segments = 20
+		cap.rings = 10
+		var cm := MeshInstance3D.new()
+		cm.mesh = cap
+		cm.material_override = ItemVisuals.material(npc.color.darkened(0.10))
+		cm.position = Vector3(0, 0.20, 0)
+		cm.scale = Vector3(1.0, 0.62, 1.0)
+		head.add_child(cm)
+		var visor := BoxMesh.new()
+		visor.size = Vector3(0.26, 0.022, 0.16)
+		var vm := MeshInstance3D.new()
+		vm.mesh = visor
+		vm.material_override = ItemVisuals.material(npc.color.darkened(0.25))
+		vm.position = Vector3(0, 0.245, 0.185)
+		vm.rotation_degrees = Vector3(-8, 0, 0)
+		head.add_child(vm)
+
 	npc.body = model
 	return root
 

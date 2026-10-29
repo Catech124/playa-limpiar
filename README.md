@@ -96,7 +96,8 @@ Detalle de reglas y números en [`docs/MECANICAS.md`](docs/MECANICAS.md).
 project.godot            configuración (escena principal, renderer, ventana)
 scenes/Main.tscn         escena raíz mínima: todo se construye por código
 scenes/ModelViewer.tscn  visor del personaje (3 copias girando)
-assets/chef.glb          personaje low-poly (generado con Blender)
+assets/kid.glb           personaje del juego (generado con Blender)
+assets/chef.glb          personaje anterior (visor)
 assets/ui/*.png          íconos del HUD (generados con Qwen, ver LICENCIAS.md)
 scripts/config.gd        todos los números del juego (tuning)
 scripts/levels.gd        mapa en texto, cuotas y ritmo de cada día
@@ -112,7 +113,8 @@ scripts/gulls.gd         gaviotas (se llevan la basura tirada)
 scripts/npcs.gd          NPCs que pasean y tiran basura
 scripts/hud.gd           HUD y pantallas, dibujados a mano
 scripts/model_viewer.gd  visor standalone del asset
-tools/gen_chef.py        generador del personaje (Blender headless -> GLB)
+tools/gen_kid.py         generador del personaje del juego (Blender headless -> GLB)
+tools/gen_chef.py        generador anterior (visor)
 tools/render_views.py    4 vistas ortográficas + 3/4 para comparar
 tools/ref_metrics.py     mide una lámina de referencia y el render propio
 tests/headless_test.gd   108 comprobaciones de reglas (headless)

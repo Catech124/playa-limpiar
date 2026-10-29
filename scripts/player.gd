@@ -78,9 +78,15 @@ func _build_body() -> void:
 	_body_mesh = Node3D.new()
 	add_child(_body_mesh)
 
-	# personaje de primitivas (sin GLB): cuerpo trapecio, brazos cilíndricos con
-	# guantes blancos, cabeza circular y sombrero de paja
-	var model := CharModel.build(color, "straw")
+	# personaje modelado en Blender (tools/gen_kid.py). Si el GLB no está,
+	# cae al modelo de primitivas para no romper el juego.
+	var model: Node3D = null
+	if ResourceLoader.exists("res://assets/kid.glb"):
+		var packed := load("res://assets/kid.glb") as PackedScene
+		if packed != null:
+			model = packed.instantiate()
+	if model == null:
+		model = CharModel.build(color, "straw")
 	_body_mesh.add_child(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(hinge, true, false)
@@ -92,7 +98,7 @@ func _build_body() -> void:
 	carry_anchor = Node3D.new()
 	# EN LAS MANOS: con la pose de cargar (brazos a -1.15 rad) los guantes
 	# quedan en (±0.09, 0.41, 0.27) en el espacio del cuerpo.
-	carry_anchor.position = CharModel.HAND_CARRY
+	carry_anchor.position = Vector3(0.0, 0.345, 0.220)
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 
