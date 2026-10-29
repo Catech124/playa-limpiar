@@ -332,9 +332,13 @@ def build_head(root):
     head_parts.append(sphere("nose", 0.027, (0, 0.196, HEAD_Z - 0.024), "skin",
                              scale=(1.0, 0.85, 0.80), segments=16, rings=10))
 
-    # boca: sonrisa chica abierta
-    head_parts.append(sphere("mouth", 0.026, (0, 0.186, HEAD_Z - 0.072), "mouth",
-                             scale=(1.25, 0.35, 0.55), segments=16, rings=10))
+    # boca: sonrisa (línea fina + comisuras levantadas)
+    head_parts.append(cube("mouth", (0.042, 0.012, 0.012), (0, 0.186, HEAD_Z - 0.070),
+                           "mouth", bevel=0.004))
+    for i in (-1, 1):
+        head_parts.append(cube(f"mouth_corner_{i}", (0.020, 0.011, 0.011),
+                               (i * 0.028, 0.186, HEAD_Z - 0.064), "mouth",
+                               rot=(0, 0, math.radians(-i * 26)), bevel=0.004))
 
     head = join(head_parts, "head_mesh")
     hinge("head", (0, 0, HINGE_Z), [head], root)
@@ -343,8 +347,8 @@ def build_head(root):
 def build_hat(root):
     # ala: perfil que se abre, con el borde ondulado
     brim = lathe("brim", [
-        (0.120, 0.882), (0.200, 0.888), (0.262, 0.892), (0.292, 0.890),
-        (0.296, 0.884), (0.268, 0.878), (0.190, 0.874), (0.120, 0.872),
+        (0.130, 0.897), (0.225, 0.903), (0.300, 0.907), (0.340, 0.905),
+        (0.345, 0.898), (0.310, 0.892), (0.215, 0.888), (0.130, 0.887),
     ], segments=64, mats=["straw", "straw_light", "straw_dark", "straw_dark",
                          "straw_dark", "straw_light", "straw"])
 
@@ -352,13 +356,13 @@ def build_hat(root):
     me = brim.data
     for v in me.vertices:
         r = math.hypot(v.co.x, v.co.y)
-        if r > 0.255:
+        if r > 0.295:
             ang = math.atan2(v.co.y, v.co.x)
-            v.co.z += 0.012 * math.sin(ang * 5.0) + 0.006 * math.sin(ang * 9.0)
+            v.co.z += 0.016 * math.sin(ang * 5.0) + 0.008 * math.sin(ang * 9.0)
 
     # copa
     crown = lathe("crown", [
-        (0.178, 0.874), (0.184, 0.900), (0.182, 0.940), (0.174, 0.972),
+        (0.178, 0.889), (0.184, 0.915), (0.182, 0.955), (0.174, 0.987),
         (0.158, 0.996), (0.132, 1.012), (0.092, 1.022), (0.040, 1.026),
         (0.000, 1.028),
     ], segments=40, mats=["straw_dark", "straw", "straw", "straw",
@@ -381,7 +385,7 @@ def setup_render(path, cam_pos=(0.55, -2.75, 0.78), look_at=(0.0, 0.0, 0.52)):
     scene.cycles.use_denoising = False
     scene.render.resolution_x = 640
     scene.render.resolution_y = 640
-    scene.render.film_transparent = False
+    scene.render.film_transparent = True   # alfa para medir la silueta
 
     world = bpy.data.worlds.new("W")
     world.use_nodes = True
@@ -407,16 +411,18 @@ def setup_render(path, cam_pos=(0.55, -2.75, 0.78), look_at=(0.0, 0.0, 0.52)):
     cam.data.lens = 70
     scene.camera = cam
 
-    # piso
-    bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, -0.002))
-    floor = bpy.context.object
-    floor.data.materials.append(material("straw_light"))
+    # piso opcional: sin él la silueta queda aislada (sirve para medir)
+    if os.environ.get("KID_SUELO", "0") == "1":
+        bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, -0.002))
+        floor = bpy.context.object
+        floor.data.materials.append(material("straw_light"))
 
     # color fiel: sin el mapeo AgX los colores no se lavan
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
     scene.render.filepath = path
     scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
     bpy.ops.render.render(write_still=True)
     print("render ->", path, os.path.exists(path))
 
