@@ -44,37 +44,37 @@ static func build(shirt: Color, hat := "straw") -> Node3D:
 static func _build_torso(root: Node3D, shirt: Color) -> void:
 	# trapecio invertido: más ancho en los hombros que en la cintura
 	var torso := CylinderMesh.new()
-	torso.top_radius = 0.105      # cuello/hombros
-	torso.bottom_radius = 0.210   # panza (base del trapecio)
-	torso.height = 0.32
+	torso.top_radius = 0.090      # cuello/hombros
+	torso.bottom_radius = 0.162   # se mete dentro de la panza
+	torso.height = 0.24
 	torso.radial_segments = 24
-	_mesh(root, torso, shirt, Vector3(0, 0.180, 0))
+	_mesh(root, torso, shirt, Vector3(0, 0.285, 0))
 
 	# hombros: casquete angosto arriba
 	var shoulders := SphereMesh.new()
-	shoulders.radius = 0.105
-	shoulders.height = 0.21
+	shoulders.radius = 0.090
+	shoulders.height = 0.18
 	shoulders.radial_segments = 22
 	shoulders.rings = 10
-	var sm := _mesh(root, shoulders, shirt, Vector3(0, 0.335, 0))
+	var sm := _mesh(root, shoulders, shirt, Vector3(0, 0.330, 0))
 	sm.scale = Vector3(1.0, 0.55, 1.0)
 
-	# panza: borde redondeado abajo
-	var hem := SphereMesh.new()
-	hem.radius = 0.210
-	hem.height = 0.42
-	hem.radial_segments = 22
-	hem.rings = 10
-	var hm := _mesh(root, hem, shirt.darkened(0.04), Vector3(0, 0.030, 0))
-	hm.scale = Vector3(1.0, 0.26, 1.0)
+	# panza: esfera completa, la base del cuerpo es CIRCULAR y abultada
+	var belly := SphereMesh.new()
+	belly.radius = 0.178
+	belly.height = 0.356
+	belly.radial_segments = 24
+	belly.rings = 14
+	var bm := _mesh(root, belly, shirt, Vector3(0, 0.190, 0))
+	bm.scale = Vector3(1.0, 0.72, 1.0)
 
 	# cuello
 	var neck := CylinderMesh.new()
-	neck.top_radius = 0.058
-	neck.bottom_radius = 0.066
+	neck.top_radius = 0.052
+	neck.bottom_radius = 0.060
 	neck.height = 0.06
 	neck.radial_segments = 14
-	_mesh(root, neck, SKIN, Vector3(0, 0.355, 0))
+	_mesh(root, neck, SKIN, Vector3(0, 0.350, 0))
 
 
 static func _build_legs(root: Node3D) -> void:
@@ -82,25 +82,26 @@ static func _build_legs(root: Node3D) -> void:
 		var tag := "l" if side < 0.0 else "r"
 		var pivot := Node3D.new()
 		pivot.name = "leg_" + tag
-		pivot.position = Vector3(side * 0.070, 0.075, 0)
+		pivot.position = Vector3(side * 0.062, 0.072, 0)
 		root.add_child(pivot)
 
 		var leg := CylinderMesh.new()
-		leg.top_radius = 0.050
-		leg.bottom_radius = 0.045
-		leg.height = 0.08
+		leg.top_radius = 0.044
+		leg.bottom_radius = 0.040
+		leg.height = 0.06
 		leg.radial_segments = 14
-		_mesh(pivot, leg, PANTS, Vector3(0, -0.040, 0))
+		_mesh(pivot, leg, PANTS, Vector3(0, -0.030, 0))
 
 		# zapatilla blanca
-		var shoe := BoxMesh.new()
-		shoe.size = Vector3(0.095, 0.055, 0.150)
-		var sm := _mesh(pivot, shoe, WHITE, Vector3(0, -0.062, 0.030))
-		sm.rotation_degrees = Vector3(0, side * 4.0, 0)
-		# suela
-		var sole := BoxMesh.new()
-		sole.size = Vector3(0.100, 0.022, 0.155)
-		_mesh(pivot, sole, WHITE.darkened(0.12), Vector3(0, -0.084, 0.030))
+		# pie: esfera deformada (óvalo alargado y aplastado), no un cubo
+		var foot := SphereMesh.new()
+		foot.radius = 0.058
+		foot.height = 0.116
+		foot.radial_segments = 16
+		foot.rings = 9
+		var fm := _mesh(pivot, foot, WHITE, Vector3(0, -0.042, 0.050))
+		fm.scale = Vector3(1.0, 0.62, 1.55)
+		fm.rotation_degrees = Vector3(0, side * 4.0, 0)
 
 
 # ------------------------------------------------------------------ brazos
