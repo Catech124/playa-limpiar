@@ -92,7 +92,7 @@ func _build_body() -> void:
 	carry_anchor = Node3D.new()
 	# EN LAS MANOS: con la pose de cargar (brazos a -1.15 rad) los guantes
 	# quedan en (±0.09, 0.41, 0.27) en el espacio del cuerpo.
-	carry_anchor.position = Vector3(0.0, 0.405, 0.275)
+	carry_anchor.position = CharModel.HAND_CARRY
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 
