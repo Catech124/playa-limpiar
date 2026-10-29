@@ -317,6 +317,14 @@ func _update_camera(delta: float) -> void:
 		_cam_target + Vector3(0, 0.6, 0), Vector3.UP)
 
 
+## Los cangrejos tienen collider y usan move_and_slide: eso va en el frame de
+## física, no en el de dibujo (en `_process` se traban y tiemblan).
+func _physics_process(delta: float) -> void:
+	if state != State.PLAYING or crabs == null:
+		return
+	crabs.tick(delta)
+
+
 func _process(delta: float) -> void:
 	if state != State.PLAYING:
 		return
@@ -330,7 +338,6 @@ func _process(delta: float) -> void:
 
 	spawner.tick(delta)
 	npcs.tick(delta)
-	crabs.tick(delta)
 	if not sandbox:
 		gulls.tick(delta)
 
@@ -386,7 +393,12 @@ func _tick_water(delta: float) -> void:
 				var d: float = to.length()
 				var speed: float = 2.2 + 0.9 * float(p.shark_heat)
 				if d > 0.001:
-					p.fin.position += (to / d) * minf(speed * delta, d)
+					var next: Vector3 = p.fin.position + (to / d) * minf(speed * delta, d)
+					next.y = GameConfig.WATER_LEVEL - 0.02
+					# no sale del agua: si el jugador se quedó en la arena, la
+					# aleta espera en la orilla en vez de reptar por la playa
+					if _is_water_at(next):
+						p.fin.position = next
 				p.fin.position.y = GameConfig.WATER_LEVEL - 0.02
 				p.fin.rotation.y = atan2(to.x, to.z)
 				# muerde SOLO si llega: no hay mordida por reloj (antes te comía
@@ -399,20 +411,47 @@ func _tick_water(delta: float) -> void:
 			_clear_fin(p)
 
 
-## Desde dónde sale la aleta: a 6.5 unidades del jugador, empezando por mar
-## adentro (si el jugador está contra el borde, se abre el ángulo hasta que el
-## punto caiga dentro del mapa). SALE LEJOS: aparecer al lado sería trampa.
+## ¿Hay agua en ese punto? La aleta solo puede estar en el mar: si aparece en
+## la arena (cuando el jugador está en la orilla) es un bug visible.
+func _is_water_at(pos: Vector3) -> bool:
+	if world == null:
+		return false
+	var t: CellData = world.tile_at(int(floor(pos.x)), int(floor(pos.z)))
+	return t != null and t.kind == "water"
+
+
+## Desde dónde sale la aleta: en el AGUA, a ~6.5 unidades del jugador y
+## prefiriendo mar adentro (así se la ve venir de afuera). Si el jugador está
+## pegado a la orilla no hay agua a 6.5, así que se prueba cada vez más cerca
+## y, como último recurso, se busca la celda de agua más cercana.
 func _fin_spawn(p: Player) -> Vector3:
-	var base := 6.5
-	var ang := 0.0
-	for i in 9:
-		var dir := Vector3(sin(ang), 0.0, cos(ang))
-		var q: Vector3 = p.position + dir * base
-		if q.x > 1.2 and q.x < float(world.w) - 1.2 and q.z > 1.2 and q.z < float(world.h) - 1.2:
-			q.y = GameConfig.WATER_LEVEL - 0.02
-			return q
-		ang += TAU / 9.0
-	return Vector3(p.position.x, GameConfig.WATER_LEVEL - 0.02, minf(p.position.z + base, float(world.h) - 1.0))
+	var deepest := Vector3.INF
+	var deepest_d := INF
+	var r := 8
+	var pz := int(floor(p.position.z))
+	var px := int(floor(p.position.x))
+	for ty in range(pz - r, pz + r + 1):
+		for tx in range(px - r, px + r + 1):
+			var t: CellData = world.tile_at(tx, ty)
+			if t == null or t.kind != "water":
+				continue
+			var c := Vector3(tx + 0.5, GameConfig.WATER_LEVEL - 0.02, ty + 0.5)
+			var d := Vector2(c.x - p.position.x, c.z - p.position.z).length()
+			if d < 1.6:
+				continue                     # no al lado: tiene que venir de lejos
+			# 6.5 de distancia, y premio chico por salir de mar adentro
+			var score := absf(d - 6.5) - 0.35 * maxf(0.0, c.z - p.position.z)
+			if score < deepest_d:
+				deepest_d = score
+				deepest = c
+	if deepest != Vector3.INF:
+		return deepest
+	# plan B: cualquier agua del mapa
+	for row in world.tiles:
+		for t in row:
+			if t != null and t.kind == "water":
+				return Vector3(t.x + 0.5, GameConfig.WATER_LEVEL - 0.02, t.y + 0.5)
+	return Vector3(p.position.x, GameConfig.WATER_LEVEL - 0.02, p.position.z + 2.0)
 
 
 func _make_fin() -> Node3D:

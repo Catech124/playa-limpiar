@@ -85,9 +85,9 @@ func _ready() -> void:
 		if not main.crabs.list.is_empty():
 			var c = main.crabs.list[0]
 			c.pos = Vector3(11.7, 0.0, 9.3)
-			c.target = Vector3(11.7, 0.0, 8.1)   # un paso al frente, no re-targetea   # quieto para la foto
-			c.node.position = c.pos
-			c.node.rotation.y = 0.6
+			c.target = Vector3(11.7, 0.0, 8.1)   # un paso al frente, no re-targetea
+			c.body.position = c.pos
+			c.body.rotation.y = 0.6
 			main.crabs.tick(0.02)
 		var p: Player = main.players[0]
 		p.teleport(10, 8, Vector2i(0, 1))
@@ -204,6 +204,27 @@ func _ready() -> void:
 		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(11.0, 5.0, 17.0), Vector3(11.0, 0.2, 11.4), Vector3.UP)
 		await _shoot(1.0)
+		return
+
+	if "--shore" in args:
+		# jugador en la orilla: la aleta tiene que quedarse en el agua
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var sh: Player = main.players[0]
+		sh.teleport(6, 10, Vector2i(0, 1))
+		await get_tree().physics_frame
+		sh.water_time = GameConfig.SHARK_FIN_TIME + 0.1
+		main._tick_water(0.02)
+		for i in 90:
+			main._tick_water(0.05)
+		print("fin en ", sh.fin.position if sh.fin != null else Vector3.ZERO,
+			" agua=", main._is_water_at(sh.fin.position) if sh.fin != null else false)
+		main.camera.fov = 36.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(6.5, 3.4, 15.6),
+			Vector3(6.5, 0.3, 10.4), Vector3.UP)
+		await _shoot(0.4)
 		return
 
 	if "--gull" in args:

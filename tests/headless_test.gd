@@ -208,7 +208,10 @@ func _run() -> void:
 	give(extra)
 	await tp(7, 2, Vector2i(0, -1))
 	use()
-	check("la bolsa llena no acepta más", p.carrying == extra)
+	check("la bolsa llena no acepta más", p.carrying == extra,
+		"lleva=%s esperado=%s bolsa=%d/4" % [
+			(p.carrying.type if p.carrying != null else "nada"), extra.type,
+			bag.contents.size()])
 	take_away()
 
 	# --- retirar la bolsa llena ------------------------------------------
@@ -352,6 +355,74 @@ func _run() -> void:
 	check("a los 5 s reaparece en la arena", p.down_time == 0.0 and p.tile_y() <= 10,
 		"y=%d" % p.tile_y())
 	check("reaparece visible", p._body_mesh.visible)
+
+	# --- la aleta sale del agua y NO de la arena --------------------------
+	# Este era el bug: parado en la orilla, la aleta aparecía sobre la playa.
+	main._clear_fin(p)
+	p.down_time = 0.0
+	p.water_time = 0.0
+	p.teleport(6, 10, Vector2i(0, 1))
+	p.swimming = false
+	check("la orilla cuenta como cerca del agua", main._near_water(p),
+		"celda %d,%d" % [p.tile_x(), p.tile_y()])
+	var en_agua := true
+	var ejemplo: Vector3 = Vector3.ZERO
+	for i in 12:
+		var q: Vector3 = main._fin_spawn(p)
+		if ejemplo == Vector3.ZERO:
+			ejemplo = q
+		if not main._is_water_at(q):
+			en_agua = false
+	check("la aleta sale del mar aunque estés en la orilla", en_agua, "ej. %s" % [ejemplo])
+	check("la aleta sale lejos del jugador",
+		Vector2(ejemplo.x - p.position.x, ejemplo.z - p.position.z).length() > 1.6,
+		"%.1f" % Vector2(ejemplo.x - p.position.x, ejemplo.z - p.position.z).length())
+
+	# y no puede reptar por la arena: persigue a un jugador que está en la playa
+	p.water_time = GameConfig.SHARK_FIN_TIME + 0.1
+	main._tick_water(0.02)
+	check("aparece la aleta", p.fin != null)
+	var fuera_del_agua := false
+	for i in 160:
+		main._tick_water(0.05)
+		if p.fin != null and not main._is_water_at(p.fin.position):
+			fuera_del_agua = true
+			break
+	check("la aleta no se sube a la arena", not fuera_del_agua,
+		"%s" % [p.fin.position if p.fin != null else Vector3.ZERO])
+	main._clear_fin(p)
+	p.water_time = 0.0
+
+	# --- cangrejo: sólido ------------------------------------------------
+	main.crabs.clear()
+	main.crabs.timer = 999.0
+	check("aparece un cangrejo", main.crabs.spawn() and main.crabs.list.size() == 1)
+	var crab = main.crabs.list[0]
+	var col: CollisionShape3D = null
+	for c in crab.body.get_children():
+		if c is CollisionShape3D:
+			col = c
+	check("el cangrejo tiene collider", col != null and col.shape != null)
+	check("el collider está a la altura del cuerpo", col != null and col.position.y > 0.0,
+		"%.2f" % (col.position.y if col != null else -1.0))
+	check("el cangrejo choca con el jugador",
+		crab.body.collision_layer == 1 and crab.body.collision_mask == 1,
+		"capa %d · máscara %d" % [crab.body.collision_layer, crab.body.collision_mask])
+
+	# y de verdad lo frena: el jugador camina derecho hacia él
+	main.crabs.list.clear()               # congelado para la prueba
+	crab.body.position = Vector3(6.5, 0.0, 7.5)
+	crab.pos = crab.body.position
+	p.teleport(4, 7, Vector2i(1, 0))
+	p.down_time = 0.0
+	for i in 60:
+		p.velocity = Vector3(4.0, 0.0, 0.0)
+		p.move_and_slide()
+		await get_tree().physics_frame
+	check("el jugador no atraviesa el cangrejo", p.position.x < 6.25 and p.position.x > 5.2,
+		"x=%.2f (cangrejo en 6.50)" % p.position.x)
+	main.crabs.list.append(crab)
+	main.crabs.clear()
 
 	# --- gaviotas ---------------------------------------------------------
 	main.start_game(1)
