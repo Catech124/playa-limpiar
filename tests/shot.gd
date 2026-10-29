@@ -74,6 +74,19 @@ func _ready() -> void:
 		await _shoot(0.8)
 		return
 
+	if "--char" in args:
+		# retrato del personaje: sin HUD y de cerca, para revisar el modelo
+		main.start_game(1)
+		await get_tree().process_frame
+		var cp: Player = main.players[0]
+		cp.teleport(10, 7, Vector2i(0, 1))
+		main.hud.visible = false
+		main.camera.fov = 26.0
+		main.camera.look_at_from_position(Vector3(10.5, 0.95, 9.35),
+			Vector3(10.5, 0.50, 7.50), Vector3.UP)
+		await _shoot(0.5)
+		return
+
 	if "--npc" in args:
 		# veraneantes: uno toma sol, otro sentado y otro charlando
 		main.start_game(2, false, 2)      # Día 3: tres NPCs

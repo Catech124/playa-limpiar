@@ -17,14 +17,11 @@ func _chef() -> PackedScene:
 	return _chef_scene
 
 
-## Escala del modelo con respecto al asset original.
-const CHAR_SCALE := 0.78
-## El modelo viene con los brazos caídos (poses del GLB anterior): la animación
-## se suma desde cero. Si se cambia a un GLB en T-pose, acá va ±1.57.
+## El modelo de primitivas ya está a la escala final (no se reescala).
+const CHAR_SCALE := 1.0
+## Brazos caídos por diseño: la animación se suma desde cero.
 const ARM_REST_L := 0.0
 const ARM_REST_R := 0.0
-## Cabeza y sombrero un poco más chicos: el personaje quedaba cabezón.
-const HEAD_SCALE := 0.88
 
 var index := 0
 var color := Color.WHITE
@@ -81,72 +78,29 @@ func _build_body() -> void:
 	_body_mesh = Node3D.new()
 	add_child(_body_mesh)
 
-	# personaje low-poly (asset generado con tools/make_chef.py)
-	var model := _chef().instantiate()
-	# un poco más chico: a tamaño completo tapaba media pantalla y el agua le
-	# llegaba al cuello
-	model.scale = Vector3(CHAR_SCALE, CHAR_SCALE, CHAR_SCALE)
+	# personaje de primitivas (sin GLB): cuerpo trapecio, brazos cilíndricos con
+	# guantes blancos, cabeza circular y sombrero de paja
+	var model := CharModel.build(color, "straw")
 	_body_mesh.add_child(model)
-	_tint_shirt(model)
-	_add_outline(model)
-	_unshadow_hat(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(hinge, true, false)
 		if node is Node3D:
 			_hinges[hinge] = node
-	# cabeza y gorro un poco más chicos (el cuerpo ya es más bajo)
-	var head: Node3D = _hinges.get("head")
-	if head != null:
-		head.scale = Vector3.ONE * HEAD_SCALE
-	var hat: Node3D = _hinges.get("hat")
-	if hat != null:
-		hat.scale = Vector3.ONE * HEAD_SCALE
-	_add_face_details()
+
+	_add_shadow_disc()
+
+	carry_anchor = Node3D.new()
+	# EN LAS MANOS: con la pose de cargar (brazos a -1.15 rad) los guantes
+	# quedan en (±0.09, 0.41, 0.27) en el espacio del cuerpo.
+	carry_anchor.position = Vector3(0.0, 0.405, 0.275)
+	_body_mesh.add_child(carry_anchor)              # gira con el personaje
 
 
-## El ala del sombrero proyecta sombra sobre la cara y la deja ilegible a 45 px:
-## el gorro no proyecta sombra. (La referencia tiene la cara iluminada.)
-func _unshadow_hat(root: Node) -> void:
-	for node in root.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		var mesh: Mesh = mi.mesh
-		if mesh == null:
-			continue
-		for i in mesh.get_surface_count():
-			var mat := mesh.surface_get_material(i)
-			if mat and String(mat.resource_name) == "hat":
-				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				break
-
-
-## Contorno por casco invertido: es la firma del look low-poly de referencia.
-## Se prueba si el renderer lo soporta; si no, no se nota y no rompe nada.
-func _add_outline(root: Node) -> void:
-	var outline := StandardMaterial3D.new()
-	outline.albedo_color = Color(0.05, 0.05, 0.06)
-	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	outline.cull_mode = BaseMaterial3D.CULL_FRONT
-	outline.grow = true
-	outline.grow_amount = 0.012
-	for node in root.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		var mesh: Mesh = mi.mesh
-		if mesh == null:
-			continue
-		for i in mesh.get_surface_count():
-			var mat := mi.get_surface_override_material(i)
-			if mat == null:
-				mat = mesh.surface_get_material(i)
-			if mat is StandardMaterial3D:
-				var dup := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
-				dup.next_pass = outline
-				mi.set_surface_override_material(i, dup)
-
-	# Sombra de contacto: antes había un aro con emisión que, con la cámara
-	# nueva, se leía como una argolla invertida debajo del personaje.
+## Sombra de contacto: un disco oscuro bajo los pies.
+func _add_shadow_disc() -> void:
 	var disc := CylinderMesh.new()
-	disc.top_radius = 0.30
-	disc.bottom_radius = 0.30
+	disc.top_radius = 0.28
+	disc.bottom_radius = 0.28
 	disc.height = 0.006
 	disc.radial_segments = 20
 	var rm := MeshInstance3D.new()
@@ -160,126 +114,6 @@ func _add_outline(root: Node) -> void:
 	rm.position = Vector3(0, 0.012, 0)
 	rm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(rm)
-
-	carry_anchor = Node3D.new()
-	# EN LAS MANOS: con la pose de cargar (brazos a -1.15 rad) los guantes
-	# quedan en (±0.09, 0.39, 0.28) en el espacio del cuerpo, así que el punto
-	# medio es donde el personaje sostiene lo que lleva. Antes colgaba al
-	# costado y los objetos aparecían flotando al lado de las manos.
-	carry_anchor.position = Vector3(0.0, 0.40, 0.28) * CHAR_SCALE
-	_body_mesh.add_child(carry_anchor)              # gira con el personaje
-
-
-## Cara más expresiva: ojos con esclerótica y brillo, cejas gruesas, sonrisa y
-## cachetes. Son piezas chicas colgadas de la bisagra de la cabeza, así que
-## acompañan el cabeceo. A 12 unidades de cámara, sin esto la cara es un punto.
-func _add_face_details() -> void:
-	var head: Node3D = _hinges.get("head")
-	if head == null:
-		return
-	var white := Color(0.98, 0.98, 0.97)
-	var dark := Color(0.12, 0.11, 0.13)
-	var cheek := Color(0.95, 0.55, 0.55)
-
-	for side in [-1.0, 1.0]:
-		# esclerótica
-		var eye := SphereMesh.new()
-		eye.radius = 0.048
-		eye.height = 0.096
-		eye.radial_segments = 12
-		eye.rings = 6
-		var em := MeshInstance3D.new()
-		em.mesh = eye
-		em.material_override = ItemVisuals.material(white)
-		em.position = Vector3(side * 0.057, 0.288, 0.292)
-		em.scale = Vector3(1.0, 1.15, 0.55)
-		head.add_child(em)
-
-		# pupila
-		var pupil := SphereMesh.new()
-		pupil.radius = 0.026
-		pupil.height = 0.052
-		pupil.radial_segments = 10
-		pupil.rings = 5
-		var pm := MeshInstance3D.new()
-		pm.mesh = pupil
-		pm.material_override = ItemVisuals.material(dark)
-		pm.position = Vector3(side * 0.057, 0.286, 0.318)
-		pm.scale = Vector3(1.0, 1.1, 0.5)
-		head.add_child(pm)
-
-		# brillo del ojo
-		var glint := SphereMesh.new()
-		glint.radius = 0.010
-		glint.height = 0.020
-		var gm := MeshInstance3D.new()
-		gm.mesh = glint
-		gm.material_override = ItemVisuals.material(white)
-		gm.position = Vector3(side * 0.047, 0.298, 0.330)
-		gm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		head.add_child(gm)
-
-		# ceja gruesa
-		var brow := BoxMesh.new()
-		brow.size = Vector3(0.085, 0.024, 0.024)
-		var bm := MeshInstance3D.new()
-		bm.mesh = brow
-		bm.material_override = ItemVisuals.material(Color(0.32, 0.20, 0.14))
-		bm.position = Vector3(side * 0.058, 0.352, 0.290)
-		bm.rotation_degrees = Vector3(0, 0, side * 9.0)
-		head.add_child(bm)
-
-		# cachete
-		var ck := SphereMesh.new()
-		ck.radius = 0.050
-		ck.height = 0.100
-		var cm := MeshInstance3D.new()
-		cm.mesh = ck
-		cm.material_override = ItemVisuals.material(Color(cheek.r, cheek.g, cheek.b, 0.55))
-		cm.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		cm.position = Vector3(side * 0.145, 0.245, 0.252)
-		cm.scale = Vector3(1.0, 0.7, 0.25)
-		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		head.add_child(cm)
-
-		# comisura de la sonrisa
-		var corner := BoxMesh.new()
-		corner.size = Vector3(0.034, 0.020, 0.020)
-		var km := MeshInstance3D.new()
-		km.mesh = corner
-		km.material_override = ItemVisuals.material(Color(0.30, 0.12, 0.12))
-		km.position = Vector3(side * 0.045, 0.213, 0.297)
-		km.rotation_degrees = Vector3(0, 0, side * 28.0)
-		head.add_child(km)
-
-	# boca: una barra y las dos comisuras ya forman la sonrisa
-	var mouth := BoxMesh.new()
-	mouth.size = Vector3(0.075, 0.020, 0.020)
-	var mm := MeshInstance3D.new()
-	mm.mesh = mouth
-	mm.material_override = ItemVisuals.material(Color(0.30, 0.12, 0.12))
-	mm.position = Vector3(0.0, 0.202, 0.300)
-	head.add_child(mm)
-
-
-## Pinta la remera y la cinta del sombrero con el color del jugador.
-## Es lo que hace legible al personaje desde la cámara alta.
-func _tint_shirt(root: Node) -> void:
-	for node in root.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		var mesh: Mesh = mi.mesh
-		if mesh == null:
-			continue
-		for i in mesh.get_surface_count():
-			var m := mesh.surface_get_material(i)
-			if not (m is StandardMaterial3D):
-				continue
-			var name := String(m.resource_name)
-			if name != "shirt" and name != "band":
-				continue
-			var dup := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
-			dup.albedo_color = color if name == "shirt" else color.darkened(0.12)
-			mi.set_surface_override_material(i, dup)
 
 
 func _input(event: InputEvent) -> void:

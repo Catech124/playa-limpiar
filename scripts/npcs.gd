@@ -11,7 +11,6 @@ extends RefCounted
 var game
 var world: GridWorld
 var list: Array = []
-var _chef: PackedScene
 
 
 class Npc:
@@ -38,7 +37,6 @@ func _init(g, w: GridWorld) -> void:
 func spawn_all(count: int) -> void:
 	if count <= 0:
 		return
-	_chef = load("res://assets/chef.glb") as PackedScene
 	var palette := [Color(0.88, 0.45, 0.42), Color(0.40, 0.64, 0.86),
 		Color(0.90, 0.74, 0.35), Color(0.55, 0.80, 0.55)]
 	# Dos charlando frente a frente y uno tomando sol: se lee de un vistazo.
@@ -62,39 +60,13 @@ func spawn_all(count: int) -> void:
 
 func _build(npc: Npc) -> Node3D:
 	var root := Node3D.new()
-	var model: Node3D = _chef.instantiate()
-	model.scale = Vector3(0.76, 0.76, 0.76)
+	# mismo modelo que el jugador, con gorrita en vez de sombrero de paja
+	var model := CharModel.build(npc.color, "cap")
 	root.add_child(model)
-	_tint_shirt(model, npc.color)
 	for h in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(h, true, false)
 		if node is Node3D:
 			npc.hinges[h] = node
-	# sin el sombrero del chef: gorrita de playa
-	var hat: Node3D = npc.hinges.get("hat")
-	if hat != null:
-		hat.visible = false
-	var head: Node3D = npc.hinges.get("head")
-	if head != null:
-		var cap := SphereMesh.new()
-		cap.radius = 0.27
-		cap.height = 0.54
-		cap.radial_segments = 14
-		cap.rings = 7
-		var cm := MeshInstance3D.new()
-		cm.mesh = cap
-		cm.material_override = ItemVisuals.material(npc.color.darkened(0.15))
-		cm.position = Vector3(0, 0.44, 0)
-		cm.scale = Vector3(1.02, 0.55, 1.02)
-		head.add_child(cm)
-
-		var brim := BoxMesh.new()
-		brim.size = Vector3(0.34, 0.03, 0.20)
-		var bm := MeshInstance3D.new()
-		bm.mesh = brim
-		bm.material_override = ItemVisuals.material(npc.color.darkened(0.28))
-		bm.position = Vector3(0, 0.44, 0.24)
-		head.add_child(bm)
 	npc.body = model
 	return root
 
@@ -120,23 +92,6 @@ func _add_towel(npc: Npc) -> void:
 	sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	game.add_child(sm)
 
-
-func _tint_shirt(root: Node, color: Color) -> void:
-	for node in root.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		var mesh: Mesh = mi.mesh
-		if mesh == null:
-			continue
-		for i in mesh.get_surface_count():
-			var m := mesh.surface_get_material(i)
-			if not (m is StandardMaterial3D):
-				continue
-			var res_name := String(m.resource_name)
-			if res_name != "shirt" and res_name != "band":
-				continue
-			var dup := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
-			dup.albedo_color = color if res_name == "shirt" else color.darkened(0.12)
-			mi.set_surface_override_material(i, dup)
 
 
 func tick(delta: float) -> void:
