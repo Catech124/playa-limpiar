@@ -61,12 +61,12 @@ static func _build_torso(root: Node3D, shirt: Color) -> void:
 
 	# panza: esfera completa, la base del cuerpo es CIRCULAR y abultada
 	var belly := SphereMesh.new()
-	belly.radius = 0.196
-	belly.height = 0.392
+	belly.radius = 0.185      # igual al radio de la base del trapecio
+	belly.height = 0.370
 	belly.radial_segments = 24
 	belly.rings = 14
-	var bm := _mesh(root, belly, shirt, Vector3(0, 0.172, 0))
-	bm.scale = Vector3(1.0, 0.42, 1.0)
+	var bm := _mesh(root, belly, shirt, Vector3(0, 0.160, 0))
+	bm.scale = Vector3(1.0, 0.55, 1.0)
 
 	# cuello
 	var neck := CylinderMesh.new()
@@ -82,7 +82,7 @@ static func _build_legs(root: Node3D) -> void:
 		var tag := "l" if side < 0.0 else "r"
 		var pivot := Node3D.new()
 		pivot.name = "leg_" + tag
-		pivot.position = Vector3(side * 0.064, 0.060, 0)
+		pivot.position = Vector3(side * 0.064, 0.052, 0)
 		root.add_child(pivot)
 
 		# sin caña: el pie es la única pieza y queda pegado a la base
@@ -95,7 +95,7 @@ static func _build_legs(root: Node3D) -> void:
 		foot.height = 0.124
 		foot.radial_segments = 16
 		foot.rings = 9
-		var fm := _mesh(pivot, foot, WHITE, Vector3(0, -0.020, 0.040))
+		var fm := _mesh(pivot, foot, WHITE, Vector3(0, -0.014, 0.040))
 		fm.scale = Vector3(1.0, 0.62, 1.55)
 		fm.rotation_degrees = Vector3(0, side * 4.0, 0)
 
