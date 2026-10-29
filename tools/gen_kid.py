@@ -32,7 +32,7 @@ PALETTE = {
     "hair": (0.38, 0.23, 0.13),
     "hair_dark": (0.28, 0.16, 0.09),
     "dark": (0.08, 0.07, 0.09),
-    "iris": (0.42, 0.27, 0.16),
+    "iris": (0.56, 0.35, 0.18),
     "mouth": (0.42, 0.18, 0.16),
     "blush": (0.97, 0.62, 0.58),
     "sandal": (0.30, 0.50, 0.80),
@@ -219,15 +219,20 @@ def build_legs(root):
 
 
 def build_torso(root):
-    # short: volumen redondeado
+    # short: cadera + dos perneras cortas
     shorts = lathe("shorts", [
-        (0.150, 0.170), (0.170, 0.195), (0.178, 0.230),
-        (0.180, 0.270), (0.178, 0.300),
-    ], mats=["shorts", "shorts", "shorts", "shorts"])
+        (0.176, 0.196), (0.184, 0.230), (0.182, 0.270), (0.176, 0.300),
+    ], mats=["shorts", "shorts", "shorts"])
     shorts.parent = root
+    for side, tag in ((-1, "l"), (1, "r")):
+        leg_shorts = cylinder(f"shorts_{tag}", 0.090, 0.086, 0.075,
+                              (side * 0.080, 0, 0.185), "shorts", verts=20)
+        leg_shorts.parent = root
+        hem = torus(f"shorts_hem_{tag}", 0.086, 0.010, (side * 0.080, 0, 0.150), "shorts")
+        hem.parent = root
 
     # camiseta a rayas: 7 bandas
-    bands = 7
+    bands = 9
     z0, z1 = 0.285, 0.520
     r0, r1 = 0.190, 0.125
     profile = []
@@ -251,20 +256,20 @@ def build_arms(root):
     for side, tag in ((-1, "l"), (1, "r")):
         parts = []
         # hombro y manga (se funden con el torso)
-        parts.append(sphere(f"shoulder_{tag}", 0.070, (side * 0.150, 0, 0.455), "stripe",
+        parts.append(sphere(f"shoulder_{tag}", 0.062, (side * 0.148, 0, 0.452), "stripe",
                             scale=(1.0, 0.95, 1.0)))
-        parts.append(cylinder(f"sleeve_{tag}", 0.062, 0.058, 0.085,
-                              (side * 0.160, 0, 0.405), "stripe",
+        parts.append(cylinder(f"sleeve_{tag}", 0.054, 0.050, 0.080,
+                              (side * 0.158, 0, 0.408), "stripe",
                               rot=(0, math.radians(side * 10), 0)))
-        parts.append(torus(f"cuff_{tag}", 0.056, 0.010, (side * 0.166, 0, 0.363), "white",
+        parts.append(torus(f"cuff_{tag}", 0.049, 0.009, (side * 0.163, 0, 0.368), "white",
                            rot=(math.radians(90), 0, 0)))
         # antebrazo y guante
-        parts.append(cylinder(f"forearm_{tag}", 0.044, 0.040, 0.10,
-                              (side * 0.172, 0, 0.318), "skin",
+        parts.append(cylinder(f"forearm_{tag}", 0.038, 0.035, 0.09,
+                              (side * 0.168, 0, 0.325), "skin",
                               rot=(0, math.radians(side * 6), 0)))
-        parts.append(sphere(f"glove_{tag}", 0.058, (side * 0.178, 0, 0.250), "glove",
-                            scale=(1.0, 1.05, 1.15)))
-        parts.append(sphere(f"thumb_{tag}", 0.028, (side * 0.215, 0.030, 0.250), "glove"))
+        parts.append(sphere(f"glove_{tag}", 0.066, (side * 0.174, 0, 0.252), "glove",
+                            scale=(1.0, 1.05, 1.18)))
+        parts.append(sphere(f"thumb_{tag}", 0.030, (side * 0.212, 0.035, 0.250), "glove"))
         arm = join(parts, f"arm_{tag}_mesh")
         hinge(f"arm_{tag}", (side * 0.145, 0, 0.455), [arm], root)
 
@@ -281,9 +286,12 @@ def build_head(root):
     # pelo: casquete de rizos
     curls = [
         # corona (arriba y atrás)
-        (0.000, 0.020, 0.185, 0.110), (-0.100, 0.020, 0.170, 0.100),
-        (0.100, 0.020, 0.170, 0.100), (-0.165, 0.000, 0.110, 0.090),
-        (0.165, 0.000, 0.110, 0.090),
+        (0.000, 0.010, 0.175, 0.120), (-0.105, 0.010, 0.160, 0.108),
+        (0.105, 0.010, 0.160, 0.108), (-0.175, -0.010, 0.105, 0.095),
+        (0.175, -0.010, 0.105, 0.095),
+        # rizos de adelante, asomando bajo el ala
+        (-0.085, 0.140, 0.105, 0.095), (0.000, 0.150, 0.100, 0.092),
+        (0.085, 0.140, 0.105, 0.095),
         # nuca
         (0.000, -0.130, 0.120, 0.105), (-0.105, -0.115, 0.105, 0.095),
         (0.105, -0.115, 0.105, 0.095), (-0.170, -0.060, 0.060, 0.085),
@@ -296,39 +304,37 @@ def build_head(root):
                                  scale=(1.0, 0.92, 0.95), segments=16, rings=10))
     # flequillo: por encima de las cejas, sin tapar los ojos
     for i in range(3):
-        head_parts.append(sphere(f"fringe_{i}", 0.066, (-0.080 + 0.080 * i, 0.115, HEAD_Z + 0.150),
-                                 "hair", scale=(1.05, 0.80, 0.75), segments=16, rings=10))
+        head_parts.append(sphere(f"fringe_{i}", 0.062, (-0.082 + 0.082 * i, 0.150, HEAD_Z + 0.115),
+                                 "hair", scale=(1.05, 0.75, 0.70), segments=16, rings=10))
 
     # cara
     for side in (-1, 1):
         ex = side * 0.080
         ez = HEAD_Z + 0.020
         # esclerótica
-        head_parts.append(sphere(f"eye_{side}", 0.058, (ex, 0.170, ez), "white",
-                                 scale=(1.0, 0.45, 1.12), segments=20, rings=12))
-        head_parts.append(sphere(f"iris_{side}", 0.037, (ex, 0.188, ez - 0.003), "iris",
-                                 scale=(1.0, 0.35, 1.02), segments=18, rings=10))
-        head_parts.append(sphere(f"pupil_{side}", 0.021, (ex, 0.198, ez - 0.003), "dark",
-                                 scale=(1.0, 0.30, 1.02), segments=14, rings=8))
-        head_parts.append(sphere(f"glint_{side}", 0.011, (ex - 0.012, 0.204, ez + 0.016), "white",
+        head_parts.append(sphere(f"eye_{side}", 0.062, (ex, 0.168, ez), "white",
+                                 scale=(1.0, 0.42, 1.16), segments=20, rings=12))
+        head_parts.append(sphere(f"iris_{side}", 0.051, (ex, 0.186, ez - 0.004), "iris",
+                                 scale=(1.0, 0.30, 1.02), segments=18, rings=10))
+        head_parts.append(sphere(f"pupil_{side}", 0.027, (ex, 0.196, ez - 0.004), "dark",
+                                 scale=(1.0, 0.26, 1.02), segments=14, rings=8))
+        head_parts.append(sphere(f"glint_{side}", 0.013, (ex - 0.014, 0.203, ez + 0.020), "white",
                                  segments=10, rings=6))
         # ceja
-        head_parts.append(cube(f"brow_{side}", (0.085, 0.030, 0.024),
-                               (ex, 0.185, ez + 0.098), "hair_dark",
-                               rot=(0, math.radians(side * 8), 0), bevel=0.008))
+        head_parts.append(cube(f"brow_{side}", (0.098, 0.032, 0.026),
+                               (ex, 0.184, ez + 0.104), "hair_dark",
+                               rot=(0, math.radians(side * 10), 0), bevel=0.008))
         # cachete
         head_parts.append(sphere(f"cheek_{side}", 0.048, (side * 0.135, 0.150, HEAD_Z - 0.055),
                                  "blush", scale=(1.0, 0.45, 0.70), segments=16, rings=10))
 
     # nariz
-    head_parts.append(sphere("nose", 0.028, (0, 0.192, HEAD_Z - 0.030), "skin_dark",
+    head_parts.append(sphere("nose", 0.027, (0, 0.196, HEAD_Z - 0.024), "skin",
                              scale=(1.0, 0.85, 0.80), segments=16, rings=10))
 
-    # sonrisa: tres cubos finos
-    for i in (-1, 0, 1):
-        head_parts.append(cube(f"mouth_{i}", (0.030 if i == 0 else 0.020, 0.014, 0.012),
-                               (i * 0.030, 0.186, HEAD_Z - 0.078 + abs(i) * 0.010),
-                               "mouth", rot=(0, 0, math.radians(-i * 26)), bevel=0.004))
+    # boca: sonrisa chica abierta
+    head_parts.append(sphere("mouth", 0.026, (0, 0.186, HEAD_Z - 0.072), "mouth",
+                             scale=(1.25, 0.35, 0.55), segments=16, rings=10))
 
     head = join(head_parts, "head_mesh")
     hinge("head", (0, 0, HINGE_Z), [head], root)
@@ -352,12 +358,14 @@ def build_hat(root):
 
     # copa
     crown = lathe("crown", [
-        (0.165, 0.880), (0.172, 0.900), (0.170, 0.945), (0.160, 0.975),
-        (0.140, 0.995), (0.100, 1.005), (0.040, 1.010), (0.000, 1.011),
-    ], segments=40, mats=["straw_dark", "straw", "straw", "straw_light",
-                          "straw_light", "straw", "straw"])
+        (0.178, 0.874), (0.184, 0.900), (0.182, 0.940), (0.174, 0.972),
+        (0.158, 0.996), (0.132, 1.012), (0.092, 1.022), (0.040, 1.026),
+        (0.000, 1.028),
+    ], segments=40, mats=["straw_dark", "straw", "straw", "straw",
+                          "straw_light", "straw_light", "straw_light", "straw"])
 
     hat = join([brim, crown], "hat_mesh")
+    hat.rotation_euler = (math.radians(-2), math.radians(3), 0)
     hinge("hat", (0, 0, HINGE_Z), [hat], root)
 
 
