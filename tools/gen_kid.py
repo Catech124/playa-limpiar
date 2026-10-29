@@ -234,7 +234,7 @@ def build_torso(root):
     # camiseta a rayas: 7 bandas
     bands = 9
     z0, z1 = 0.285, 0.520
-    r0, r1 = 0.190, 0.125
+    r0, r1 = 0.184, 0.150
     profile = []
     mats = []
     for i in range(bands + 1):
@@ -277,7 +277,7 @@ def build_arms(root):
 def build_head(root):
     head_parts = []
     head_parts.append(sphere("skull", HEAD_R, (0, 0, HEAD_Z), "skin",
-                             segments=40, rings=24))
+                             scale=(1.06, 0.95, 1.0), segments=40, rings=24))
     # orejas
     for side in (-1, 1):
         head_parts.append(sphere(f"ear_{side}", 0.048, (side * HEAD_R * 0.94, 0.010, HEAD_Z - 0.02),
@@ -312,11 +312,11 @@ def build_head(root):
         ex = side * 0.080
         ez = HEAD_Z + 0.020
         # esclerótica
-        head_parts.append(sphere(f"eye_{side}", 0.062, (ex, 0.168, ez), "white",
-                                 scale=(1.0, 0.42, 1.16), segments=20, rings=12))
-        head_parts.append(sphere(f"iris_{side}", 0.051, (ex, 0.186, ez - 0.004), "iris",
+        head_parts.append(sphere(f"eye_{side}", 0.052, (ex, 0.170, ez), "white",
+                                 scale=(1.0, 0.42, 1.14), segments=20, rings=12))
+        head_parts.append(sphere(f"iris_{side}", 0.040, (ex, 0.186, ez - 0.004), "iris",
                                  scale=(1.0, 0.30, 1.02), segments=18, rings=10))
-        head_parts.append(sphere(f"pupil_{side}", 0.027, (ex, 0.196, ez - 0.004), "dark",
+        head_parts.append(sphere(f"pupil_{side}", 0.023, (ex, 0.196, ez - 0.004), "dark",
                                  scale=(1.0, 0.26, 1.02), segments=14, rings=8))
         head_parts.append(sphere(f"glint_{side}", 0.013, (ex - 0.014, 0.203, ez + 0.020), "white",
                                  segments=10, rings=6))
@@ -362,14 +362,16 @@ def build_hat(root):
 
     # copa
     crown = lathe("crown", [
-        (0.178, 0.889), (0.184, 0.915), (0.182, 0.955), (0.174, 0.987),
-        (0.158, 0.996), (0.132, 1.012), (0.092, 1.022), (0.040, 1.026),
-        (0.000, 1.028),
-    ], segments=40, mats=["straw_dark", "straw", "straw", "straw",
-                          "straw_light", "straw_light", "straw_light", "straw"])
+        (0.186, 0.889), (0.192, 0.905), (0.190, 0.930), (0.182, 0.950),
+        (0.170, 0.964), (0.150, 0.974), (0.115, 0.980), (0.060, 0.983),
+    ], segments=40, mats=["straw_dark", "straw", "straw", "straw_light",
+                          "straw_light", "straw_light", "straw"])
 
     hat = join([brim, crown], "hat_mesh")
-    hat.rotation_euler = (math.radians(-2), math.radians(3), 0)
+    hat.scale = (1.0, 0.94, 1.0)        # apenas elíptica: con 0.86 parecía orejas
+    # tilt hacia atrás: el ala delantera sube y deja ver los ojos desde la cámara alta
+    hat.rotation_euler = (math.radians(8), math.radians(3), 0)
+    hat.location = (0.0, -0.020, 0.004)
     hinge("hat", (0, 0, HINGE_Z), [hat], root)
 
 
