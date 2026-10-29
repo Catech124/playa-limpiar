@@ -667,15 +667,21 @@ func _build_station(t: CellData) -> void:
 	if t.station == "bin":
 		color = GameConfig.BIN_COLOR.get(t.bin, color)
 
+	var pieza: Node3D = null
 	if t.station == "bin":
 		# bote reciclador low-poly retro (GLB): cuerpo, ruedas y tapa con bisagra
-		var bote: Node3D = BinModel.build(String(t.bin))
-		if bote != null:
-			bote.position = Vector3(t.x + 0.5, 0.0, t.y + 0.5)
-			add_child(bote)
-			t.bin_lid = bote.find_child("Lid", true, false)
+		pieza = BinModel.build(String(t.bin))
+		if pieza != null:
+			t.bin_lid = pieza.find_child("Lid", true, false)
 			if t.bin_lid != null:
 				bin_lids.append({"lid": t.bin_lid, "tile": t})
+	elif t.station == "bags":
+		# dispensador de bolsas low-poly retro (GLB)
+		pieza = StationModels.build_bags()
+
+	if pieza != null:
+		pieza.position = Vector3(t.x + 0.5, 0.0, t.y + 0.5)
+		add_child(pieza)
 	else:
 		var box := BoxMesh.new()
 		box.size = Vector3(0.94, height, 0.94)
@@ -693,18 +699,6 @@ func _build_station(t: CellData) -> void:
 		tm.material_override = ItemVisuals.material(color.lightened(0.22))
 		tm.position = Vector3(t.x + 0.5, height + 0.02, t.y + 0.5)
 		add_child(tm)
-
-	if t.station == "bags":
-		# bolsas de muestra apiladas en el dispensador
-		for i in 3:
-			var b := BoxMesh.new()
-			b.size = Vector3(0.22, 0.20, 0.16)
-			var bm := MeshInstance3D.new()
-			bm.mesh = b
-			bm.material_override = ItemVisuals.material(Color(0.91, 0.96, 1.0))
-			bm.position = Vector3(t.x + 0.5, height + 0.12 + i * 0.02, t.y + 0.5) + Vector3(-0.18 + i * 0.18, 0, (i % 2) * 0.12 - 0.06)
-			bm.rotation_degrees = Vector3(0, i * 14.0, 0)
-			add_child(bm)
 
 	# una sola etiqueta por tramo continuo (si no, "ENTREGAENTREGA").
 	# Se mira el mapa de texto: `tiles` todavía se está construyendo.
@@ -752,86 +746,25 @@ func _build_truck(t: CellData) -> void:
 	var run := 1
 	while t.x + run < w and String(map[t.y])[t.x + run] == t.ch:
 		run += 1
-	var ox := float(t.x)
 	var oz := float(t.y) + 0.5
-	var length := float(run)
 
-	var tyre := Color(0.11, 0.11, 0.13)
-	var hub := Color(0.72, 0.74, 0.77)
+	# camión de entrega low-poly retro (GLB): cabina, caja con lona y compuerta
+	var camion: Node3D = StationModels.build_truck(float(run))
+	if camion != null:
+		camion.position = Vector3(float(t.x), 0.0, oz)
+		add_child(camion)
+		return
+
+	# respaldo: si el GLB no está, una caja con ruedas para no romper el mapa
 	var chassis := Color(0.20, 0.22, 0.26)
 	var box_col := Color(0.32, 0.40, 0.50)
 	var cab_col := Color(0.88, 0.45, 0.22)
-	var glass := Color(0.14, 0.24, 0.34)
+	_box_mesh(Vector3(float(run) - 0.06, 0.12, 0.80), chassis,
+		Vector3(float(t.x) + float(run) * 0.5, 0.30, oz))
+	_box_mesh(Vector3(float(run) - 0.70, 0.66, 0.92), box_col,
+		Vector3(float(t.x) + 0.64 + (float(run) - 0.70) * 0.5, 0.70, oz))
+	_box_mesh(Vector3(0.62, 0.66, 0.86), cab_col, Vector3(float(t.x) + 0.36, 0.70, oz))
 
-	# ruedas: tres por lado
-	var wheel := CylinderMesh.new()
-	wheel.top_radius = 0.17
-	wheel.bottom_radius = 0.17
-	wheel.height = 0.12
-	wheel.radial_segments = 14
-	var hub_mesh := CylinderMesh.new()
-	hub_mesh.top_radius = 0.075
-	hub_mesh.bottom_radius = 0.075
-	hub_mesh.height = 0.13
-	hub_mesh.radial_segments = 10
-	for wx in [ox + 0.42, ox + length * 0.5, ox + length - 0.42]:
-		for side in [-1.0, 1.0]:
-			var wm := MeshInstance3D.new()
-			wm.mesh = wheel
-			wm.material_override = ItemVisuals.material(tyre)
-			wm.position = Vector3(wx, 0.17, oz + side * 0.46)
-			wm.rotation_degrees = Vector3(90, 0, 0)
-			add_child(wm)
-			var hm := MeshInstance3D.new()
-			hm.mesh = hub_mesh
-			hm.material_override = ItemVisuals.material(hub, 0.4)
-			hm.position = Vector3(wx, 0.17, oz + side * 0.46)
-			hm.rotation_degrees = Vector3(90, 0, 0)
-			add_child(hm)
-
-	# chasis
-	_box_mesh(Vector3(length - 0.06, 0.12, 0.80), chassis,
-		Vector3(ox + length * 0.5, 0.30, oz))
-
-	# caja de carga con costillas y lona arriba
-	var cargo_x := ox + 0.64
-	var cargo_w := length - 0.70
-	_box_mesh(Vector3(cargo_w, 0.66, 0.92), box_col,
-		Vector3(cargo_x + cargo_w * 0.5, 0.70, oz))
-	for i in 4:
-		var rx := cargo_x + 0.10 + (cargo_w - 0.20) * float(i) / 3.0
-		for side in [-1.0, 1.0]:
-			_box_mesh(Vector3(0.035, 0.66, 0.02), box_col.darkened(0.18),
-				Vector3(rx, 0.70, oz + side * 0.465))
-	# lona semicilíndrica
-	var tarp := CylinderMesh.new()
-	tarp.top_radius = 0.10
-	tarp.bottom_radius = 0.10
-	tarp.height = cargo_w
-	tarp.radial_segments = 12
-	var tm := MeshInstance3D.new()
-	tm.mesh = tarp
-	tm.material_override = ItemVisuals.material(Color(0.86, 0.84, 0.76))
-	tm.position = Vector3(cargo_x + cargo_w * 0.5, 1.03, oz)
-	tm.rotation_degrees = Vector3(0, 0, 90)
-	add_child(tm)
-
-	# cabina adelante
-	var cab_x := ox + 0.36
-	_box_mesh(Vector3(0.62, 0.66, 0.86), cab_col, Vector3(cab_x, 0.70, oz))
-	_box_mesh(Vector3(0.64, 0.06, 0.90), cab_col.lightened(0.18), Vector3(cab_x, 1.06, oz))
-	# parabrisas y ventanillas
-	_box_mesh(Vector3(0.05, 0.28, 0.72), glass, Vector3(ox + 0.68, 0.86, oz))
-	for side in [-1.0, 1.0]:
-		_box_mesh(Vector3(0.26, 0.22, 0.02), glass, Vector3(cab_x - 0.06, 0.86, oz + side * 0.435))
-	# paragolpes y faros
-	_box_mesh(Vector3(0.07, 0.16, 0.88), chassis, Vector3(ox + 0.03, 0.34, oz))
-	for side in [-1.0, 1.0]:
-		_box_mesh(Vector3(0.03, 0.09, 0.16), Color(0.98, 0.94, 0.72),
-			Vector3(ox + 0.02, 0.46, oz + side * 0.28))
-	# escalón trasero (la compuerta por donde se carga)
-	_box_mesh(Vector3(0.08, 0.34, 0.80), chassis,
-		Vector3(ox + length - 0.03, 0.42, oz))
 
 ## Altura de la base de una estación (el camión se apoya arriba).
 func body_y(t: CellData) -> float:

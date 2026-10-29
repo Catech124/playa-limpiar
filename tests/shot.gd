@@ -206,6 +206,29 @@ func _ready() -> void:
 		await _shoot(1.0)
 		return
 
+	if "--dispensador" in args:
+		# el dispensador de bolsas de cerca, con un jugador al lado
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		var tp_bags: CellData = null
+		for row in main.world.tiles:
+			for t in row:
+				if t.station == "bags":
+					tp_bags = t
+		if tp_bags != null:
+			main.players[0].teleport(tp_bags.x + 1, tp_bags.y + 1, Vector2i(0, -1))
+		await get_tree().physics_frame
+		var bx := float(tp_bags.x) + 0.5 if tp_bags != null else 3.5
+		var bz := float(tp_bags.y) + 0.5 if tp_bags != null else 1.5
+		main.hud.visible = false
+		main.camera.fov = 36.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(bx + 0.3, 1.75, bz + 3.4),
+			Vector3(bx, 0.55, bz), Vector3.UP)
+		await _shoot(0.5)
+		return
+
 	if "--bins" in args:
 		# los tres botes de cerca: uno con bolsa colgada (tapa abierta)
 		main.start_game(1)
