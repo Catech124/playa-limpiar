@@ -15,7 +15,15 @@ func _ready() -> void:
 
 	var shirt := Color(0.95, 0.82, 0.31)
 	var hat := "cap" if "--npc" in args else "straw"
-	var model := CharModel.build(shirt, hat)
+	var model: Node3D = null
+	if "--glb" in args:
+		# el modelo del juego (Blender)
+		var packed := load("res://assets/kid.glb") as PackedScene
+		if packed != null:
+			model = packed.instantiate()
+	if model == null:
+		model = CharModel.build(shirt, hat)
+	model.name = "CharModel"
 	add_child(model)
 
 	# luz y cielo parecidos a los del juego
