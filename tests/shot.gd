@@ -48,6 +48,7 @@ func _ready() -> void:
 		ItemVisuals.build(held)
 		main.move_item_to_player(held, main.players[0])
 		main.camera.fov = 30.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(9.0, 3.0, 6.4), Vector3(9.0, 0.8, 2.4), Vector3.UP)
 		await _shoot(1.2)
 		return
@@ -70,8 +71,40 @@ func _ready() -> void:
 		ItemVisuals.build(other)
 		main.move_item_to_player(other, p2)
 		main.camera.fov = 30.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.5, 3.4, 15.0), Vector3(10.5, 0.5, 8.4), Vector3.UP)
 		await _shoot(0.8)
+		return
+
+	if "--crab" in args:
+		# cangrejo cruzando la arena + objeto en las manos + basura flotando
+		main.start_game(2)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		main.crabs.spawn()
+		if not main.crabs.list.is_empty():
+			var c = main.crabs.list[0]
+			c.pos = Vector3(10.6, 0.0, 9.2)
+			c.target = Vector3(10.6, 0.0, 8.0)   # un paso al frente, no re-targetea   # quieto para la foto
+			c.node.position = c.pos
+			c.node.rotation.y = 0.6
+			main.crabs.tick(0.02)
+		var p: Player = main.players[0]
+		p.teleport(10, 6, Vector2i(0, 1))
+		var it := CarryItem.residue("pet")
+		ItemVisuals.build(it)
+		main.move_item_to_player(it, p)
+		for spot in [[7, 8, "lata"], [13, 9, "vidrio"]]:
+			var r := CarryItem.residue(spot[2])
+			ItemVisuals.build(r)
+			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
+		main.players[1].teleport(16, 6, Vector2i(0, 1))
+		main.hud.visible = false
+		main.camera.fov = 30.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(10.6, 1.9, 12.4),
+			Vector3(10.6, 0.10, 9.2), Vector3.UP)
+		await _shoot(0.15)
 		return
 
 	if "--char" in args:
@@ -82,6 +115,7 @@ func _ready() -> void:
 		cp.teleport(10, 7, Vector2i(0, 1))
 		main.hud.visible = false
 		main.camera.fov = 26.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.5, 0.95, 9.35),
 			Vector3(10.5, 0.50, 7.50), Vector3.UP)
 		await _shoot(0.5)
@@ -97,6 +131,7 @@ func _ready() -> void:
 		for i in 30:
 			main.npcs.tick(1.0 / 60.0)
 		main.camera.fov = 40.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.0, 5.6, 15.0),
 			Vector3(10.0, 0.5, 6.2), Vector3.UP)
 		await _shoot(0.05)
@@ -113,6 +148,7 @@ func _ready() -> void:
 		for i in 260:
 			main.npcs.tick(1.0 / 60.0)
 		main.camera.fov = 36.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(4.5, 4.4, 15.0),
 			Vector3(4.5, 0.6, 9.6), Vector3.UP)
 		await _shoot(0.05)
@@ -132,6 +168,7 @@ func _ready() -> void:
 		bp.down_time = 3.6
 		bp._body_mesh.visible = false
 		main.camera.fov = 34.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.0, 4.4, 17.2),
 			Vector3(10.0, 0.4, 11.6), Vector3.UP)
 		await _shoot(0.10)
@@ -156,6 +193,7 @@ func _ready() -> void:
 		ItemVisuals.build(floating)
 		main.move_item_to_tile(floating, main.world.tile_at(13, 12))
 		main.camera.fov = 34.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(11.0, 5.0, 17.0), Vector3(11.0, 0.2, 11.4), Vector3.UP)
 		await _shoot(1.0)
 		return
@@ -176,6 +214,7 @@ func _ready() -> void:
 			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
 		var gull: bool = main.gulls.spawn()
 		if not gull:
+			main.cam_free = true
 			main.camera.look_at_from_position(Vector3(10.0, 4.0, 14.0), Vector3(10.0, 0.3, 7.0), Vector3.UP)
 			await _shoot(0.6)
 			return
@@ -187,6 +226,7 @@ func _ready() -> void:
 		var w := float(main.world.w)
 		var h := float(main.world.h)
 		main.camera.fov = 44.0
+		main.cam_free = true
 		main.camera.look_at_from_position(tp + Vector3(0.0, 11.0, 13.0),
 			tp + Vector3(-1.5, 0.0, 1.0), Vector3.UP)
 		await _shoot(0.6)
@@ -207,6 +247,7 @@ func _ready() -> void:
 		main.spawn_puff(d1.position, Color(0.88, 0.82, 0.66), 9, 1.1)
 		main.spawn_puff(d2.position, Color(0.88, 0.82, 0.66), 9, 1.1)
 		main.camera.fov = 30.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.5, 3.2, 14.0), Vector3(10.5, 0.4, 7.4), Vector3.UP)
 		await _shoot(0.10)
 		return
@@ -219,6 +260,7 @@ func _ready() -> void:
 		var w := float(main.world.w)
 		var h := float(main.world.h)
 		main.camera.fov = 52.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(w * 0.5, 15.0, h + 12.0),
 			Vector3(w * 0.5, 0.0, h * 0.42), Vector3.UP)
 		await _shoot(1.2)
@@ -252,6 +294,7 @@ func _ready() -> void:
 			await get_tree().physics_frame
 		main._tick_decay(0.0)
 		main.camera.fov = 34.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(12.0, 6.4, 16.0), Vector3(12.0, 0.3, 10.6), Vector3.UP)
 		await _shoot(0.8)
 		return
@@ -278,6 +321,7 @@ func _ready() -> void:
 		for i in 70:
 			await get_tree().physics_frame
 		main.camera.fov = 30.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.0, 3.0, 9.2), Vector3(10.0, 0.2, 6.2), Vector3.UP)
 		await _shoot(0.8)
 		return
@@ -294,6 +338,7 @@ func _ready() -> void:
 			ItemVisuals.build(r)
 			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
 		main.camera.fov = 26.0
+		main.cam_free = true
 		main.camera.look_at_from_position(Vector3(10.0, 2.2, 8.6), Vector3(10.0, 0.25, 6.0), Vector3.UP)
 		await _shoot(1.2)
 		return

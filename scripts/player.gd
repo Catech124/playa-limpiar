@@ -115,10 +115,54 @@ func _prepare_external(model: Node3D) -> void:
 	_remove_crab(model)
 	_build_external_rig(model)
 	_shrink_external_hat(model)
+	_set_carry_from_hands(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var n := model.find_child(hinge, true, false)
 		if n is Node3D:
 			_hinges[hinge] = n
+
+
+## Pone el punto de carga donde quedan las MANOS con la pose de cargar: los
+## guantes del GLB externo están más abajo que en el modelo propio y el objeto
+## aparecía flotando entre los brazos abiertos.
+func _set_carry_from_hands(model: Node3D) -> void:
+	var arm_l: Node3D = model.find_child("arm_l", true, false)
+	var arm_r: Node3D = model.find_child("arm_r", true, false)
+	if arm_l == null or arm_r == null:
+		return
+
+	# promedio de los guantes de CADA lado (el modelo trae 2-3 mallas por mano)
+	var acc := {"l": [Vector3.ZERO, 0], "r": [Vector3.ZERO, 0]}
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		if not is_instance_valid(mi):
+			continue
+		if not String(mi.name).begins_with("guante"):
+			continue
+		var mi3 := mi as MeshInstance3D
+		var pt: Vector3 = model.to_local(mi3.global_transform * mi3.get_aabb().get_center())
+		var side := "l" if pt.distance_to(arm_l.position) < pt.distance_to(arm_r.position) else "r"
+		acc[side][0] += pt
+		acc[side][1] += 1
+	if acc["l"][1] == 0 or acc["r"][1] == 0:
+		return
+	var hl: Vector3 = acc["l"][0] / float(acc["l"][1])
+	var hr: Vector3 = acc["r"][0] / float(acc["r"][1])
+
+	# a dónde van las manos con la pose de cargar (rotación -1.15 en X)
+	var angle := -1.15
+	var c := cos(angle)
+	var s := sin(angle)
+	var pose := func(pt: Vector3, arm: Node3D) -> Vector3:
+		var off := pt - arm.position
+		return arm.position + Vector3(off.x, off.y * c - off.z * s, off.y * s + off.z * c)
+	var h1: Vector3 = pose.call(hl, arm_l)
+	var h2: Vector3 = pose.call(hr, arm_r)
+
+	# el ítem va en la MANO izquierda (el pescador lleva las cosas con una mano);
+	# un poco hacia adentro para que no quede colgando afuera del cuerpo
+	var hand_pos: Vector3 = h1 + Vector3(0.045 if h1.x < 0.0 else -0.045, 0.0, 0.0)
+	carry_anchor.position = Vector3(hand_pos.x * model.scale.x, hand_pos.y * model.scale.y,
+		hand_pos.z * model.scale.z) + model.position + Vector3(0.0, 0.01, 0.02)
 
 
 ## Quita el cangrejo que trae el pescador (ahora es un modelo aparte).

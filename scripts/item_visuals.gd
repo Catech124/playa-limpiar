@@ -247,6 +247,9 @@ static func _build_residue(item: CarryItem) -> void:
 	var piece := residue_piece(item.type)
 	# giro propio: diez botellas alineadas iguales parecen un patrón, no basura
 	piece.rotation.y = randf() * TAU
+	# "flota" apenas sobre la arena: se ve mejor y no se entierra en el piso
+	piece.name = "Piece"
+	piece.position.y = 0.02
 	item.node.add_child(piece)
 
 

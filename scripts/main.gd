@@ -16,10 +16,12 @@ var world: GridWorld
 var players: Array = []
 var gulls: Gulls
 var npcs: Npcs
+var crabs: Crabs
 var spawner: TrashSpawner
 var hud: Hud
 var camera: Camera3D
 var sun: DirectionalLight3D
+var cam_free := false       # true = la cámara no sigue a los jugadores (capturas)
 var _cam_target := Vector3(12, 0, 8)
 var _cam_dist := 14.0
 
@@ -39,6 +41,7 @@ var toasts: Array = []
 var puffs: Array = []            # polvo / salpicaduras
 var sharks: Array = []           # tiburones de la mordida (animación)
 var _sync_cd := 0.0
+var _item_t := 0.0
 var clock := 0.0                 # segundos de la jornada (para el tope de castigos)
 var penalty_log: Array = []      # instantes de los castigos que descontaron
 var flying: Array = []
@@ -131,6 +134,9 @@ func _reset_world(count: int) -> void:
 		gulls.list.clear()
 		gulls = null
 	spawner = null
+	if crabs != null:
+		crabs.clear()
+		crabs = null
 	if npcs != null:
 		for n in npcs.list:
 			if n.node != null and is_instance_valid(n.node):
@@ -177,6 +183,7 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 	spawner.setup(level)
 	npcs = Npcs.new(self, world)
 	npcs.spawn_all(int(level.get("npcs", 1)))
+	crabs = Crabs.new(self, world)
 
 	toasts.clear()
 	flying.clear()
@@ -292,7 +299,7 @@ func _cam_dist_for(spread: float) -> float:
 
 
 func _update_camera(delta: float) -> void:
-	if players.is_empty():
+	if cam_free or players.is_empty():
 		return
 	var mid := Vector3.ZERO
 	for p in players:
@@ -323,12 +330,14 @@ func _process(delta: float) -> void:
 
 	spawner.tick(delta)
 	npcs.tick(delta)
+	crabs.tick(delta)
 	if not sandbox:
 		gulls.tick(delta)
 
 	_update_flying(delta)
 	_update_toasts(delta)
 	_update_puffs(delta)
+	_animate_items(delta)
 	_update_sharks(delta)
 	_update_light()
 
@@ -738,6 +747,21 @@ func spawn_puff(pos: Vector3, color: Color, count := 7, spread := 0.9) -> void:
 			"life": 0.0,
 			"ttl": randf_range(0.32, 0.50),
 		})
+
+
+## La basura flota apenas sobre la arena: así se ve desde la cámara alta y no
+## queda media enterrada. En la mano o volando no flota.
+func _animate_items(delta: float) -> void:
+	_item_t += delta
+	for node in world.items_root.get_children():
+		var piece := node.get_node_or_null("Piece")
+		if piece == null:
+			continue
+		var body := node as RigidBody3D
+		if body != null and not body.freeze:
+			piece.position.y = 0.02 + sin(_item_t * 2.4 + float(node.get_instance_id() % 100) * 0.3) * 0.014
+		else:
+			piece.position.y = 0.0
 
 
 func _update_puffs(delta: float) -> void:

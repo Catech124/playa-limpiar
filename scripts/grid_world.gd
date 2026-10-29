@@ -283,8 +283,10 @@ func _build_water(min_x: int, max_x: int, min_y: int, max_y: int) -> void:
 	mat.set_shader_parameter("shore_z", water_z0)
 	mat.set_shader_parameter("deep_z", water_z0 + 3.0)
 	mi.material_override = mat
-	mi.position = Vector3(float(min_x) + water_w * 0.5 - 4.0 + 4.0, GameConfig.WATER_LEVEL,
-		water_z0 + rows * 0.5 - 2.0)
+	# la lámina arranca EXACTAMENTE en la orilla: si se corre hacia la arena,
+	# tapa las últimas filas de playa (y lo que haya tirado ahí)
+	mi.position = Vector3(float(min_x) + water_w * 0.5, GameConfig.WATER_LEVEL,
+		water_z0 + rows * 0.5)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 

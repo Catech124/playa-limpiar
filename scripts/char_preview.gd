@@ -16,7 +16,14 @@ func _ready() -> void:
 	var shirt := Color(0.95, 0.82, 0.31)
 	var hat := "cap" if "--npc" in args else "straw"
 	var model: Node3D = null
-	if "--glb" in args:
+	if "--crab" in args:
+		var crabb := load("res://assets/cangrejo_suave.glb") as PackedScene
+		if crabb != null:
+			model = crabb.instantiate()
+			CharModel.fit_model(model, 0.5)
+	if model != null:
+		pass
+	elif "--glb" in args:
 		# el modelo del juego (Blender)
 		var packed := load("res://assets/kid.glb") as PackedScene
 		if packed != null:
