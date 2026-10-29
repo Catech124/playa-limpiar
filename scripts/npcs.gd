@@ -68,6 +68,8 @@ func _build(npc: Npc) -> Node3D:
 			model = packed.instantiate()
 	if model == null:
 		model = CharModel.build(npc.color, "cap")
+	else:
+		CharModel.fit_model(model)
 	root.add_child(model)
 	for h in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(h, true, false)

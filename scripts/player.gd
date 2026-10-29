@@ -87,11 +87,18 @@ func _build_body() -> void:
 			model = packed.instantiate()
 	if model == null:
 		model = CharModel.build(color, "straw")
+	else:
+		CharModel.fit_model(model)      # normaliza escala de GLB externos
 	_body_mesh.add_child(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var node := model.find_child(hinge, true, false)
 		if node is Node3D:
 			_hinges[hinge] = node
+
+	# Modelos externos (p. ej. "pescador low poly") traen un ala enorme que, con
+	# la cámara alta, tapa al personaje: se achica el sombrero al entrar al juego.
+	if model != null and model.find_child("ala_e0ba79", true, false) != null:
+		call_deferred("_shrink_external_hat", model)
 
 	_add_shadow_disc()
 
@@ -100,6 +107,34 @@ func _build_body() -> void:
 	# quedan en (±0.09, 0.41, 0.27) en el espacio del cuerpo.
 	carry_anchor.position = Vector3(0.0, 0.345, 0.220)
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
+
+
+## Achica el sombrero de un GLB externo alrededor de su base, para que no tape
+## la cara desde la cámara alta. Solo actúa si encuentra las piezas de ala.
+func _shrink_external_hat(model: Node3D) -> void:
+	var parts: Array = []
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		var nm := String(n.name).to_lower()
+		if nm.begins_with("ala_") or nm.begins_with("copa_") or nm == "cyl":
+			parts.append(n)
+	if parts.is_empty():
+		return
+	var box := AABB()
+	var first := true
+	for n in parts:
+		var b: AABB = (n as MeshInstance3D).global_transform * (n as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	var pivot := Node3D.new()
+	pivot.name = "hat_pivot"
+	model.add_child(pivot)
+	# pivote en la base del sombrero, en coordenadas LOCALES del modelo (si se
+	# usa global_position en XZ, el sombrero se va al centro del mundo)
+	var world_y := box.position.y + box.size.y * 0.10
+	pivot.position = Vector3(0.0, model.to_local(Vector3(0.0, world_y, 0.0)).y, 0.0)
+	for n in parts:
+		(n as Node3D).reparent(pivot, true)
+	pivot.scale = Vector3(0.78, 0.78, 0.78)
 
 
 ## Sombra de contacto: un disco oscuro bajo los pies.

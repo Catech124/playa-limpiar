@@ -404,3 +404,25 @@ static func _mesh(parent: Node3D, mesh: Mesh, color: Color, pos: Vector3,
 	mi.position = pos
 	parent.add_child(mi)
 	return mi
+
+## Ajusta un GLB externo a la altura del juego. Los modelos de otros pipelines
+## vienen en otra escala (cm, metros...) y sin bisagras: acá se normaliza el
+## tamaño para que se pueda probar cualquiera sin tocar el resto del código.
+static func fit_model(model: Node3D, target_height := 0.92) -> void:
+	var box := AABB()
+	var first := true
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = (mi as MeshInstance3D).get_aabb()
+		if first:
+			box = b
+			first = false
+		else:
+			box = box.merge(b)
+	if first or box.size.y < 0.001:
+		return
+	var k := target_height / box.size.y
+	if absf(k - 1.0) < 0.02:
+		return
+	model.scale = Vector3(k, k, k)
+	# apoyar los pies en el piso
+	model.position.y = -box.position.y * k
