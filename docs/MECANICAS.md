@@ -194,9 +194,11 @@ tiburón tampoco descuenta: cuesta 5 segundos de espera.
 Todo son primitivas de Godot; lo que hace que se reconozca cada cosa es la
 silueta:
 
-- **Personaje**: el modelo anterior (brazos caídos, no T-pose), a 0,78 de
-  escala y con **cabeza y sombrero al 0,88** para que no quede cabezón. La cara
-  lleva ojos con esclerótica y brillo, cejas, sonrisa y cachetes.
+- **Personaje**: armado con primitivas (`char_model.gd`), estilo Overcooked:
+  torso de **trapecio invertido** con bordes redondeados, **brazos cilíndricos**
+  que nacen dentro del torso y terminan en **guantes blancos**, **cabeza
+  circular** y sombrero de paja con banda. Cara con ojos, cejas, nariz, sonrisa
+  y cachetes. Los NPCs usan el mismo cuerpo con gorrita.
 - **Botella PET**: cuerpo ancho, etiqueta blanca y tapa azul oscura.
 - **Botella de vidrio**: verde, cuello largo y etiqueta crema.
 - **Lata**: metal con banda roja y anilla en la tapa.

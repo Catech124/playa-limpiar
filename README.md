@@ -103,6 +103,7 @@ scripts/levels.gd        mapa en texto, cuotas y ritmo de cada día
 scripts/grid_world.gd    mapa de texto -> geometría 3D, colisiones y semántica
 scripts/cell_data.gd     una celda: tipo, estación, ítem y bolsa colgada
 scripts/carry_item.gd    residuo / bolsa (datos)
+scripts/char_model.gd    personaje y NPC con primitivas (cuerpo, brazos, cabeza, sombrero)
 scripts/item_visuals.gd  geometría de los ítems
 scripts/spawner.gd       tira basura en la playa, pesada por lo que falta de cuota
 scripts/player.gd        movimiento, colisión, acción contextual y animación
