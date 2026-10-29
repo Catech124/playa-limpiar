@@ -95,10 +95,11 @@ func _build_body() -> void:
 		if node is Node3D:
 			_hinges[hinge] = node
 
-	# Modelos externos (p. ej. "pescador low poly") traen un ala enorme que, con
-	# la cámara alta, tapa al personaje: se achica el sombrero al entrar al juego.
+	# Modelos externos (p. ej. "pescador low poly"): no traen bisagras ni el
+	# tamaño del juego, así que al entrar se les arma el rig, se les quita el
+	# cangrejo y se achica el ala para que la cámara alta no tape la cara.
 	if model != null and model.find_child("ala_e0ba79", true, false) != null:
-		call_deferred("_shrink_external_hat", model)
+		call_deferred("_prepare_external", model)
 
 	_add_shadow_disc()
 
@@ -107,6 +108,78 @@ func _build_body() -> void:
 	# quedan en (±0.09, 0.41, 0.27) en el espacio del cuerpo.
 	carry_anchor.position = Vector3(0.0, 0.345, 0.220)
 	_body_mesh.add_child(carry_anchor)              # gira con el personaje
+
+
+## Prepara un GLB externo: sin cangrejo, con bisagras y con el ala más chica.
+func _prepare_external(model: Node3D) -> void:
+	_remove_crab(model)
+	_build_external_rig(model)
+	_shrink_external_hat(model)
+	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
+		var n := model.find_child(hinge, true, false)
+		if n is Node3D:
+			_hinges[hinge] = n
+
+
+## Quita el cangrejo que trae el pescador (ahora es un modelo aparte).
+func _remove_crab(model: Node3D) -> void:
+	var crab := ["brazoC-1", "brazoC1", "concha", "vientre", "reborde-1", "reborde1",
+		"pedunculo-1", "pedunculo1", "ojoC-1", "ojoC1", "pupC-1", "pupC1",
+		"pinza-1", "pinza1", "dedo-10", "dedo-11", "dedo10", "dedo11"]
+	for i in 4:
+		crab.append("pataC-1%d" % i)
+		crab.append("pataC1%d" % i)
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		if crab.has(String(n.name)):
+			n.queue_free()
+
+
+## Agrupa las mallas sueltas del GLB en 6 bisagras (hombros, caderas, cuello y
+## sombrero) para poder animarlo con el mismo código que el modelo propio.
+func _build_external_rig(model: Node3D) -> void:
+	var groups := {
+		"arm_l": ["manga-1", "brazo-1", "guante-1", "pulgar-1"],
+		"arm_r": ["manga1", "brazo1", "guante1", "pulgar1"],
+		"leg_l": ["pierna-1", "pie-1", "suela-1", "filo-1", "plant-1", "dedo-1_", "banda-1"],
+		"leg_r": ["pierna1", "pie1", "suela1", "filo1", "plant1", "dedo1_", "banda1"],
+		"head": ["cabeza", "oreja-1", "oreja1", "pelo", "ojo-1_", "ojo1_", "ceja-1",
+			"ceja1", "rubor-1", "rubor1", "nariz", "boca", "flequillo", "rizo", "patilla"],
+		"hat": ["ala_", "copa_", "cyl"],
+	}
+	var meshes := model.find_children("*", "MeshInstance3D", true, false)
+	for group in groups.keys():
+		var sel: Array = []
+		for mi in meshes:
+			if not is_instance_valid(mi):
+				continue
+			var nm := String(mi.name)
+			for pre in groups[group]:
+				if nm.begins_with(pre):
+					sel.append(mi)
+					break
+		if sel.is_empty():
+			continue
+		var box := AABB()
+		var first := true
+		for mi in sel:
+			var b: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			box = b if first else box.merge(b)
+			first = false
+
+		var pivot := Node3D.new()
+		pivot.name = group
+		model.add_child(pivot)
+		var anchor := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+		match group:
+			"arm_l", "arm_r":
+				anchor.y = box.position.y + box.size.y * 0.92
+			"leg_l", "leg_r":
+				anchor.y = box.position.y + box.size.y
+			_:
+				anchor.y = box.position.y
+		pivot.position = model.to_local(anchor)
+		for mi in sel:
+			(mi as Node3D).reparent(pivot, true)
 
 
 ## Achica el sombrero de un GLB externo alrededor de su base, para que no tape
