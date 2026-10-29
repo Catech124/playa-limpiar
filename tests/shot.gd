@@ -84,13 +84,13 @@ func _ready() -> void:
 		main.crabs.spawn()
 		if not main.crabs.list.is_empty():
 			var c = main.crabs.list[0]
-			c.pos = Vector3(10.6, 0.0, 9.2)
-			c.target = Vector3(10.6, 0.0, 8.0)   # un paso al frente, no re-targetea   # quieto para la foto
+			c.pos = Vector3(11.7, 0.0, 9.3)
+			c.target = Vector3(11.7, 0.0, 8.1)   # un paso al frente, no re-targetea   # quieto para la foto
 			c.node.position = c.pos
 			c.node.rotation.y = 0.6
 			main.crabs.tick(0.02)
 		var p: Player = main.players[0]
-		p.teleport(10, 6, Vector2i(0, 1))
+		p.teleport(10, 8, Vector2i(0, 1))
 		var it := CarryItem.residue("pet")
 		ItemVisuals.build(it)
 		main.move_item_to_player(it, p)
@@ -99,12 +99,11 @@ func _ready() -> void:
 			ItemVisuals.build(r)
 			main.move_item_to_tile(r, main.world.tile_at(spot[0], spot[1]))
 		main.players[1].teleport(16, 6, Vector2i(0, 1))
-		main.hud.visible = false
-		main.camera.fov = 30.0
+		main.camera.fov = 40.0
 		main.cam_free = true
-		main.camera.look_at_from_position(Vector3(10.6, 1.9, 12.4),
-			Vector3(10.6, 0.10, 9.2), Vector3.UP)
-		await _shoot(0.15)
+		main.camera.look_at_from_position(Vector3(10.9, 2.9, 14.2),
+			Vector3(10.9, 0.32, 8.6), Vector3.UP)
+		await _shoot(0.4)
 		return
 
 	if "--char" in args:
@@ -113,11 +112,16 @@ func _ready() -> void:
 		await get_tree().process_frame
 		var cp: Player = main.players[0]
 		cp.teleport(10, 7, Vector2i(0, 1))
+		var held: CarryItem = CarryItem.bag(["pet", "lata"]) if "--bag" in args \
+			else CarryItem.residue("pet")
+		ItemVisuals.build(held)
+		main.move_item_to_player(held, cp)
+		await get_tree().process_frame
 		main.hud.visible = false
 		main.camera.fov = 26.0
 		main.cam_free = true
-		main.camera.look_at_from_position(Vector3(10.5, 0.95, 9.35),
-			Vector3(10.5, 0.50, 7.50), Vector3.UP)
+		main.camera.look_at_from_position(Vector3(10.5, 1.30, 11.6),
+			Vector3(10.5, 0.45, 7.50), Vector3.UP)
 		await _shoot(0.5)
 		return
 
@@ -189,6 +193,10 @@ func _ready() -> void:
 		s2.face_towards(Vector2(-1.0, 1.0), 1.0)
 		s1.water_time = 4.2
 		main._tick_water(0.02)
+		# la aleta viene de mar adentro: se la deja a mitad de camino
+		if s1.fin != null:
+			for i in 22:
+				main._tick_water(0.06)
 		var floating := CarryItem.residue("pet", "water")
 		ItemVisuals.build(floating)
 		main.move_item_to_tile(floating, main.world.tile_at(13, 12))

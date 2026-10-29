@@ -25,6 +25,26 @@ static func residue_radius(type: String) -> float:
 	return float(RESIDUE_RADIUS.get(type, 0.10))
 
 
+## Cuánto bajar el ítem para que quede centrado en las manos (el origen del
+## nodo es la base, así que si no se compensa la botella sube hasta la cara).
+static func hold_offset(item: CarryItem) -> float:
+	if item.is_bag():
+		return 0.17
+	return residue_height(item.type) * 0.45
+
+
+## En la mano el residuo se achica: el chico mide 0.92 y una botella de tamaño
+## real le tapa media cara y no deja ver que la agarra con las dos manos.
+const CARRY_SCALE := 0.74
+## La bolsa es la más grande de todas: en la mano va comprimida o tapa al chico
+## entero (y no se ve que la lleva con las dos manos).
+const CARRY_SCALE_BAG := 0.60
+
+
+static func carry_scale(item: CarryItem) -> float:
+	return CARRY_SCALE_BAG if item.is_bag() else CARRY_SCALE
+
+
 # ------------------------------------------------------------------ materiales
 static func material(c: Color, metallic := 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

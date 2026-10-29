@@ -372,22 +372,47 @@ func _tick_water(delta: float) -> void:
 			# aleta sale antes y la mordida también.
 			p.shark_heat = minf(1.0, float(p.shark_heat) + delta * 0.035)
 			var fin_t: float = GameConfig.SHARK_FIN_TIME * (1.0 - 0.5 * float(p.shark_heat))
-			var bite_t: float = GameConfig.SHARK_BITE_TIME * (1.0 - 0.40 * float(p.shark_heat))
 			if p.fin == null and p.water_time >= fin_t:
 				p.fin = _make_fin()
 				world.items_root.add_child(p.fin)
+				# Sale de mar ADENTRO (más allá de la orilla), no aparece al lado:
+				# se lo ve venir desde afuera y acercarse derecho al jugador.
+				p.fin.position = _fin_spawn(p)
 				toast(p.position + Vector3(0, 1.4, 0), "¡Aleta!", "bad")
 			if p.fin != null:
-				var a: float = float(p.water_time) * 1.7
-				var r: float = maxf(0.55, 1.5 - (float(p.water_time) - fin_t) * 0.25)
-				p.fin.position = p.position + Vector3(cos(a) * r, GameConfig.WATER_LEVEL - 0.02, sin(a) * r)
-				p.fin.rotation.y = -a
-			if p.water_time >= bite_t:
-				_bite(p)
+				# ya no orbita: viene desde afuera del mar y se acerca derecho
+				var to: Vector3 = p.position - p.fin.position
+				to.y = 0.0
+				var d: float = to.length()
+				var speed: float = 2.2 + 0.9 * float(p.shark_heat)
+				if d > 0.001:
+					p.fin.position += (to / d) * minf(speed * delta, d)
+				p.fin.position.y = GameConfig.WATER_LEVEL - 0.02
+				p.fin.rotation.y = atan2(to.x, to.z)
+				# muerde SOLO si llega: no hay mordida por reloj (antes te comía
+				# desde el otro lado del agua porque se cumplía el tiempo)
+				if d < 0.55:
+					_bite(p)
 		else:
 			p.water_time = 0.0
 			p.shark_heat = maxf(0.0, float(p.shark_heat) - delta * 0.02)
 			_clear_fin(p)
+
+
+## Desde dónde sale la aleta: a 6.5 unidades del jugador, empezando por mar
+## adentro (si el jugador está contra el borde, se abre el ángulo hasta que el
+## punto caiga dentro del mapa). SALE LEJOS: aparecer al lado sería trampa.
+func _fin_spawn(p: Player) -> Vector3:
+	var base := 6.5
+	var ang := 0.0
+	for i in 9:
+		var dir := Vector3(sin(ang), 0.0, cos(ang))
+		var q: Vector3 = p.position + dir * base
+		if q.x > 1.2 and q.x < float(world.w) - 1.2 and q.z > 1.2 and q.z < float(world.h) - 1.2:
+			q.y = GameConfig.WATER_LEVEL - 0.02
+			return q
+		ang += TAU / 9.0
+	return Vector3(p.position.x, GameConfig.WATER_LEVEL - 0.02, minf(p.position.z + base, float(world.h) - 1.0))
 
 
 func _make_fin() -> Node3D:
@@ -1155,6 +1180,7 @@ func throw_item(p: Player) -> void:
 	p.carrying = null
 	stats["thrown"] = int(stats["thrown"]) + 1
 	_hold(item)
+	item.node.scale = Vector3.ONE      # vuelve a su tamaño de basura en el piso
 	parent_item(item.node, world.items_root)
 
 	var from := p.position + Vector3(0, 1.3, 0)
@@ -1255,6 +1281,7 @@ func move_item_to_tile(item: CarryItem, tile: CellData) -> void:
 		body.rotation = Vector3(0.0, randf() * TAU, 0.0)
 		body.linear_velocity = Vector3.ZERO
 		body.angular_velocity = Vector3.ZERO
+		body.scale = Vector3.ONE
 		_drop(item)
 	else:
 		item.node.position = pos
@@ -1323,9 +1350,12 @@ func move_item_to_player(item: CarryItem, p: Player) -> void:
 	_hold(item)
 	item_blocker(item, false)
 	parent_item(item.node, p.carry_anchor)
-	item.node.position = Vector3.ZERO
+	# el ítem se centra en las manos (su origen es la base) y se achica: así las
+	# dos manos quedan ADELANTE de la silueta y se ve que lo sujetan
+	var k := ItemVisuals.carry_scale(item)
+	item.node.position = Vector3(0.0, -ItemVisuals.hold_offset(item) * k, -0.03)
 	item.node.rotation = Vector3.ZERO
-	item.node.scale = Vector3.ONE
+	item.node.scale = Vector3(k, k, k)
 
 
 func destroy_item(item: CarryItem) -> void:

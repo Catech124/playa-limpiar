@@ -321,7 +321,7 @@ func _run() -> void:
 		and GameConfig.SWIM_DASH_SPEED < GameConfig.DASH_SPEED,
 		"nadar %.1f · correr %.1f" % [GameConfig.SWIM_SPEED, GameConfig.PLAYER_SPEED])
 
-	# tiburón: aleta a los 3 s y mordida a los 6 s
+	# tiburón: aleta a los 3 s; después se acerca y muerde cuando llega
 	var carried: CarryItem = CarryItem.bag(["pet"])
 	ItemVisuals.build(carried)
 	main.move_item_to_player(carried, p)
@@ -336,7 +336,7 @@ func _run() -> void:
 		main._tick_water(0.1)      # se queda en el agua hasta la mordida
 		if p.down_time > 0.0:
 			break
-	check("a los 6 s el tiburón muerde", p.down_time > 0.0, "%.1f" % p.down_time)
+	check("el tiburón llega y muerde", p.down_time > 0.0, "%.1f" % p.down_time)
 	check("la mordida no descuenta puntos", main.score == score_antes,
 		"%d -> %d" % [score_antes, main.score])
 	check("mientras está mordido no se mueve ni se ve", not p._body_mesh.visible)

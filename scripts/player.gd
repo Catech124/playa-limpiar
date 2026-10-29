@@ -22,6 +22,14 @@ const CHAR_SCALE := 1.0
 ## Brazos caídos por diseño: la animación se suma desde cero.
 const ARM_REST_L := 0.0
 const ARM_REST_R := 0.0
+## Pose de cargar: brazos adelante y CERRADOS hacia adentro, para que las dos
+## manos sujeten el objeto (antes solo lo rozaban por los costados).
+const CARRY_X := -1.15
+const CARRY_Z := 0.55
+## Los brazos del GLB externo no tienen ejes "humanos": en vez de adivinar
+## ángulos, la pose de cargar se resuelve con un cuaternión que lleva cada mano
+## al punto que queremos (ver `_set_carry_from_hands`).
+const CARRY_HAND := Vector3(0.10, -0.05, 0.20)   # desde el hombro: al centro, abajo y adelante
 
 var index := 0
 var color := Color.WHITE
@@ -47,6 +55,8 @@ var fin: Node3D = null      # aleta que avisa la mordida
 var wake: MeshInstance3D = null   # espuma alrededor del nadador
 var ripples: Array = []           # ondas que se abren al nadar
 var _swim_blend := 0.0
+var _external_rig := false   # el GLB externo tiene ejes distintos
+var _carry_q := {}           # pose de cargar resuelta por cuaternión (brazos)
 var _splash_cd := 0.0
 var _act_pressed := false
 var _throw_pressed := false
@@ -114,6 +124,7 @@ func _build_body() -> void:
 func _prepare_external(model: Node3D) -> void:
 	_remove_crab(model)
 	_build_external_rig(model)
+	_external_rig = true
 	_shrink_external_hat(model)
 	_set_carry_from_hands(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
@@ -130,39 +141,68 @@ func _set_carry_from_hands(model: Node3D) -> void:
 	var arm_r: Node3D = model.find_child("arm_r", true, false)
 	if arm_l == null or arm_r == null:
 		return
+	var body_inv := _body_mesh.global_transform.affine_inverse()
 
-	# promedio de los guantes de CADA lado (el modelo trae 2-3 mallas por mano)
-	var acc := {"l": [Vector3.ZERO, 0], "r": [Vector3.ZERO, 0]}
-	for mi in model.find_children("*", "MeshInstance3D", true, false):
+	# centro de los guantes de cada mano (el GLB trae varias mallas por guante)
+	var hl_w: Vector3 = _glove_center(model, arm_l)
+	var hr_w: Vector3 = _glove_center(model, arm_r)
+	if hl_w == Vector3.INF or hr_w == Vector3.INF:
+		return
+
+	# La pose se resuelve por GEOMETRÍA, no con ángulos a ojo: se calcula el
+	# cuaternión que lleva la mano desde su posición de reposo hasta el punto
+	# donde tiene que agarrar (adelante, al centro y un poco abajo del hombro).
+	var hands_world := {}
+	for pair in [[arm_l, hl_w, 1.0], [arm_r, hr_w, -1.0]]:
+		var arm: Node3D = pair[0]
+		var hand_w: Vector3 = pair[1]
+		var sign: float = pair[2]
+		var pivot_w: Vector3 = arm.global_position
+		var pivot_b: Vector3 = body_inv * pivot_w
+		var target_b: Vector3 = pivot_b + Vector3(-CARRY_HAND.x * sign, CARRY_HAND.y, CARRY_HAND.z)
+		var target_w: Vector3 = _body_mesh.global_transform * target_b
+
+		var rest_dir: Vector3 = (hand_w - pivot_w)
+		var want_dir: Vector3 = (target_w - pivot_w)
+		if rest_dir.length() < 0.0001 or want_dir.length() < 0.0001:
+			return
+		var q := Quaternion(rest_dir.normalized(), want_dir.normalized())
+		var parent: Node3D = arm.get_parent() as Node3D
+		# el cuaternión se guarda como rotación LOCAL de la bisagra: así la pose
+		# sigue al cuerpo aunque el personaje gire
+		var parent_basis := parent.global_transform.basis.orthonormalized()
+		var local_dir: Vector3 = parent_basis.inverse() * rest_dir
+		var local_want: Vector3 = parent_basis.inverse() * want_dir
+		_carry_q["l" if sign > 0.0 else "r"] = Quaternion(local_dir.normalized(),
+			local_want.normalized())
+
+		# dónde queda la mano con esa pose (el brazo no estira: mismo largo)
+		var reach: float = rest_dir.length()
+		hands_world["l" if sign > 0.0 else "r"] = pivot_w + want_dir.normalized() * reach
+
+	if not (hands_world.has("l") and hands_world.has("r")):
+		return
+
+	# el ítem se sujeta en el punto medio ENTRE las dos manos
+	var mid_w: Vector3 = (hands_world["l"] + hands_world["r"]) * 0.5
+	carry_anchor.position = body_inv * mid_w
+
+
+## Centro (en world) de los guantes que cuelgan de una bisagra de brazo.
+func _glove_center(model: Node3D, arm: Node3D) -> Vector3:
+	var acc := Vector3.ZERO
+	var n := 0
+	for mi in arm.find_children("*", "MeshInstance3D", true, false):
 		if not is_instance_valid(mi):
 			continue
-		if not String(mi.name).begins_with("guante"):
-			continue
-		var mi3 := mi as MeshInstance3D
-		var pt: Vector3 = model.to_local(mi3.global_transform * mi3.get_aabb().get_center())
-		var side := "l" if pt.distance_to(arm_l.position) < pt.distance_to(arm_r.position) else "r"
-		acc[side][0] += pt
-		acc[side][1] += 1
-	if acc["l"][1] == 0 or acc["r"][1] == 0:
-		return
-	var hl: Vector3 = acc["l"][0] / float(acc["l"][1])
-	var hr: Vector3 = acc["r"][0] / float(acc["r"][1])
-
-	# a dónde van las manos con la pose de cargar (rotación -1.15 en X)
-	var angle := -1.15
-	var c := cos(angle)
-	var s := sin(angle)
-	var pose := func(pt: Vector3, arm: Node3D) -> Vector3:
-		var off := pt - arm.position
-		return arm.position + Vector3(off.x, off.y * c - off.z * s, off.y * s + off.z * c)
-	var h1: Vector3 = pose.call(hl, arm_l)
-	var h2: Vector3 = pose.call(hr, arm_r)
-
-	# el ítem va en la MANO izquierda (el pescador lleva las cosas con una mano);
-	# un poco hacia adentro para que no quede colgando afuera del cuerpo
-	var hand_pos: Vector3 = h1 + Vector3(0.045 if h1.x < 0.0 else -0.045, 0.0, 0.0)
-	carry_anchor.position = Vector3(hand_pos.x * model.scale.x, hand_pos.y * model.scale.y,
-		hand_pos.z * model.scale.z) + model.position + Vector3(0.0, 0.01, 0.02)
+		var nm := String(mi.name)
+		if nm.begins_with("guante") or nm.begins_with("pulgar"):
+			var mi3 := mi as MeshInstance3D
+			acc += mi3.global_transform * mi3.get_aabb().get_center()
+			n += 1
+	if n == 0:
+		return Vector3.INF
+	return acc / float(n)
 
 
 ## Quita el cangrejo que trae el pescador (ahora es un modelo aparte).
@@ -532,9 +572,14 @@ func _animate(delta: float) -> void:
 		if arm_l: arm_l.rotation = Vector3(1.15 * dash, 0.0, ARM_REST_L + 0.35)
 		if arm_r: arm_r.rotation = Vector3(1.15 * dash, 0.0, ARM_REST_R - 0.35)
 	elif carry:
-		# brazos adelante y un poco abiertos, como sosteniendo la caja
-		if arm_l: arm_l.rotation = Vector3(-1.15, 0.0, ARM_REST_L + 0.35)
-		if arm_r: arm_r.rotation = Vector3(-1.15, 0.0, ARM_REST_R - 0.35)
+		# las dos manos van adelante y se cierran sobre el objeto
+		if _external_rig and _carry_q.has("l") and _carry_q.has("r"):
+			# pose resuelta por geometría: las dos manos caen en el objeto
+			if arm_l: arm_l.quaternion = _carry_q["l"]
+			if arm_r: arm_r.quaternion = _carry_q["r"]
+		else:
+			if arm_l: arm_l.rotation = Vector3(CARRY_X, 0.0, ARM_REST_L + CARRY_Z)
+			if arm_r: arm_r.rotation = Vector3(CARRY_X, 0.0, ARM_REST_R - CARRY_Z)
 	else:
 		var swing := sin(t) * 0.55 if moving else 0.0
 		if arm_l: arm_l.rotation = Vector3(swing, 0.0, ARM_REST_L - 0.06 + breath * 0.02)
