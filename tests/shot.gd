@@ -206,6 +206,54 @@ func _ready() -> void:
 		await _shoot(1.0)
 		return
 
+	if "--dos" in args:
+		# los dos modelos juntos: J1 el chico, J2 la mujer
+		main.start_game(2)
+		await get_tree().process_frame
+		main.hud.visible = false
+		var a1: Player = main.players[0]
+		var a2: Player = main.players[1]
+		a1.teleport(9, 7, Vector2i(0, 1))
+		a2.teleport(11, 7, Vector2i(0, 1))
+		await get_tree().physics_frame
+		var c1: CarryItem = CarryItem.residue("pet")
+		ItemVisuals.build(c1)
+		main.move_item_to_player(c1, a1)
+		var c2: CarryItem = CarryItem.bag(["vidrio", "lata"])
+		ItemVisuals.build(c2)
+		main.move_item_to_player(c2, a2)
+		for i in 3:
+			await get_tree().process_frame
+		main.camera.fov = 34.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(10.0, 1.12, 11.5),
+			Vector3(10.0, 0.46, 7.6), Vector3.UP)
+		await _shoot(0.4)
+		return
+
+	if "--mujer" in args:
+		# el modelo de la jugadora 2, de cerca y con algo en las manos
+		main.start_game(2)
+		await get_tree().process_frame
+		main.hud.visible = false
+		var m2: Player = main.players[1]
+		m2.teleport(10, 7, Vector2i(0, 1))
+		await get_tree().physics_frame
+		var held2: CarryItem = CarryItem.bag(["pet", "lata"]) if "--bag" in args \
+			else CarryItem.residue("vidrio")
+		ItemVisuals.build(held2)
+		main.move_item_to_player(held2, m2)
+		for i in 3:
+			await get_tree().process_frame
+		m2._animate(0.016)
+		main.players[0].teleport(6, 8, Vector2i(1, 0))
+		main.camera.fov = 28.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(10.85, 0.86, 10.15),
+			Vector3(10.5, 0.44, 7.5), Vector3.UP)
+		await _shoot(0.4)
+		return
+
 	if "--palmera" in args:
 		# palmera + reposera + sombrilla de cerca, con un jugador al lado
 		main.start_game(1)

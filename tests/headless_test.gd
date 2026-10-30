@@ -201,7 +201,17 @@ func _run() -> void:
 		var r := CarryItem.residue("pet")
 		give(r)
 		await tp(7, 2, Vector2i(0, -1))
+		var ft: CellData = p.front_tile()
 		use()
+		# si algo no cerró, este aviso dice exactamente dónde quedó el jugador,
+		# qué celda tenía adelante y cuánto entró en la bolsa (para cazar el
+		# fallo raro que aparece 1 de cada ~15 corridas)
+		if p.carrying != null or bag.contents.size() != i + 2:
+			print("AVISO paso %d: bolsa=%d/4 (esperado %d) lleva=%s frente=%s,%s bin=%s pos=%s" % [
+				i, bag.contents.size(), i + 2,
+				(p.carrying.label() if p.carrying != null else "nada"),
+				ft.x if ft != null else -1, ft.y if ft != null else -1,
+				(ft.bin if ft != null else "-"), p.position])
 		if p.carrying != null:
 			# solo aparece cuando el test falla: dice dónde quedó el jugador y qué
 			# tenía en la mano (es la pista que faltaba para cazar el fallo raro)

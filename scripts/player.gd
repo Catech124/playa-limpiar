@@ -17,6 +17,21 @@ func _chef() -> PackedScene:
 	return _chef_scene
 
 
+## Un modelo por jugador: J1 es el chico pescador y J2 la mujer (los dos GLB
+## comparten los nombres de las piezas, así que el rig automático sirve igual).
+const MODELOS := ["res://assets/kid.glb", "res://assets/mujer.glb"]
+static var _modelos := {}
+
+
+static func _modelo(idx: int) -> PackedScene:
+	var ruta: String = MODELOS[idx % MODELOS.size()]
+	if not _modelos.has(ruta):
+		_modelos[ruta] = load(ruta) as PackedScene if ResourceLoader.exists(ruta) else null
+	if _modelos[ruta] == null and idx % MODELOS.size() != 0:
+		return _modelo(0)          # si falta el de la mujer, cae al del chico
+	return _modelos[ruta]
+
+
 ## El modelo de primitivas ya está a la escala final (no se reescala).
 const CHAR_SCALE := 1.0
 ## Brazos caídos por diseño: la animación se suma desde cero.
@@ -91,10 +106,9 @@ func _build_body() -> void:
 	# personaje modelado en Blender (tools/gen_kid.py). Si el GLB no está,
 	# cae al modelo de primitivas para no romper el juego.
 	var model: Node3D = null
-	if ResourceLoader.exists("res://assets/kid.glb"):
-		var packed := load("res://assets/kid.glb") as PackedScene
-		if packed != null:
-			model = packed.instantiate()
+	var packed := _modelo(index)
+	if packed != null:
+		model = packed.instantiate()
 	if model == null:
 		model = CharModel.build(color, "straw")
 	else:
@@ -153,13 +167,17 @@ func _set_carry_from_hands(model: Node3D) -> void:
 	# cuaternión que lleva la mano desde su posición de reposo hasta el punto
 	# donde tiene que agarrar (adelante, al centro y un poco abajo del hombro).
 	var hands_world := {}
-	for pair in [[arm_l, hl_w, 1.0], [arm_r, hr_w, -1.0]]:
+	# OJO: el lado del hombro se saca de la GEOMETRÍA, no del nombre. En el
+	# modelo de la mujer "arm_l" está en -X (al revés que en el pescador) y con
+	# el signo del nombre las manos se abrían hacia afuera en vez de cerrarse.
+	for pair in [[arm_l, hl_w, "l"], [arm_r, hr_w, "r"]]:
 		var arm: Node3D = pair[0]
 		var hand_w: Vector3 = pair[1]
-		var sign: float = pair[2]
+		var lado: String = pair[2]
 		var pivot_w: Vector3 = arm.global_position
 		var pivot_b: Vector3 = body_inv * pivot_w
-		var target_b: Vector3 = pivot_b + Vector3(-CARRY_HAND.x * sign, CARRY_HAND.y, CARRY_HAND.z)
+		var side: float = 1.0 if pivot_b.x >= 0.0 else -1.0
+		var target_b: Vector3 = pivot_b + Vector3(-CARRY_HAND.x * side, CARRY_HAND.y, CARRY_HAND.z)
 		var target_w: Vector3 = _body_mesh.global_transform * target_b
 
 		var rest_dir: Vector3 = (hand_w - pivot_w)
@@ -173,12 +191,11 @@ func _set_carry_from_hands(model: Node3D) -> void:
 		var parent_basis := parent.global_transform.basis.orthonormalized()
 		var local_dir: Vector3 = parent_basis.inverse() * rest_dir
 		var local_want: Vector3 = parent_basis.inverse() * want_dir
-		_carry_q["l" if sign > 0.0 else "r"] = Quaternion(local_dir.normalized(),
-			local_want.normalized())
+		_carry_q[lado] = Quaternion(local_dir.normalized(), local_want.normalized())
 
 		# dónde queda la mano con esa pose (el brazo no estira: mismo largo)
 		var reach: float = rest_dir.length()
-		hands_world["l" if sign > 0.0 else "r"] = pivot_w + want_dir.normalized() * reach
+		hands_world[lado] = pivot_w + want_dir.normalized() * reach
 
 	if not (hands_world.has("l") and hands_world.has("r")):
 		return
@@ -222,13 +239,14 @@ func _remove_crab(model: Node3D) -> void:
 ## sombrero) para poder animarlo con el mismo código que el modelo propio.
 func _build_external_rig(model: Node3D) -> void:
 	var groups := {
-		"arm_l": ["manga-1", "brazo-1", "guante-1", "pulgar-1"],
-		"arm_r": ["manga1", "brazo1", "guante1", "pulgar1"],
+		"arm_l": ["manga-1", "brazo-1", "guante-1", "pulgar-1", "mangaCuff-1"],
+		"arm_r": ["manga1", "brazo1", "guante1", "pulgar1", "mangaCuff1"],
 		"leg_l": ["pierna-1", "pie-1", "suela-1", "filo-1", "plant-1", "dedo-1_", "banda-1"],
 		"leg_r": ["pierna1", "pie1", "suela1", "filo1", "plant1", "dedo1_", "banda1"],
 		"head": ["cabeza", "oreja-1", "oreja1", "pelo", "ojo-1_", "ojo1_", "ceja-1",
-			"ceja1", "rubor-1", "rubor1", "nariz", "boca", "flequillo", "rizo", "patilla"],
-		"hat": ["ala_", "copa_", "cyl"],
+			"ceja1", "rubor-1", "rubor1", "nariz", "boca", "flequillo", "rizo", "patilla",
+			"pestana"],
+		"hat": ["ala_", "copa_", "cyl", "sphere"],
 	}
 	var meshes := model.find_children("*", "MeshInstance3D", true, false)
 	for group in groups.keys():
@@ -272,7 +290,8 @@ func _shrink_external_hat(model: Node3D) -> void:
 	var parts: Array = []
 	for n in model.find_children("*", "MeshInstance3D", true, false):
 		var nm := String(n.name).to_lower()
-		if nm.begins_with("ala_") or nm.begins_with("copa_") or nm == "cyl":
+		if nm.begins_with("ala_") or nm.begins_with("copa_") or nm == "cyl" \
+				or nm.begins_with("sphere"):
 			parts.append(n)
 	if parts.is_empty():
 		return
