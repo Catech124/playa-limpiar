@@ -206,6 +206,21 @@ func _ready() -> void:
 		await _shoot(1.0)
 		return
 
+	if "--palmera" in args:
+		# palmera + reposera + sombrilla de cerca, con un jugador al lado
+		main.start_game(1)
+		await get_tree().process_frame
+		main.time_left = main.level_seconds * 0.6
+		main.players[0].teleport(3, 3, Vector2i(0, 1))
+		await get_tree().physics_frame
+		main.hud.visible = false
+		main.camera.fov = 40.0
+		main.cam_free = true
+		main.camera.look_at_from_position(Vector3(4.2, 3.4, 10.6),
+			Vector3(4.4, 1.0, 4.4), Vector3.UP)
+		await _shoot(0.5)
+		return
+
 	if "--dispensador" in args:
 		# el dispensador de bolsas de cerca, con un jugador al lado
 		main.start_game(1)

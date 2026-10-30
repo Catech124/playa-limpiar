@@ -84,8 +84,10 @@ const SANDBOX := {
 const DECOR := [
 	# palmeras en los rincones de la arena
 	[2, 2, "palm"], [21, 2, "palm"], [2, 7, "palm"], [21, 9, "palm"],
-	# sombrillas con toalla (el toldo da sombra a la basura)
+	# sombrillas con reposera al lado (el toldo da sombra a la basura)
 	[6, 4, "umbrella"], [16, 5, "umbrella"], [11, 8, "umbrella"],
+	# reposeras en fila, paralelas a la orilla como en un balneario
+	[7, 4, "lounger", 0.0], [15, 5, "lounger", 0.0], [12, 8, "lounger", 0.0],
 	# torre del guardavidas, mirando al mar
 	[3, 10, "tower"],
 	# muelle de tablas que entra al agua

@@ -358,6 +358,13 @@ func _build_decor() -> void:
 				_decor_collider(Vector3(d[0] + 0.5, 0.0, d[1] + 0.5), 0.16, 2.0)
 			"umbrella":
 				_umbrella(pos, _decor_color(d[0] * 7 + d[1] * 13))
+			"lounger":
+				if tile != null:
+					tile.decor = kind
+				# el 4.º dato del DECOR es el giro en grados (si falta, al azar)
+				_lounger(pos, _decor_color(d[0] * 5 + d[1] * 11),
+					deg_to_rad(float(d[3])) if d.size() > 3 else randf_range(-0.25, 0.25))
+				_decor_collider(pos, 0.34, 0.5)
 			"tower":
 				if tile != null:
 					tile.decor = kind
@@ -432,8 +439,19 @@ func _decor_collider(pos: Vector3, radius: float, height: float) -> void:
 	colliders.add_child(body)
 
 
-## Palmera: tronco en cuatro tramos inclinados, corona de seis hojas y cocos.
+## Palmera low-poly retro (GLB). Cada una gira y cambia un poco de tamaño para
+## que cuatro palmeras iguales no se lean como clones.
 func _palm(pos: Vector3) -> void:
+	var palma: Node3D = PropModels.build_palm()
+	if palma != null:
+		palma.position = pos
+		palma.rotation.y = randf() * TAU
+		var s := randf_range(0.92, 1.10)
+		palma.scale = Vector3(s, s * randf_range(0.95, 1.10), s)
+		add_child(palma)
+		return
+
+	# respaldo: tronco de tramos y corona de cajas, si falta el GLB
 	var lean := Vector3(0.13, 0.0, 0.04)
 	for i in 4:
 		var seg := CylinderMesh.new()
@@ -443,38 +461,21 @@ func _palm(pos: Vector3) -> void:
 		seg.radial_segments = 8
 		var mi := MeshInstance3D.new()
 		mi.mesh = seg
-		mi.material_override = ItemVisuals.material(
-			Color(0.52, 0.38, 0.24).lightened(0.03 * float(i)))
+		mi.material_override = ItemVisuals.material(Color(0.52, 0.38, 0.24))
 		mi.position = pos + lean * float(i) + Vector3(0, 0.17 + 0.34 * i, 0)
-		mi.rotation_degrees = Vector3(0, 0, -7.0 - 2.0 * i)
 		add_child(mi)
 
-	var top := pos + lean * 3.0 + Vector3(0, 1.38, 0)
-	for i in 6:
-		var leaf := BoxMesh.new()
-		leaf.size = Vector3(0.64, 0.03, 0.19)
-		var lm := MeshInstance3D.new()
-		lm.mesh = leaf
-		lm.material_override = ItemVisuals.material(
-			Color(0.20, 0.52, 0.28).lightened(0.035 * float(i % 3)))
-		var a := TAU * float(i) / 6.0
-		lm.position = top + Vector3(cos(a) * 0.27, -0.03 * (i % 2), sin(a) * 0.27)
-		lm.rotation = Vector3(0, -a, deg_to_rad(-16.0))
-		add_child(lm)
-	for i in 2:
-		var coco := SphereMesh.new()
-		coco.radius = 0.07
-		coco.height = 0.14
-		var cm := MeshInstance3D.new()
-		cm.mesh = coco
-		cm.material_override = ItemVisuals.material(Color(0.36, 0.28, 0.16))
-		cm.position = top + Vector3(-0.06 + 0.12 * i, -0.09, 0.05)
-		add_child(cm)
 
-
-## Sombrilla con toalla. El toldo lleva varillas: un cono liso desde la cámara
-## alta se lee como un hongo.
+## Sombrilla low-poly retro (GLB) con el toldo del color de la playa.
 func _umbrella(pos: Vector3, color: Color) -> void:
+	var somb: Node3D = PropModels.build_umbrella(color)
+	if somb != null:
+		somb.position = pos
+		somb.rotation.y = randf() * TAU
+		add_child(somb)
+		return
+
+	# respaldo: poste y cono
 	var pole := CylinderMesh.new()
 	pole.top_radius = 0.030
 	pole.bottom_radius = 0.034
@@ -484,7 +485,6 @@ func _umbrella(pos: Vector3, color: Color) -> void:
 	pm.material_override = ItemVisuals.material(Color(0.92, 0.92, 0.90))
 	pm.position = pos + Vector3(0, 0.52, 0)
 	add_child(pm)
-
 	var canopy := CylinderMesh.new()
 	canopy.top_radius = 0.03
 	canopy.bottom_radius = 0.46
@@ -494,49 +494,24 @@ func _umbrella(pos: Vector3, color: Color) -> void:
 	cm.mesh = canopy
 	cm.material_override = ItemVisuals.material(color)
 	cm.position = pos + Vector3(0, 1.06, 0)
-	cm.rotation_degrees = Vector3(5, 0, -6)
 	add_child(cm)
 
-	# varillas y punta: es lo que lo hace leer como sombrilla
-	var rib_mat := ItemVisuals.material(color.darkened(0.22))
-	for i in 8:
-		var a := TAU * float(i) / 8.0
-		var rib := BoxMesh.new()
-		rib.size = Vector3(0.44, 0.018, 0.022)
-		var rm := MeshInstance3D.new()
-		rm.mesh = rib
-		rm.material_override = rib_mat
-		rm.position = pos + Vector3(cos(a) * 0.23, 1.05, sin(a) * 0.23)
-		rm.rotation = Vector3(0, -a, deg_to_rad(-6.0))
-		add_child(rm)
 
-	var tip := SphereMesh.new()
-	tip.radius = 0.045
-	tip.height = 0.09
-	var tm2 := MeshInstance3D.new()
-	tm2.mesh = tip
-	tm2.material_override = ItemVisuals.material(color.darkened(0.30))
-	tm2.position = pos + Vector3(0, 1.19, 0)
-	add_child(tm2)
-
-	var towel := BoxMesh.new()
-	towel.size = Vector3(0.56, 0.02, 1.05)
+## Reposera low-poly retro (GLB) al lado de la sombrilla.
+func _lounger(pos: Vector3, color: Color, giro := 0.0) -> void:
+	var repo: Node3D = PropModels.build_lounger(color)
+	if repo != null:
+		repo.position = pos
+		repo.rotation.y = giro
+		add_child(repo)
+		return
+	var top := BoxMesh.new()
+	top.size = Vector3(1.0, 0.05, 0.5)
 	var tm := MeshInstance3D.new()
-	tm.mesh = towel
-	tm.material_override = ItemVisuals.material(color.lightened(0.34))
-	tm.position = pos + Vector3(0.48, 0.015, 0.10)
-	tm.rotation_degrees = Vector3(0, 10, 0)
+	tm.mesh = top
+	tm.material_override = ItemVisuals.material(Color(0.78, 0.58, 0.36))
+	tm.position = pos + Vector3(0, 0.3, 0)
 	add_child(tm)
-
-	for i in 2:
-		var stripe := BoxMesh.new()
-		stripe.size = Vector3(0.10, 0.021, 1.05)
-		var sm := MeshInstance3D.new()
-		sm.mesh = stripe
-		sm.material_override = ItemVisuals.material(Color(0.97, 0.97, 0.95))
-		sm.position = pos + Vector3(0.38 + 0.20 * i, 0.018, 0.10)
-		sm.rotation_degrees = Vector3(0, 10, 0)
-		add_child(sm)
 
 
 ## Torre del guardavidas: patas, plataforma, caseta con ventana, techo a cuatro
