@@ -244,28 +244,35 @@ func _idle_anim(delta: float) -> void:
 	if _modelo == null or not is_instance_valid(_modelo):
 		return
 
-	# cuerpo: respiración + saltito de sorpresa
+	# el brazo que saluda (arm_r) y de qué lado está
+	var brazo: Node3D = _rig.get("arm_r")
+	var lado := 1.0
+	if brazo != null:
+		lado = 1.0 if brazo.position.x >= 0.0 else -1.0
+
+	# cuerpo: respiración + saltito de sorpresa + INCLINACIÓN al saludar (como
+	# en Animal Crossing: se dobla el cuerpo hacia el costado del brazo y así el
+	# hombro sube solo, sin que el brazo "trepe" hasta el cuello)
 	var respira := sin(_idle * 1.5)
 	_modelo.position.y = respira * 0.006 + sorpresa * 0.014
 	_modelo.rotation.y = sin(_idle * 0.42) * 0.06
-	_modelo.rotation.z = sin(_idle * 1.05) * 0.010
+	_modelo.rotation.z = sin(_idle * 1.05) * 0.010 - 0.12 * saludo * lado
 	_modelo.rotation.x = -sorpresa * 0.03
 
-	# brazo que saluda: sube, agita la mano y baja
-	var brazo: Node3D = _rig.get("arm_r")
 	if brazo != null:
-		var lado := 1.0 if brazo.position.x >= 0.0 else -1.0
-		var agita := sin(_gesto_t * 46.0) * 0.30 * saludo
-		brazo.rotation.z = lado * (1.35 * saludo + agita)
-		brazo.rotation.x = -0.22 * saludo
+		var agita := sin(_gesto_t * 46.0) * 0.26 * saludo
+		brazo.rotation.z = lado * (1.78 * saludo + agita)
+		brazo.rotation.x = -0.16 * saludo
 	var brazo_l: Node3D = _rig.get("arm_l")
 	if brazo_l != null:
-		brazo_l.rotation.z = -0.10 * saludo
+		# el otro brazo se abre apenas: acompaña el balanceo
+		brazo_l.rotation.z = -lado * 0.10 * saludo
 	var cabeza: Node3D = _rig.get("head")
 	if cabeza != null:
-		cabeza.rotation.z = sin(_idle * 0.9) * 0.02 + 0.05 * saludo
+		# la cabeza contrarresta un poco la inclinación del cuerpo
+		cabeza.rotation.z = sin(_idle * 0.9) * 0.02 + 0.10 * saludo * lado
 		cabeza.rotation.x = -0.10 * sorpresa + sin(_idle * 1.2) * 0.012
-		cabeza.rotation.y = 0.03 * saludo
+		cabeza.rotation.y = 0.03 * saludo * lado
 
 	# cara: ojos (parpadeo + expresión), cejas y boca
 	# al saludar los ojos se CIERRAN del todo: queda una línea oscura (media luna)
