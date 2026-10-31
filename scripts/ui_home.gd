@@ -33,6 +33,7 @@ var _modelo: Node3D
 var _modelo_idx := -1
 var _ojos: Array = []
 var _escalas_ojos: Array = []
+var _pos_ojos: Array = []
 var _rig := {}
 var _cara := {"cejas": [], "boca": []}
 var _gesto_tipo := ""
@@ -140,6 +141,7 @@ func _set_modelo(idx: int) -> void:
 	if desbloqueado(idx):
 		# el ala se ve sólida desde abajo y la copa deja de estar hueca
 		CharModel.sombrero_solido(_modelo)
+		CharModel.pelo_arriba(_modelo)
 
 
 func _silueta(model: Node3D, negro: bool) -> void:
@@ -168,6 +170,7 @@ func desbloqueado(idx: int) -> bool:
 func _recoger_cara() -> void:
 	_ojos.clear()
 	_escalas_ojos.clear()
+	_pos_ojos.clear()
 	_cara = {"cejas": [], "boca": []}
 	for mi in _modelo.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
@@ -179,6 +182,7 @@ func _recoger_cara() -> void:
 			if p != null:
 				_ojos.append(p)
 				_escalas_ojos.append(p.scale)
+				_pos_ojos.append(p.position)
 		elif nm.begins_with("ceja"):
 			_cara["cejas"].append({"n": m, "pos": m.position})
 		elif nm.begins_with("boca"):
@@ -264,10 +268,15 @@ func _idle_anim(delta: float) -> void:
 		cabeza.rotation.y = 0.03 * saludo
 
 	# cara: ojos (parpadeo + expresión), cejas y boca
-	var abierto := (1.0 - _parpadeo * 0.9) * (1.0 + sorpresa * 0.32) * (1.0 - saludo * 0.22)
+	# al saludar los ojos se CIERRAN del todo: queda una línea oscura (media luna)
+	var abierto := (1.0 - _parpadeo * 0.92) * (1.0 + sorpresa * 0.32) * (1.0 - saludo * 0.93)
 	for i in _ojos.size():
 		var base: Vector3 = _escalas_ojos[i]
-		(_ojos[i] as Node3D).scale = Vector3(base.x, base.y * abierto, base.z)
+		var ojo := _ojos[i] as Node3D
+		ojo.scale = Vector3(base.x, base.y * abierto, base.z)
+		# con los ojos cerrados la línea baja un poco: queda la sonrisa de ojos
+		var p0: Vector3 = _pos_ojos[i]
+		ojo.position = Vector3(p0.x, p0.y - 0.35 * saludo, p0.z)
 	var ceja_dy := sorpresa * 1.5 + saludo * 0.5
 	for d in _cara["cejas"]:
 		var n: Node3D = d["n"]

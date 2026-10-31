@@ -482,8 +482,9 @@ static func _cerrar_copa(sombrero: Array, color: Color) -> void:
 	var disco := MeshInstance3D.new()
 	disco.name = "tapa_sombrero"
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = caja.size.x * 0.21
-	cyl.bottom_radius = caja.size.x * 0.21
+	# dentro de la copa, bien arriba del pelo: desde el frente no se ve
+	cyl.top_radius = caja.size.x * 0.16
+	cyl.bottom_radius = caja.size.x * 0.16
 	cyl.height = maxf(caja.size.y * 0.04, caja.size.x * 0.01)
 	cyl.radial_segments = 12
 	disco.mesh = cyl
@@ -491,7 +492,7 @@ static func _cerrar_copa(sombrero: Array, color: Color) -> void:
 	m.albedo_color = color
 	m.roughness = 0.9
 	disco.material_override = m
-	disco.position = Vector3(caja.get_center().x, caja.position.y + caja.size.y * 0.11,
+	disco.position = Vector3(caja.get_center().x, caja.position.y + caja.size.y * 0.66,
 		caja.get_center().z)
 	disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	padre.add_child(disco)
@@ -538,7 +539,10 @@ static func construir_rig(model: Node3D) -> Dictionary:
 		var anchor := Vector3(box.get_center().x, box.position.y, box.get_center().z)
 		match group:
 			"arm_l", "arm_r":
-				anchor.y = box.position.y + box.size.y * 0.92
+				# el pivote va en el hombro: borde INTERNO de arriba del brazo.
+				# En el centro, al levantar el brazo se abría un hueco en el torso.
+				anchor.y = box.position.y + box.size.y * 0.94
+				anchor.x = box.position.x if box.get_center().x >= 0.0 else box.end.x
 			"leg_l", "leg_r":
 				anchor.y = box.position.y + box.size.y
 			_:
@@ -548,3 +552,66 @@ static func construir_rig(model: Node3D) -> Dictionary:
 			(mi as Node3D).reparent(pivot, true)
 		out[group] = pivot
 	return out
+
+
+## La cabeza tiene el pelo como una cáscara que no llega hasta el sombrero: se
+## ve una franja de "calva" entre el flequillo y el ala. Se tapa con media
+## esfera del color del pelo, del tamaño de la cabeza.
+static func pelo_arriba(model: Node3D) -> void:
+	var pelo: Array = []
+	var copa: Array = []
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var nm := String(mi.name)
+		if nm.begins_with("pelo") or nm.begins_with("flequillo") or nm.begins_with("rizo"):
+			pelo.append(mi)
+		elif nm.begins_with("copa_"):
+			copa.append(mi)
+	if pelo.is_empty():
+		return
+	var padre: Node3D = (pelo[0] as Node3D).get_parent()
+	if padre == null or padre.find_child("pelo_calva", false, false) != null:
+		return
+	var caja := _caja_en(pelo, padre)
+	if caja.size.x < 0.001:
+		return
+	var color := Color(0.42, 0.26, 0.18)
+	var mat := (pelo[0] as MeshInstance3D).get_active_material(0)
+	if mat is BaseMaterial3D:
+		color = (mat as BaseMaterial3D).albedo_color
+	var cap := MeshInstance3D.new()
+	cap.name = "pelo_calva"
+	var esfera := SphereMesh.new()
+	var radio := caja.size.x * 0.47
+	# nunca más ancha que la copa del sombrero: si no, asoma por arriba
+	if not copa.is_empty():
+		var caja_copa := _caja_en(copa, padre)
+		radio = minf(radio, caja_copa.size.x * 0.40)
+	esfera.radius = radio
+	esfera.height = radio * 2.0
+	esfera.radial_segments = 14
+	esfera.rings = 8
+	esfera.is_hemisphere = true
+	cap.mesh = esfera
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.85
+	cap.material_override = m
+	# centrada en la cabeza, a la altura del pelo: la media esfera queda arriba
+	cap.position = Vector3(caja.get_center().x, caja.get_center().y, caja.get_center().z)
+	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	padre.add_child(cap)
+
+
+static func _caja_en(meshes: Array, padre: Node3D) -> AABB:
+	var caja := AABB()
+	var first := true
+	for mi in meshes:
+		var tr := Transform3D.IDENTITY
+		var cur: Node3D = mi
+		while cur != null and cur != padre:
+			tr = cur.transform * tr
+			cur = cur.get_parent() as Node3D
+		var b: AABB = tr * (mi as MeshInstance3D).get_aabb()
+		caja = b if first else caja.merge(b)
+		first = false
+	return caja

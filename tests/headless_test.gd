@@ -760,6 +760,8 @@ func _run() -> void:
 		"ala=%s" % (ala != null))
 	check("la copa del sombrero está tapada (no se ve hueca)",
 		p2.find_child("tapa_sombrero", true, false) != null)
+	check("el pelo tapa la calva entre el flequillo y el sombrero",
+		p2.find_child("pelo_calva", true, false) != null)
 
 	check("caminar mueve las piernas en oposición",
 		absf(l1) > 0.2 and absf(r1) > 0.2 and signf(l1) != signf(r1),

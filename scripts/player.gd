@@ -141,6 +141,7 @@ func _prepare_external(model: Node3D) -> void:
 	_external_rig = true
 	_shrink_external_hat(model)
 	CharModel.sombrero_solido(model)
+	CharModel.pelo_arriba(model)
 	_set_carry_from_hands(model)
 	for hinge in ["arm_l", "arm_r", "leg_l", "leg_r", "head", "hat"]:
 		var n := model.find_child(hinge, true, false)
