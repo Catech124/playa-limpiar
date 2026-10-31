@@ -4,6 +4,13 @@ Decisiones tomadas: run de **7 días** con opción de **seguir infinito en la mi
 seed**, **mapa procedural** por run y **conchas** que se cambian por desbloqueos
 permanentes.
 
+## Progresión fuera de la run: logros, no moneda
+
+Como en Balatro, fuera de la run **no hay tienda**: hay **Colección**. Los
+desbloqueos se abren jugando (completar el día 2 abre a la jugadora 2, el día 3
+la cuarta carta, etc.) y se miran en la colección. La **plata** con la que se
+compran las cartas se junta **dentro de la run** y no sobrevive al final.
+
 ## Hecho ya
 
 - `scripts/pixel.gd`: fuente 5x7 dibujada píxel a píxel (sin fuentes del
@@ -12,8 +19,15 @@ permanentes.
   (retratos renderizados del modelo real) y **tienda de conchas**. La jugadora 2
   arranca **bloqueada en negro** con candado y precio; al comprarla se juega en
   cooperativo.
-- `scripts/save_game.gd`: conchas, desbloqueos y récords en
-  `user://playa_save.cfg`. Se ganan 3 conchas por día (+2 si sobra más de 1 min).
+- `scripts/save_game.gd`: desbloqueos y récords en `user://playa_save.cfg`
+  (`registrar_dia` abre los logros al terminar cada día).
+- **Menú con el personaje en 3D en vivo** (SubViewport con fondo transparente,
+  girando sobre una sombra pixel) a la derecha y las opciones a la izquierda.
+  La jugadora 2 se ve **en negro** hasta desbloquearla.
+- **Colección** (fuera de la run): grilla con lo desbloqueado y la condición de
+  cada cosa que falta.
+- **Tienda** (solo dentro de la run): 9 cartas en grilla con rareza y precio en
+  plata del día; `main._comprar_carta()` rechaza compras si `en_run` es false.
 
 ## El bucle
 

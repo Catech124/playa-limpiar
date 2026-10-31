@@ -260,7 +260,7 @@ func _draw_results(size: Vector2) -> void:
 		y += 32.0
 
 	var lines := [
-		"Conchas +%d   (tenés %d)" % [int(game.conchas_ganadas), SaveGame.conchas],
+		"Días jugados: %d   ·   Récord: día %d" % [SaveGame.dias_jugados, SaveGame.mejor_dia],
 		"Basura entregada: %d" % int(game.stats["delivered"]),
 		"Gaviotas: %d robos" % int(game.stats["stolen"]),
 		"Penalizaciones: %d" % int(game.stats["penalties"]),

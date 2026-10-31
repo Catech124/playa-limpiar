@@ -768,49 +768,65 @@ func _run() -> void:
 	p2.carrying = null
 
 
-	# --- save, tienda y bloqueo de la jugadora 2 --------------------------
+	# --- save, desbloqueos por logros y colección ------------------------
 	var ruta_real := SaveGame.ruta
 	SaveGame.ruta = "user://test_save.cfg"
 	SaveGame.reiniciar()
-	check("arranca con conchas y la jugadora 2 bloqueada",
-		SaveGame.conchas == SaveGame.CONCHAS_INICIALES and not SaveGame.tiene("mujer"),
-		"%d conchas" % SaveGame.conchas)
+	check("arranca sin desbloqueos", not SaveGame.tiene("mujer") and SaveGame.dias_jugados == 0)
 
-	check("no se puede comprar sin conchas",
-		not SaveGame.comprar("pool_raro", 40) and SaveGame.conchas == SaveGame.CONCHAS_INICIALES)
+	check("completar el día 1 no abre a la jugadora 2",
+		SaveGame.registrar_dia(true, 0, 100) == "" and not SaveGame.tiene("mujer"))
+	var logro := SaveGame.registrar_dia(true, 1, 200)
+	check("completar el día 2 abre a la jugadora 2",
+		logro == "mujer" and SaveGame.tiene("mujer"), logro)
+	check("el mismo logro no se repite", SaveGame.registrar_dia(true, 1, 200) == "")
 
-	SaveGame.sumar_conchas(100)
-	var antes := SaveGame.conchas
-	check("comprar descuenta y desbloquea", SaveGame.comprar("mujer", 15), "conchas %d" % antes)
-	check("la jugadora 2 queda desbloqueada", SaveGame.tiene("mujer"))
-	check("el precio se descontó", SaveGame.conchas == antes - 15, "%d -> %d" % [antes, SaveGame.conchas])
-	check("no se compra dos veces", not SaveGame.comprar("mujer", 15))
-
-	# persistencia: se relee del disco
 	SaveGame.cargar(true)
 	check("el progreso se guarda en disco",
-		SaveGame.tiene("mujer") and SaveGame.conchas == antes - 15, "%d conchas" % SaveGame.conchas)
+		SaveGame.tiene("mujer") and SaveGame.dias_jugados == 3,
+		"%d días jugados" % SaveGame.dias_jugados)
 
 	# el menú respeta el bloqueo
 	main.start_game(1)
 	await frames(2)
 	main.state = main.State.MENU
 	main.home.abrir_menu()
-	main.home.sel = 1
-	main.home.aviso = ""
 	SaveGame.reiniciar()
+	main.home.sel = 1
+	main.home.fila = 0
 	main.menu_confirmar()
 	check("con la jugadora 2 bloqueada el menú no arranca",
 		main.state == main.State.MENU and main.home.aviso != "", main.home.aviso)
 
-	SaveGame.sumar_conchas(100)
-	SaveGame.comprar("mujer", 15)
+	SaveGame.desbloquear("mujer")
+	main.home.abrir_menu()
 	main.home.sel = 1
+	main.home.fila = 0
 	main.menu_confirmar()
 	await frames(2)
 	check("desbloqueada, el menú arranca en cooperativo",
 		main.state == main.State.PLAYING and main.player_count == 2,
 		"jugadores %d" % main.player_count)
+
+	# la tienda es SOLO de la run (afuera no se compra nada)
+	main.home.cursor = 0
+	main.home.compradas.clear()
+	main.home.monedas = 20
+	main.en_run = false
+	main._comprar_carta()
+	check("fuera de la run la tienda no compra", main.home.compradas.is_empty(),
+		"%d compradas" % main.home.compradas.size())
+
+	main.en_run = true
+	main.home.monedas = 20
+	main._comprar_carta()
+	var precio0 := int(ShopCatalog.CARTAS[0]["precio"])
+	check("dentro de la run compra y descuenta la plata",
+		main.home.compradas.size() == 1 and main.home.monedas == 20 - precio0,
+		"%d cartas · %d plata" % [main.home.compradas.size(), main.home.monedas])
+	main._comprar_carta()
+	check("la misma carta no se compra dos veces", main.home.compradas.size() == 1)
+	main.en_run = false
 
 	# limpieza: restaurar el save REAL (sin tocarlo) y borrar el de test
 	SaveGame.ruta = ruta_real

@@ -35,6 +35,8 @@ var delivered := {}              # entregado por tipo
 var score := 0
 var won := false
 var conchas_ganadas := 0
+var desbloqueo_dia := ""
+var en_run := false
 var stats := {"delivered": 0, "spawned": 0, "binned": 0, "stolen": 0, "penalties": 0, "thrown": 0}
 var player_count := 1
 var sandbox := false
@@ -228,41 +230,51 @@ func _toggle_pause() -> void:
 			p.active = true
 
 
-## ENTER en la pantalla de inicio: arranca con el personaje elegido si se puede.
+## ENTER en la pantalla de inicio.
 func menu_confirmar() -> void:
-	if home == null or home.sel == 0:
-		start_game(1, false, 0)
-	elif SaveGame.tiene("mujer"):
-		start_game(2, false, 0)
-	else:
-		home.avisar("JUGADORA 2 BLOQUEADA")
-
-
-## Compra la mejora bajo el cursor de la tienda y avisa el resultado.
-func _comprar_mejora() -> void:
 	if home == null:
+		start_game(1, false, 0)
 		return
-	var items: Array = ShopCatalog.ITEMS
+	match home.accion_menu():
+		"jugar":
+			if home.sel == 0:
+				start_game(1, false, 0)
+			elif SaveGame.tiene("mujer"):
+				start_game(2, false, 0)
+			else:
+				home.avisar("JUGADORA 2 BLOQUEADA")
+		"personaje":
+			home.cambiar_personaje(1)
+		"coleccion":
+			home.abrir_coleccion()
+		"arena":
+			start_game(1, true, 0)
+
+
+## Compra la carta bajo el cursor con la plata de la RUN (no con conchas).
+func _comprar_carta() -> void:
+	if home == null or not en_run:
+		return
+	var items: Array = ShopCatalog.CARTAS
 	var idx := clampi(home.cursor, 0, items.size() - 1)
 	var it: Dictionary = items[idx]
 	var id := String(it["id"])
 	var precio := int(it["precio"])
-	SaveGame.cargar()
-	if SaveGame.tiene(id):
-		home.avisar("YA LA TENES")
-	elif SaveGame.comprar(id, precio):
-		home.avisar("COMPRADO: %s" % String(it["nombre"]))
-	else:
-		home.avisar("TE FALTAN %d CONCHAS" % (precio - SaveGame.conchas))
+	if home.compradas.has(id):
+		home.avisar("YA LA COMPRASTE")
+		return
+	if home.monedas < precio:
+		home.avisar("TE FALTAN %d" % (precio - home.monedas))
+		return
+	home.monedas -= precio
+	home.compradas.append(id)
+	home.avisar("COMPRADA: %s" % String(it["nombre"]))
 
 
 func _finish(win: bool) -> void:
 	won = win
-	# conchas: 3 por día completado y 2 extra si sobró más de un minuto
-	conchas_ganadas = 0
-	if win:
-		conchas_ganadas = 3 + (2 if time_left >= 60.0 else 0)
-		SaveGame.sumar_conchas(conchas_ganadas)
+	en_run = false
+	desbloqueo_dia = SaveGame.registrar_dia(win, level_index, score)
 	state = State.RESULTS
 	for p in players:
 		p.active = false
@@ -278,31 +290,43 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	match state:
 		State.MENU:
-			if home != null and home.modo == "tienda":
-				if code == KEY_UP or code == KEY_W:
-					home.mover(-1)
-				elif code == KEY_DOWN or code == KEY_S:
-					home.mover(1)
-				elif code == KEY_ENTER or code == KEY_KP_ENTER or code == KEY_SPACE:
-					_comprar_mejora()
-				elif code == KEY_ESCAPE or code == KEY_T:
-					home.cerrar_tienda()
+			if home == null:
 				return
-			if code == KEY_LEFT or code == KEY_RIGHT:
-				if home != null:
-					home.mover(-1 if code == KEY_LEFT else 1)
+			if home.modo != "menu":
+				# colección (o tienda, que solo abre dentro de la run)
+				if code == KEY_UP or code == KEY_W:
+					home.mover(-2)
+				elif code == KEY_DOWN or code == KEY_S:
+					home.mover(2)
+				elif code == KEY_LEFT or code == KEY_A:
+					home.mover(-1)
+				elif code == KEY_RIGHT or code == KEY_D:
+					home.mover(1)
+				elif code == KEY_ESCAPE or code == KEY_C:
+					home.abrir_menu()
+				elif code == KEY_ENTER or code == KEY_SPACE or code == KEY_KP_ENTER:
+					if home.modo == "tienda":
+						_comprar_carta()
+				return
+			if code == KEY_UP or code == KEY_W:
+				home.mover(-1)
+			elif code == KEY_DOWN or code == KEY_S:
+				home.mover(1)
+			elif code == KEY_LEFT or code == KEY_A:
+				if home.fila == 1:
+					home.cambiar_personaje(-1)
+			elif code == KEY_RIGHT or code == KEY_D:
+				if home.fila == 1:
+					home.cambiar_personaje(1)
 			elif code == KEY_ENTER or code == KEY_SPACE or code == KEY_KP_ENTER:
 				menu_confirmar()
+			elif code == KEY_C:
+				home.abrir_coleccion()
 			elif code == KEY_2:
 				if SaveGame.tiene("mujer"):
 					start_game(2, false, 0)
-				elif home != null:
-					home.avisar("DESBLOQUEALA EN LA TIENDA [T]")
-			elif code == KEY_T:
-				if home != null:
-					home.abrir_tienda()
-			elif code == KEY_D:
-				start_game(1, true, 0)
+				else:
+					home.avisar("COMPLETA EL DIA 2 PARA ABRIRLA")
 		State.PLAYING:
 			if code == KEY_P or code == KEY_ESCAPE:
 				_toggle_pause()
