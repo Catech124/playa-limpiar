@@ -19,6 +19,7 @@ var npcs: Npcs
 var crabs: Crabs
 var spawner: TrashSpawner
 var hud: Hud
+var home: UiHome
 var camera: Camera3D
 var sun: DirectionalLight3D
 var cam_free := false       # true = la cámara no sigue a los jugadores (capturas)
@@ -33,6 +34,7 @@ var quota := {}                  # objetivo por tipo
 var delivered := {}              # entregado por tipo
 var score := 0
 var won := false
+var conchas_ganadas := 0
 var stats := {"delivered": 0, "spawned": 0, "binned": 0, "stolen": 0, "penalties": 0, "thrown": 0}
 var player_count := 1
 var sandbox := false
@@ -56,6 +58,10 @@ func _ready() -> void:
 	hud.game = self
 	hud.camera = camera
 	layer.add_child(hud)
+
+	home = UiHome.new()
+	layer.add_child(home)
+	home.abrir_menu()
 
 	_reset_world(1)
 
@@ -222,8 +228,41 @@ func _toggle_pause() -> void:
 			p.active = true
 
 
+## ENTER en la pantalla de inicio: arranca con el personaje elegido si se puede.
+func menu_confirmar() -> void:
+	if home == null or home.sel == 0:
+		start_game(1, false, 0)
+	elif SaveGame.tiene("mujer"):
+		start_game(2, false, 0)
+	else:
+		home.avisar("JUGADORA 2 BLOQUEADA")
+
+
+## Compra la mejora bajo el cursor de la tienda y avisa el resultado.
+func _comprar_mejora() -> void:
+	if home == null:
+		return
+	var items: Array = ShopCatalog.ITEMS
+	var idx := clampi(home.cursor, 0, items.size() - 1)
+	var it: Dictionary = items[idx]
+	var id := String(it["id"])
+	var precio := int(it["precio"])
+	SaveGame.cargar()
+	if SaveGame.tiene(id):
+		home.avisar("YA LA TENES")
+	elif SaveGame.comprar(id, precio):
+		home.avisar("COMPRADO: %s" % String(it["nombre"]))
+	else:
+		home.avisar("TE FALTAN %d CONCHAS" % (precio - SaveGame.conchas))
+
+
 func _finish(win: bool) -> void:
 	won = win
+	# conchas: 3 por día completado y 2 extra si sobró más de un minuto
+	conchas_ganadas = 0
+	if win:
+		conchas_ganadas = 3 + (2 if time_left >= 60.0 else 0)
+		SaveGame.sumar_conchas(conchas_ganadas)
 	state = State.RESULTS
 	for p in players:
 		p.active = false
@@ -239,10 +278,29 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	match state:
 		State.MENU:
-			if code == KEY_ENTER or code == KEY_SPACE or code == KEY_KP_ENTER:
-				start_game(1, false, 0)
+			if home != null and home.modo == "tienda":
+				if code == KEY_UP or code == KEY_W:
+					home.mover(-1)
+				elif code == KEY_DOWN or code == KEY_S:
+					home.mover(1)
+				elif code == KEY_ENTER or code == KEY_KP_ENTER or code == KEY_SPACE:
+					_comprar_mejora()
+				elif code == KEY_ESCAPE or code == KEY_T:
+					home.cerrar_tienda()
+				return
+			if code == KEY_LEFT or code == KEY_RIGHT:
+				if home != null:
+					home.mover(-1 if code == KEY_LEFT else 1)
+			elif code == KEY_ENTER or code == KEY_SPACE or code == KEY_KP_ENTER:
+				menu_confirmar()
 			elif code == KEY_2:
-				start_game(2, false, 0)
+				if SaveGame.tiene("mujer"):
+					start_game(2, false, 0)
+				elif home != null:
+					home.avisar("DESBLOQUEALA EN LA TIENDA [T]")
+			elif code == KEY_T:
+				if home != null:
+					home.abrir_tienda()
 			elif code == KEY_D:
 				start_game(1, true, 0)
 		State.PLAYING:
@@ -269,6 +327,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif code == KEY_ESCAPE:
 				state = State.MENU
 				_reset_world(1)
+				if home != null:
+					home.abrir_menu()
 
 
 # ------------------------------------------------------------------ bucle

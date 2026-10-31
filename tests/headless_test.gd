@@ -766,3 +766,55 @@ func _run() -> void:
 		hinges["arm_l"].rotation.x < before - 0.5,
 		"brazo %.2f -> %.2f" % [before, hinges["arm_l"].rotation.x])
 	p2.carrying = null
+
+
+	# --- save, tienda y bloqueo de la jugadora 2 --------------------------
+	var ruta_real := SaveGame.ruta
+	SaveGame.ruta = "user://test_save.cfg"
+	SaveGame.reiniciar()
+	check("arranca con conchas y la jugadora 2 bloqueada",
+		SaveGame.conchas == SaveGame.CONCHAS_INICIALES and not SaveGame.tiene("mujer"),
+		"%d conchas" % SaveGame.conchas)
+
+	check("no se puede comprar sin conchas",
+		not SaveGame.comprar("pool_raro", 40) and SaveGame.conchas == SaveGame.CONCHAS_INICIALES)
+
+	SaveGame.sumar_conchas(100)
+	var antes := SaveGame.conchas
+	check("comprar descuenta y desbloquea", SaveGame.comprar("mujer", 15), "conchas %d" % antes)
+	check("la jugadora 2 queda desbloqueada", SaveGame.tiene("mujer"))
+	check("el precio se descontó", SaveGame.conchas == antes - 15, "%d -> %d" % [antes, SaveGame.conchas])
+	check("no se compra dos veces", not SaveGame.comprar("mujer", 15))
+
+	# persistencia: se relee del disco
+	SaveGame.cargar(true)
+	check("el progreso se guarda en disco",
+		SaveGame.tiene("mujer") and SaveGame.conchas == antes - 15, "%d conchas" % SaveGame.conchas)
+
+	# el menú respeta el bloqueo
+	main.start_game(1)
+	await frames(2)
+	main.state = main.State.MENU
+	main.home.abrir_menu()
+	main.home.sel = 1
+	main.home.aviso = ""
+	SaveGame.reiniciar()
+	main.menu_confirmar()
+	check("con la jugadora 2 bloqueada el menú no arranca",
+		main.state == main.State.MENU and main.home.aviso != "", main.home.aviso)
+
+	SaveGame.sumar_conchas(100)
+	SaveGame.comprar("mujer", 15)
+	main.home.sel = 1
+	main.menu_confirmar()
+	await frames(2)
+	check("desbloqueada, el menú arranca en cooperativo",
+		main.state == main.State.PLAYING and main.player_count == 2,
+		"jugadores %d" % main.player_count)
+
+	# limpieza: restaurar el save REAL (sin tocarlo) y borrar el de test
+	SaveGame.ruta = ruta_real
+	SaveGame.cargar(true)
+	var dir := DirAccess.open("user://")
+	if dir != null and dir.file_exists("test_save.cfg"):
+		dir.remove("test_save.cfg")

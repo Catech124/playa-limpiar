@@ -17,8 +17,24 @@ func _ready() -> void:
 		if a.begins_with("--shot="):
 			out_path = a.substr(7)
 
-	if "--menu" in args:
-		await _shoot(0.8)
+	if "--menu" in args or "--tienda" in args:
+		# save aparte: las capturas no tocan el progreso real
+		SaveGame.ruta = "user://shot_save.cfg"
+		SaveGame.reiniciar()
+		if "--rico" in args:
+			SaveGame.sumar_conchas(80)
+		if "--desbloqueada" in args:
+			SaveGame.comprar("mujer", 15)
+		if "--tienda" in args:
+			if "--rico" in args:
+				SaveGame.comprar("carta_extra", 10)
+			main.home.abrir_tienda()
+			main.home.cursor = int(0 if "--rico" not in args else 3)
+		else:
+			main.home.abrir_menu()
+			if "--desbloqueada" in args:
+				main.home.sel = 1
+		await _shoot(1.0)
 		return
 
 	if "--results" in args or "--win" in args:

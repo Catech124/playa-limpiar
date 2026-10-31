@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "unidad": "cm",
+  "mirando": "-Y",
+  "arriba": "+Z",
+  "nota": "alto/ancho/fondo y deposito salen de la malla; factor_succion es el ancho de boquilla relativo al nivel 1",
+  "sugerencia_balance": {
+    "ritmo": "factor_succion es el multiplicador de velocidad de recogida que sale de la geometria (boquilla mas ancha = barre mas)",
+    "capacidad": "deposito_l es el tope de basura antes de vaciar",
+    "radio": "radio_succion_cm sirve para el area de atraccion en mundo"
+  },
+  "niveles": [
+    {
+      "nivel": 1,
+      "nombre": "Aspiradora compacta",
+      "malla_lowpoly": "aspiradora_n1_lowpoly.glb",
+      "malla_suave": "aspiradora_n1_suave.glb",
+      "malla_juego": "aspiradora_n1_juego.glb",
+      "unidad_juego": "m",
+      "alto_m": 0.455,
+      "alto_cm": 45.5,
+      "ancho_cm": 28.3,
+      "fondo_cm": 42.3,
+      "ancho_boquilla_cm": 22.0,
+      "deposito_l": 10.6,
+      "factor_succion": 1.0,
+      "radio_succion_cm": 11.0,
+      "tris_lowpoly": 2632,
+      "color_acento": "#8ed7c4"
+    },
+    {
+      "nivel": 2,
+      "nombre": "Aspiradora de taller",
+      "malla_lowpoly": "aspiradora_n2_lowpoly.glb",
+      "malla_suave": "aspiradora_n2_suave.glb",
+      "malla_juego": "aspiradora_n2_juego.glb",
+      "unidad_juego": "m",
+      "alto_m": 0.531,
+      "alto_cm": 53.1,
+      "ancho_cm": 33.0,
+      "fondo_cm": 46.2,
+      "ancho_boquilla_cm": 26.0,
+      "deposito_l": 17.8,
+      "factor_succion": 1.18,
+      "radio_succion_cm": 13.0,
+      "tris_lowpoly": 2848,
+      "color_acento": "#f2c43c"
+    },
+    {
+      "nivel": 3,
+      "nombre": "Aspiradora industrial",
+      "malla_lowpoly": "aspiradora_n3_lowpoly.glb",
+      "malla_suave": "aspiradora_n3_suave.glb",
+      "malla_juego": "aspiradora_n3_juego.glb",
+      "unidad_juego": "m",
+      "alto_m": 0.609,
+      "alto_cm": 60.9,
+      "ancho_cm": 37.3,
+      "fondo_cm": 50.9,
+      "ancho_boquilla_cm": 30.0,
+      "deposito_l": 27.0,
+      "factor_succion": 1.36,
+      "radio_succion_cm": 15.0,
+      "tris_lowpoly": 3224,
+      "color_acento": "#e2643a"
+    }
+  ]
+}

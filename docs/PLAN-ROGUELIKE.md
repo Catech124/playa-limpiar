@@ -4,6 +4,17 @@ Decisiones tomadas: run de **7 días** con opción de **seguir infinito en la mi
 seed**, **mapa procedural** por run y **conchas** que se cambian por desbloqueos
 permanentes.
 
+## Hecho ya
+
+- `scripts/pixel.gd`: fuente 5x7 dibujada píxel a píxel (sin fuentes del
+  sistema) + paleta + paneles e íconos.
+- `scripts/ui_home.gd`: pantalla de inicio pixel art con los dos personajes
+  (retratos renderizados del modelo real) y **tienda de conchas**. La jugadora 2
+  arranca **bloqueada en negro** con candado y precio; al comprarla se juega en
+  cooperativo.
+- `scripts/save_game.gd`: conchas, desbloqueos y récords en
+  `user://playa_save.cfg`. Se ganan 3 conchas por día (+2 si sobra más de 1 min).
+
 ## El bucle
 
 ```
@@ -83,10 +94,10 @@ jugadores, spawner, gaviotas y cuota.
 
 | # | Qué | Estado |
 |---|---|---|
-| 0 | `RunState` (autoload) + save/load + tests | pendiente |
+| 0 | `RunState` (autoload) + save/load + tests | parcial: `SaveGame` (conchas, desbloqueos, récords) + tests |
 | 1 | `BeachGen` + validador + tests (seeds × días) | **en curso** |
 | 2 | Enchufar el generador en `GridWorld`/`Levels` (decor y muelle variables) | pendiente |
 | 3 | Cartas + `Stats` + pantalla de elección | pendiente |
 | 4 | Modificadores diarios | pendiente |
-| 5 | Conchas, desbloqueos y pantalla de progreso | pendiente |
+| 5 | Conchas, desbloqueos y pantalla de progreso | **UI hecha**: menú pixel art con personajes y tienda; faltan cartas en la oferta |
 | 6 | Continuar infinito + curva de dificultad + balance | pendiente |

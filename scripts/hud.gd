@@ -34,8 +34,7 @@ func _draw() -> void:
 		return
 	var size := get_viewport_rect().size
 	if game.is_menu():
-		_draw_menu(size)
-		return
+		return          # la pantalla de inicio es su propio Control (UiHome)
 
 	_draw_bar(size)
 	_draw_clock(size)
@@ -224,35 +223,6 @@ func _draw_toasts() -> void:
 
 
 # ------------------------------------------------------------------ pantallas
-func _draw_menu(size: Vector2) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.09, 0.13, 0.86))
-	_text_centered(Vector2(size.x * 0.5, size.y * 0.26), "PLAYA LIMPIA", 76, Color.WHITE)
-	_text_centered(Vector2(size.x * 0.5, size.y * 0.31), "PROTOTIPO 3D — CUOTA DIARIA", 15, Color(1, 1, 1, 0.55))
-	_text_centered(Vector2(size.x * 0.5, size.y * 0.375),
-		"La playa amanece cubierta de basura. Cumplí la cuota antes del atardecer.", 20, Color(1, 1, 1, 0.85))
-
-	var rows := [
-		["WASD / flechas", "moverte"],
-		["ESPACIO", "recoger · colgar la bolsa · tirar basura · entregar"],
-		["SHIFT", "impulso"],
-		["E", "lanzar lo que llevás"],
-		["P / ESC", "pausa"],
-	]
-	var y := size.y * 0.48
-	for r in rows:
-		_text(Vector2(size.x * 0.5 - 300, y), r[0], 17, Color(1.0, 0.83, 0.47), HORIZONTAL_ALIGNMENT_RIGHT, 250)
-		_text(Vector2(size.x * 0.5 + 10, y), r[1], 17, Color(1, 1, 1, 0.82))
-		y += 30.0
-
-	var y2 := y + 14.0
-	_text_centered(Vector2(size.x * 0.5, y2), "1 · tomá una bolsa y colgala en el contenedor", 16, Color(1, 1, 1, 0.7))
-	_text_centered(Vector2(size.x * 0.5, y2 + 24), "2 · tirá la basura adentro hasta llenarla", 16, Color(1, 1, 1, 0.7))
-	_text_centered(Vector2(size.x * 0.5, y2 + 48), "3 · llevá la bolsa llena al camión", 16, Color(1, 1, 1, 0.7))
-
-	_text_centered(Vector2(size.x * 0.5, size.y * 0.88), "ENTER — jugar solo        2 — dos jugadores", 22, Color.WHITE)
-	_text_centered(Vector2(size.x * 0.5, size.y * 0.92), "D — caja de arena (debug: sin reloj ni gaviotas)", 14, Color(1, 1, 1, 0.45))
-
-
 func _draw_pause(size: Vector2) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.07, 0.10, 0.62))
 	_text_centered(Vector2(size.x * 0.5, size.y * 0.46), "PAUSA", 64, Color.WHITE)
@@ -290,6 +260,7 @@ func _draw_results(size: Vector2) -> void:
 		y += 32.0
 
 	var lines := [
+		"Conchas +%d   (tenés %d)" % [int(game.conchas_ganadas), SaveGame.conchas],
 		"Basura entregada: %d" % int(game.stats["delivered"]),
 		"Gaviotas: %d robos" % int(game.stats["stolen"]),
 		"Penalizaciones: %d" % int(game.stats["penalties"]),
