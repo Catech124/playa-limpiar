@@ -51,6 +51,21 @@ origen del modelo, así que escalar un ojo directamente lo escala desde los pies
 (la cara se rompe). Cada pieza que hay que escalar se envuelve en un pivote en
 **su** centro (`_pivote_en_centro`).
 
+## Sombrero: las tres cosas que había que arreglar
+
+Los dos modelos (J1 y J2) usan el mismo tratamiento, en `CharModel`:
+
+1. **Ala de doble cara** (`sombrero_solido`): el GLB trae el ala de una sola
+   cara y desde abajo se veía el hueco → se duplican los materiales del
+   sombrero con `CULL_DISABLED`.
+2. **Calva entre el flequillo y el ala** (`pelo_arriba`): el pelo del modelo no
+   llega hasta el sombrero. Se agranda el pelo ~9 % alrededor del centro de la
+   cabeza. Se probó antes rellenar con un domo aparte y **tapaba la cara**, así
+   que la solución es agrandar el pelo que ya existe.
+3. **Copa hueca**: al agrandar el pelo y con el ala de doble cara, la cavidad
+   queda tapada por el propio pelo; no hace falta ninguna pieza extra (un disco
+   "techo" asomaba por delante del flequillo).
+
 ## Qué necesita un modelo para que el rig lo agarre
 
 El rig se arma solo al cargar (`_prepare_external`) y agrupa mallas **por

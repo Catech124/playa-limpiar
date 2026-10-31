@@ -758,10 +758,8 @@ func _run() -> void:
 		doble_cara = (ala.material_override as BaseMaterial3D).cull_mode == BaseMaterial3D.CULL_DISABLED
 	check("el ala del sombrero se ve sólida desde abajo", doble_cara,
 		"ala=%s" % (ala != null))
-	check("la copa del sombrero está tapada (no se ve hueca)",
-		p2.find_child("tapa_sombrero", true, false) != null)
 	check("el pelo tapa la calva entre el flequillo y el sombrero",
-		p2.find_child("pelo_calva", true, false) != null)
+		p2.find_child("pelo_pivote", true, false) != null)
 
 	check("caminar mueve las piernas en oposición",
 		absf(l1) > 0.2 and absf(r1) > 0.2 and signf(l1) != signf(r1),
