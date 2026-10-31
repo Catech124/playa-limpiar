@@ -6,12 +6,35 @@ así que el mismo **rig automático** sirve para los dos).
 | Jugador | Modelo | Fuente |
 |---|---|---|
 | J1 | `assets/kid.glb` | pescador low-poly (chico) |
-| J2 | `assets/mujer.glb` | mujer low-poly (`~/lowpoly-pescador/mujer_lowpoly.glb`) |
+| J2 | `assets/mujer.glb` | mujer **suave** (`~/lowpoly-pescador/mujer_suave.glb`) |
 
 `player.gd` elige el modelo en `setup()` con `MODELOS[index % MODELOS.size()]`;
 si el GLB de la mujer no está, cae al del chico y, si tampoco, al personaje de
 primitivas. Agregar un tercer modelo es sumar una ruta al array (y otra entrada
 en `GameConfig.KEYMAPS`).
+
+## Variante suave (bordes redondeados)
+
+El pescador y la jugadora 2 salen del mismo generador (`~/lowpoly-pescador/build.py`)
+en dos versiones: *lowpoly* (normales planas) y *suave* (más segmentos + normales
+por esquina con corte a 42°). El juego usa la **suave** para los dos.
+
+```bash
+cd ~/lowpoly-pescador
+python3 - <<'EOF'
+import build as B, lib3d as L
+L.DETALLE = 1.9          # más segmentos = silueta más redonda
+parts = B.build_mujer()
+L.DETALLE = 1.0
+B.set_mujer(False)
+L.auto_smooth(parts, 42.0)                       # normales suaves, filo >42° duro
+L.export_glb(parts, "mujer_suave.glb", smooth=True)
+EOF
+```
+
+`build_mujer()` estaba roto: usaba `DENIM_D` (denim oscuro de los puños) sin
+definirlo. Ya está definido en `build.py` con el color real del modelo
+(`#3f5b7d`), así que la variante se puede regenerar.
 
 ## Qué necesita un modelo para que el rig lo agarre
 
