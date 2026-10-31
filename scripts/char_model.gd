@@ -457,6 +457,24 @@ static func sombrero_solido(model: Node3D) -> void:
 	# la cavidad se rellena con pelo (pelo_arriba), no con una tapa
 
 
+## Quita el cangrejo que trae el pescador pegado al modelo (el juego usa
+## `cangrejo_suave.glb` aparte). Lista exacta de piezas: si falta una, queda
+## flotando al lado del personaje.
+static func quitar_cangrejo(model: Node3D) -> void:
+	var crab := ["brazoC-1", "brazoC1", "concha", "vientre", "reborde-1", "reborde1",
+		"pedunculo-1", "pedunculo1", "ojoC-1", "ojoC1", "pupC-1", "pupC1",
+		"pinza-1", "pinza1", "dedo-10", "dedo-11", "dedo10", "dedo11"]
+	for i in 4:
+		crab.append("pataC-1%d" % i)
+		crab.append("pataC1%d" % i)
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		if crab.has(String(n.name)):
+			var padre := n.get_parent()
+			if padre != null:
+				padre.remove_child(n)
+			n.queue_free()
+
+
 ## Arma las seis bisagras (brazos, piernas, cabeza, sombrero) de un GLB externo
 ## plano agrupando las mallas por nombre. Devuelve {nombre: Node3D}.
 static func construir_rig(model: Node3D) -> Dictionary:

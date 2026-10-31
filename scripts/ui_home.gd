@@ -124,15 +124,8 @@ func _set_modelo(idx: int) -> void:
 	_modelo = packed.instantiate() as Node3D
 	_ancla.add_child(_modelo)
 	CharModel.fit_model(_modelo)
-	for mi in _modelo.find_children("*", "MeshInstance3D", true, false):
-		var nm := String(mi.name)
-		var mio := mi as MeshInstance3D
-		# el pescador trae un cangrejo pegado al modelo
-		for pre in ["brazoC", "pataC", "pinza", "ojoC", "pupC", "reborde",
-				"pedunculo", "dedo-1x", "concha", "vientre"]:
-			if nm.begins_with(pre):
-				mio.visible = false
-				break
+	# el pescador trae un cangrejo pegado: misma limpieza que en el juego
+	CharModel.quitar_cangrejo(_modelo)
 	# el tinte negro (bloqueada) va ANTES del sombrero, si no lo pisa
 	_silueta(_modelo, not desbloqueado(idx))
 	# bisagras para animar: brazos, cabeza y sombrero
@@ -245,7 +238,7 @@ func _idle_anim(delta: float) -> void:
 		return
 
 	# el brazo que saluda (arm_r) y de qué lado está
-	var brazo: Node3D = _rig.get("arm_r")
+	var brazo: Node3D = _rig.get("arm_l")
 	var lado := 1.0
 	if brazo != null:
 		lado = 1.0 if brazo.position.x >= 0.0 else -1.0
@@ -263,7 +256,7 @@ func _idle_anim(delta: float) -> void:
 		var agita := sin(_gesto_t * 46.0) * 0.26 * saludo
 		brazo.rotation.z = lado * (1.78 * saludo + agita)
 		brazo.rotation.x = -0.16 * saludo
-	var brazo_l: Node3D = _rig.get("arm_l")
+	var brazo_l: Node3D = _rig.get("arm_r")
 	if brazo_l != null:
 		# el otro brazo se abre apenas: acompaña el balanceo
 		brazo_l.rotation.z = -lado * 0.10 * saludo

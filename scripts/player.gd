@@ -226,15 +226,7 @@ func _glove_center(model: Node3D, arm: Node3D) -> Vector3:
 
 ## Quita el cangrejo que trae el pescador (ahora es un modelo aparte).
 func _remove_crab(model: Node3D) -> void:
-	var crab := ["brazoC-1", "brazoC1", "concha", "vientre", "reborde-1", "reborde1",
-		"pedunculo-1", "pedunculo1", "ojoC-1", "ojoC1", "pupC-1", "pupC1",
-		"pinza-1", "pinza1", "dedo-10", "dedo-11", "dedo10", "dedo11"]
-	for i in 4:
-		crab.append("pataC-1%d" % i)
-		crab.append("pataC1%d" % i)
-	for n in model.find_children("*", "MeshInstance3D", true, false):
-		if crab.has(String(n.name)):
-			n.queue_free()
+	CharModel.quitar_cangrejo(model)
 
 
 ## Agrupa las mallas sueltas del GLB en 6 bisagras (hombros, caderas, cuello y
