@@ -36,6 +36,21 @@ EOF
 definirlo. Ya está definido en `build.py` con el color real del modelo
 (`#3f5b7d`), así que la variante se puede regenerar.
 
+## Menú: idle con gestos
+
+El modelo del menú usa **el mismo rig** que el jugador (`CharModel.construir_rig`)
+y no gira: respira, se balancea apenas y cada 4-8 s hace un gesto:
+
+- **saludo**: levanta el brazo derecho, agita la mano, inclina la cabeza y
+  agranda un poco la boca (sonrisa); después vuelve a idle.
+- **sorpresa**: abre los ojos, levanta las cejas, echa la cabeza atrás y da un
+  saltito.
+
+Ojo con los GLB: la geometría viene **horneada** y todos los nodos comparten el
+origen del modelo, así que escalar un ojo directamente lo escala desde los pies
+(la cara se rompe). Cada pieza que hay que escalar se envuelve en un pivote en
+**su** centro (`_pivote_en_centro`).
+
 ## Qué necesita un modelo para que el rig lo agarre
 
 El rig se arma solo al cargar (`_prepare_external`) y agrupa mallas **por

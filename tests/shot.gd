@@ -17,6 +17,24 @@ func _ready() -> void:
 		if a.begins_with("--shot="):
 			out_path = a.substr(7)
 
+	if "--pose" in args:
+		# captura un gesto a mitad de camino (para verificar saludo/sorpresa)
+		SaveGame.ruta = "user://shot_save.cfg"
+		SaveGame.reiniciar()
+		if "--desbloqueada" in args:
+			SaveGame.desbloquear("mujer")
+		main.home.abrir_menu()
+		main.home.sel = 1 if "--dos" in args else 0
+		await get_tree().process_frame
+		await get_tree().process_frame
+		main.home._gesto_tipo = "sorpresa" if "--sorpresa" in args else "saludo"
+		main.home._gesto_dur = 1.0
+		main.home._gesto_t = 0.45 if "--sorpresa" not in args else 0.35
+		for i in 3:
+			main.home._idle_anim(0.016)
+		await _shoot(0.2)
+		return
+
 	if "--menu" in args or "--tienda" in args or "--coleccion" in args:
 		# save aparte: las capturas no tocan el progreso real
 		SaveGame.ruta = "user://shot_save.cfg"

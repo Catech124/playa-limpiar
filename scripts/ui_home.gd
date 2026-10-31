@@ -33,6 +33,11 @@ var _modelo: Node3D
 var _modelo_idx := -1
 var _ojos: Array = []
 var _escalas_ojos: Array = []
+var _rig := {}
+var _cara := {"cejas": [], "boca": []}
+var _gesto_tipo := ""
+var _gesto_t := 0.0
+var _gesto_dur := 1.8
 var _idle := 0.0
 var _parpadeo := 0.0
 var _prox_parpadeo := 3.0
@@ -118,7 +123,6 @@ func _set_modelo(idx: int) -> void:
 	_modelo = packed.instantiate() as Node3D
 	_ancla.add_child(_modelo)
 	CharModel.fit_model(_modelo)
-	CharModel.sombrero_solido(_modelo)      # el ala no se ve hueca desde abajo
 	for mi in _modelo.find_children("*", "MeshInstance3D", true, false):
 		var nm := String(mi.name)
 		var mio := mi as MeshInstance3D
@@ -128,10 +132,14 @@ func _set_modelo(idx: int) -> void:
 			if nm.begins_with(pre):
 				mio.visible = false
 				break
-		if mio.visible and (nm.begins_with("ojo") or nm.begins_with("pup")):
-			_ojos.append(mio)
-			_escalas_ojos.append(mio.scale)
+	# el tinte negro (bloqueada) va ANTES del sombrero, si no lo pisa
 	_silueta(_modelo, not desbloqueado(idx))
+	# bisagras para animar: brazos, cabeza y sombrero
+	_rig = CharModel.construir_rig(_modelo)
+	_recoger_cara()
+	if desbloqueado(idx):
+		# el ala se ve sólida desde abajo y la copa deja de estar hueca
+		CharModel.sombrero_solido(_modelo)
 
 
 func _silueta(model: Node3D, negro: bool) -> void:
@@ -151,34 +159,126 @@ func desbloqueado(idx: int) -> bool:
 	return idx == 0 or SaveGame.tiene("mujer")
 
 
-## Idle: respiración + balanceo mínimo. Nunca gira sobre sí mismo.
+## Recoge ojos, cejas y boca para animar la cara.
+##
+## OJO: en estos GLB la geometría está horneada y todos los nodos comparten el
+## origen del modelo. Escalar un ojo directamente lo escalaba desde los PIES
+## (la cara se rompía). Por eso cada pieza que hay que escalar se envuelve en un
+## pivote en SU centro.
+func _recoger_cara() -> void:
+	_ojos.clear()
+	_escalas_ojos.clear()
+	_cara = {"cejas": [], "boca": []}
+	for mi in _modelo.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if not m.visible:
+			continue
+		var nm := String(m.name)
+		if nm.begins_with("ojo") or nm.begins_with("pup"):
+			var p := _pivote_en_centro(m)
+			if p != null:
+				_ojos.append(p)
+				_escalas_ojos.append(p.scale)
+		elif nm.begins_with("ceja"):
+			_cara["cejas"].append({"n": m, "pos": m.position})
+		elif nm.begins_with("boca"):
+			var p2 := _pivote_en_centro(m)
+			if p2 != null:
+				_cara["boca"].append({"n": p2, "escala": p2.scale})
+
+
+## Envuelve una malla en un pivote ubicado en el centro de su caja.
+func _pivote_en_centro(m: MeshInstance3D) -> Node3D:
+	var padre := m.get_parent() as Node3D
+	if padre == null:
+		return null
+	var centro: Vector3 = m.global_transform * m.get_aabb().get_center()
+	var piv := Node3D.new()
+	piv.name = "piv_" + String(m.name)
+	padre.add_child(piv)
+	piv.global_position = centro
+	m.reparent(piv, true)
+	return piv
+
+
+## Curva de gesto: sube en `a`, se mantiene y baja antes del final.
+func _campana(t: float, a: float, b: float) -> float:
+	var sube := clampf(t / maxf(a, 0.001), 0.0, 1.0)
+	var baja := 1.0 - clampf((t - b) / 0.20, 0.0, 1.0)
+	return minf(sube, baja)
+
+
+## Idle: respira y se balancea apenas. Cada tanto SALUDADA con la mano o hace
+## una cara de sorpresa, y vuelve a idle. Nunca gira sobre sí mismo.
 func _idle_anim(delta: float) -> void:
 	_idle += delta
-	# parpadeo cada tanto
+
+	# reloj del gesto
+	if _gesto_tipo == "":
+		_prox_gesto -= delta
+		if _prox_gesto <= 0.0:
+			_gesto_tipo = "saludo" if randf() < 0.62 else "sorpresa"
+			_gesto_dur = 2.0 if _gesto_tipo == "saludo" else 1.4
+			_gesto_t = 0.0
+	else:
+		_gesto_t += delta / _gesto_dur
+		if _gesto_t >= 1.0:
+			_gesto_tipo = ""
+			_gesto_t = 0.0
+			_prox_gesto = randf_range(4.0, 8.0)
+
+	var saludo := _campana(_gesto_t, 0.20, 0.80) if _gesto_tipo == "saludo" else 0.0
+	var sorpresa := _campana(_gesto_t, 0.16, 0.70) if _gesto_tipo == "sorpresa" else 0.0
+
+	# parpadeo
 	_prox_parpadeo -= delta
 	if _prox_parpadeo <= 0.0:
 		_parpadeo = 1.0
 		_prox_parpadeo = randf_range(2.2, 5.0)
 	_parpadeo = maxf(0.0, _parpadeo - delta * 8.5)
-	# gesto (sorpresa) cada tanto
-	_prox_gesto -= delta
-	if _prox_gesto <= 0.0:
-		_prox_gesto = randf_range(5.5, 10.0)
-		_gesto = 1.0
-	_gesto = maxf(0.0, _gesto - delta * 0.8)
 
 	if _modelo == null or not is_instance_valid(_modelo):
 		return
+
+	# cuerpo: respiración + saltito de sorpresa
 	var respira := sin(_idle * 1.5)
-	var salto := sin((1.0 - _gesto) * PI) if _gesto > 0.0 else 0.0
-	_modelo.position.y = respira * 0.007 + salto * 0.012
-	_modelo.rotation.y = sin(_idle * 0.42) * 0.075
-	_modelo.rotation.z = sin(_idle * 1.05) * 0.012
-	_modelo.rotation.x = -_gesto * 0.04
-	var abierto := (1.0 - _parpadeo * 0.9) * (1.0 + _gesto * 0.35)
+	_modelo.position.y = respira * 0.006 + sorpresa * 0.014
+	_modelo.rotation.y = sin(_idle * 0.42) * 0.06
+	_modelo.rotation.z = sin(_idle * 1.05) * 0.010
+	_modelo.rotation.x = -sorpresa * 0.03
+
+	# brazo que saluda: sube, agita la mano y baja
+	var brazo: Node3D = _rig.get("arm_r")
+	if brazo != null:
+		var lado := 1.0 if brazo.position.x >= 0.0 else -1.0
+		var agita := sin(_gesto_t * 46.0) * 0.30 * saludo
+		brazo.rotation.z = lado * (1.35 * saludo + agita)
+		brazo.rotation.x = -0.22 * saludo
+	var brazo_l: Node3D = _rig.get("arm_l")
+	if brazo_l != null:
+		brazo_l.rotation.z = -0.10 * saludo
+	var cabeza: Node3D = _rig.get("head")
+	if cabeza != null:
+		cabeza.rotation.z = sin(_idle * 0.9) * 0.02 + 0.05 * saludo
+		cabeza.rotation.x = -0.10 * sorpresa + sin(_idle * 1.2) * 0.012
+		cabeza.rotation.y = 0.03 * saludo
+
+	# cara: ojos (parpadeo + expresión), cejas y boca
+	var abierto := (1.0 - _parpadeo * 0.9) * (1.0 + sorpresa * 0.32) * (1.0 - saludo * 0.22)
 	for i in _ojos.size():
 		var base: Vector3 = _escalas_ojos[i]
 		(_ojos[i] as Node3D).scale = Vector3(base.x, base.y * abierto, base.z)
+	var ceja_dy := sorpresa * 1.5 + saludo * 0.5
+	for d in _cara["cejas"]:
+		var n: Node3D = d["n"]
+		var p0: Vector3 = d["pos"]
+		n.position = Vector3(p0.x, p0.y + ceja_dy, p0.z)
+	# la boca se ensancha al saludar (sonrisa) y se achica en la sorpresa
+	for d in _cara["boca"]:
+		var n2: Node3D = d["n"]
+		var e0: Vector3 = d["escala"]
+		n2.scale = Vector3(e0.x * (1.0 + saludo * 0.16 - sorpresa * 0.10),
+			e0.y * (1.0 + saludo * 0.30 - sorpresa * 0.22), e0.z)
 
 
 func _process(delta: float) -> void:

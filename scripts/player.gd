@@ -239,50 +239,10 @@ func _remove_crab(model: Node3D) -> void:
 ## Agrupa las mallas sueltas del GLB en 6 bisagras (hombros, caderas, cuello y
 ## sombrero) para poder animarlo con el mismo código que el modelo propio.
 func _build_external_rig(model: Node3D) -> void:
-	var groups := {
-		"arm_l": ["manga-1", "brazo-1", "guante-1", "pulgar-1", "mangaCuff-1"],
-		"arm_r": ["manga1", "brazo1", "guante1", "pulgar1", "mangaCuff1"],
-		"leg_l": ["pierna-1", "pie-1", "suela-1", "filo-1", "plant-1", "dedo-1_", "banda-1"],
-		"leg_r": ["pierna1", "pie1", "suela1", "filo1", "plant1", "dedo1_", "banda1"],
-		"head": ["cabeza", "oreja-1", "oreja1", "pelo", "ojo-1_", "ojo1_", "ceja-1",
-			"ceja1", "rubor-1", "rubor1", "nariz", "boca", "flequillo", "rizo", "patilla",
-			"pestana"],
-		"hat": ["ala_", "copa_", "cyl", "sphere"],
-	}
-	var meshes := model.find_children("*", "MeshInstance3D", true, false)
-	for group in groups.keys():
-		var sel: Array = []
-		for mi in meshes:
-			if not is_instance_valid(mi):
-				continue
-			var nm := String(mi.name)
-			for pre in groups[group]:
-				if nm.begins_with(pre):
-					sel.append(mi)
-					break
-		if sel.is_empty():
-			continue
-		var box := AABB()
-		var first := true
-		for mi in sel:
-			var b: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
-			box = b if first else box.merge(b)
-			first = false
-
-		var pivot := Node3D.new()
-		pivot.name = group
-		model.add_child(pivot)
-		var anchor := Vector3(box.get_center().x, box.position.y, box.get_center().z)
-		match group:
-			"arm_l", "arm_r":
-				anchor.y = box.position.y + box.size.y * 0.92
-			"leg_l", "leg_r":
-				anchor.y = box.position.y + box.size.y
-			_:
-				anchor.y = box.position.y
-		pivot.position = model.to_local(anchor)
-		for mi in sel:
-			(mi as Node3D).reparent(pivot, true)
+	# el armado de bisagras vive en CharModel: lo usan el jugador y el menú
+	var rig := CharModel.construir_rig(model)
+	for k in rig.keys():
+		_hinges[k] = rig[k]
 
 
 ## Achica el sombrero de un GLB externo alrededor de su base, para que no tape

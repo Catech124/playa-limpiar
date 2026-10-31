@@ -433,12 +433,17 @@ static func fit_model(model: Node3D, target_height := 0.92) -> void:
 ## sólido desde cualquier ángulo (los dos modelos tienen el mismo problema).
 static func sombrero_solido(model: Node3D) -> void:
 	var copias := {}
+	var sombrero: Array = []
+	var color_tapa := Color(0.85, 0.75, 0.5)
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		var nm := String(mi.name)
 		if not (nm.begins_with("ala_") or nm.begins_with("copa_") or nm == "cyl"
 				or nm.begins_with("sphere")):
 			continue
 		var malla := mi as MeshInstance3D
+		if not malla.visible:
+			continue
+		sombrero.append(malla)
 		var mat := malla.get_active_material(0)
 		if mat == null or not (mat is BaseMaterial3D):
 			continue
@@ -447,4 +452,99 @@ static func sombrero_solido(model: Node3D) -> void:
 			var copia := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
 			copia.cull_mode = BaseMaterial3D.CULL_DISABLED
 			copias[id] = copia
+			if nm.begins_with("copa_"):
+				color_tapa = copia.albedo_color
 		malla.material_override = copias[id]
+	if sombrero.is_empty():
+		return
+	_cerrar_copa(sombrero, color_tapa)
+
+
+## La copa del sombrero está hueca: desde abajo se ve el "vacío". Se tapa con un
+## disco del color del sombrero pegado a la base de la copa.
+static func _cerrar_copa(sombrero: Array, color: Color) -> void:
+	var padre: Node3D = (sombrero[0] as Node3D).get_parent()
+	if padre == null or padre.find_child("tapa_sombrero", false, false) != null:
+		return
+	var caja := AABB()
+	var first := true
+	for mi in sombrero:
+		var tr := Transform3D.IDENTITY
+		var cur: Node3D = mi
+		while cur != null and cur != padre:
+			tr = cur.transform * tr
+			cur = cur.get_parent() as Node3D
+		var b: AABB = tr * (mi as MeshInstance3D).get_aabb()
+		caja = b if first else caja.merge(b)
+		first = false
+	if first or caja.size.x < 0.001:
+		return
+	var disco := MeshInstance3D.new()
+	disco.name = "tapa_sombrero"
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = caja.size.x * 0.21
+	cyl.bottom_radius = caja.size.x * 0.21
+	cyl.height = maxf(caja.size.y * 0.04, caja.size.x * 0.01)
+	cyl.radial_segments = 12
+	disco.mesh = cyl
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.9
+	disco.material_override = m
+	disco.position = Vector3(caja.get_center().x, caja.position.y + caja.size.y * 0.11,
+		caja.get_center().z)
+	disco.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	padre.add_child(disco)
+
+
+## Arma las seis bisagras (brazos, piernas, cabeza, sombrero) de un GLB externo
+## plano agrupando las mallas por nombre. Devuelve {nombre: Node3D} y deja cada
+## pivote como hijo del modelo.
+static func construir_rig(model: Node3D) -> Dictionary:
+	var grupos := {
+		"arm_l": ["manga-1", "brazo-1", "guante-1", "pulgar-1", "mangaCuff-1"],
+		"arm_r": ["manga1", "brazo1", "guante1", "pulgar1", "mangaCuff1"],
+		"leg_l": ["pierna-1", "pie-1", "suela-1", "filo-1", "plant-1", "dedo-1_", "banda-1"],
+		"leg_r": ["pierna1", "pie1", "suela1", "filo1", "plant1", "dedo1_", "banda1"],
+		"head": ["cabeza", "oreja-1", "oreja1", "pelo", "ojo-1_", "ojo1_", "ceja-1",
+			"ceja1", "rubor-1", "rubor1", "nariz", "boca", "flequillo", "rizo", "patilla",
+			"pestana"],
+		"hat": ["ala_", "copa_", "cyl", "sphere"],
+	}
+	var out := {}
+	var meshes := model.find_children("*", "MeshInstance3D", true, false)
+	for group in grupos.keys():
+		var sel: Array = []
+		for mi in meshes:
+			if not is_instance_valid(mi):
+				continue
+			var nm := String(mi.name)
+			for pre in grupos[group]:
+				if nm.begins_with(pre):
+					sel.append(mi)
+					break
+		if sel.is_empty():
+			continue
+		var box := AABB()
+		var first := true
+		for mi in sel:
+			var b: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			box = b if first else box.merge(b)
+			first = false
+
+		var pivot := Node3D.new()
+		pivot.name = group
+		model.add_child(pivot)
+		var anchor := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+		match group:
+			"arm_l", "arm_r":
+				anchor.y = box.position.y + box.size.y * 0.92
+			"leg_l", "leg_r":
+				anchor.y = box.position.y + box.size.y
+			_:
+				anchor.y = box.position.y
+		pivot.position = model.to_local(anchor)
+		for mi in sel:
+			(mi as Node3D).reparent(pivot, true)
+		out[group] = pivot
+	return out
