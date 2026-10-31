@@ -426,3 +426,25 @@ static func fit_model(model: Node3D, target_height := 0.92) -> void:
 	model.scale = Vector3(k, k, k)
 	# apoyar los pies en el piso
 	model.position.y = -box.position.y * k
+
+
+## El ala del sombrero es de UNA sola cara: mirada desde abajo se ve el hueco.
+## Duplica los materiales del sombrero con el culling apagado para que se lea
+## sólido desde cualquier ángulo (los dos modelos tienen el mismo problema).
+static func sombrero_solido(model: Node3D) -> void:
+	var copias := {}
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var nm := String(mi.name)
+		if not (nm.begins_with("ala_") or nm.begins_with("copa_") or nm == "cyl"
+				or nm.begins_with("sphere")):
+			continue
+		var malla := mi as MeshInstance3D
+		var mat := malla.get_active_material(0)
+		if mat == null or not (mat is BaseMaterial3D):
+			continue
+		var id := mat.get_instance_id()
+		if not copias.has(id):
+			var copia := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+			copia.cull_mode = BaseMaterial3D.CULL_DISABLED
+			copias[id] = copia
+		malla.material_override = copias[id]

@@ -747,6 +747,18 @@ func _run() -> void:
 	p2._animate(0.016)
 	var l1: float = hinges["leg_l"].rotation.x
 	var r1: float = hinges["leg_r"].rotation.x
+	# el ala del sombrero es de una sola cara en el GLB: se veía hueca de abajo
+	var ala: MeshInstance3D = null
+	for mi in p2.find_children("*", "MeshInstance3D", true, false):
+		if String(mi.name).begins_with("ala_"):
+			ala = mi
+			break
+	var doble_cara := false
+	if ala != null and ala.material_override is BaseMaterial3D:
+		doble_cara = (ala.material_override as BaseMaterial3D).cull_mode == BaseMaterial3D.CULL_DISABLED
+	check("el ala del sombrero se ve sólida desde abajo", doble_cara,
+		"ala=%s" % (ala != null))
+
 	check("caminar mueve las piernas en oposición",
 		absf(l1) > 0.2 and absf(r1) > 0.2 and signf(l1) != signf(r1),
 		"leg_l=%.2f leg_r=%.2f" % [l1, r1])
@@ -767,6 +779,27 @@ func _run() -> void:
 		"brazo %.2f -> %.2f" % [before, hinges["arm_l"].rotation.x])
 	p2.carrying = null
 
+
+	# --- arrancar desde el menú (el bug era que el menú quedaba encima) ----
+	main.state = main.State.MENU
+	main.home.abrir_menu()
+	main.home.fila = 0
+	main.home.sel = 0
+	main.menu_confirmar()
+	await frames(2)
+	check("jugar desde el menú arranca y ESCONDE la pantalla de inicio",
+		main.state == main.State.PLAYING and not main.home.visible,
+		"estado=%d visible=%s" % [main.state, main.home.visible])
+	check("una partida normal habilita la tienda de la run", main.en_run)
+
+	main.state = main.State.MENU
+	main.home.abrir_menu()
+	main.home.fila = 3          # ARENA
+	main.menu_confirmar()
+	await frames(2)
+	check("arena arranca en modo de pruebas",
+		main.state == main.State.PLAYING and main.sandbox and not main.home.visible,
+		"sandbox=%s" % main.sandbox)
 
 	# --- save, desbloqueos por logros y colección ------------------------
 	var ruta_real := SaveGame.ruta

@@ -2,22 +2,26 @@ class_name UiHome
 extends Control
 ## Pantalla de inicio, colección y tienda (pixel art + modelo 3D en vivo).
 ##
-## Layout: opciones a la IZQUIERDA y el personaje elegido en 3D a la DERECHA,
-## girando sobre un pedestal (SubViewport con fondo transparente).
+## Layout: opciones a la IZQUIERDA y el personaje elegido en 3D a la DERECHA.
+## El modelo NO rota: tiene un idle (respiración + balanceo apenas) y cada tanto
+## parpadea o hace una expresión y vuelve a idle.
 ##
-## La TIENDA solo existe DENTRO de la run (entre día y día): desde el menú no se
-## compra nada, solo se mira la COLECCIÓN de desbloqueos, como en Balatro.
+## Se puede manejar con teclado y con MOUSE (hover elige, click confirma).
+## La TIENDA solo existe DENTRO de la run: afuera solo hay COLECCIÓN.
+
+signal accion(nombre: String)
 
 const ANCHO_BASE := 1280.0
 const ALTO_BASE := 800.0
-const FILAS := ["JUGAR", "PERSONAJE", "COLECCION", "ARENA"]
+const FILAS := ["jugar", "personaje", "coleccion", "arena"]
+const FILAS_TXT := ["JUGAR", "PERSONAJE", "COLECCION", "ARENA"]
 
 var modo := "menu"            # menu | coleccion | tienda
 var fila := 0                 # opción del menú
 var sel := 0                  # 0 = jugador 1, 1 = jugadora 2
 var cursor := 0               # colección / tienda
-var monedas := 0              # plata de la RUN (la pone main al abrir la tienda)
-var compradas: Array = []     # cartas compradas en esta run
+var monedas := 0              # plata de la RUN
+var compradas: Array = []
 var aviso := ""
 var aviso_t := 0.0
 var t := 0.0
@@ -27,11 +31,19 @@ var _vp: SubViewport
 var _ancla: Node3D
 var _modelo: Node3D
 var _modelo_idx := -1
+var _ojos: Array = []
+var _escalas_ojos: Array = []
+var _idle := 0.0
+var _parpadeo := 0.0
+var _prox_parpadeo := 3.0
+var _gesto := 0.0
+var _prox_gesto := 7.0
+var _hover_rect: Rect2 = Rect2()
 
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	SaveGame.cargar()
 	for it in ShopCatalog.DESBLOQUEOS:
@@ -94,6 +106,8 @@ func _set_modelo(idx: int) -> void:
 	if _modelo != null and is_instance_valid(_modelo):
 		_modelo.queue_free()
 		_modelo = null
+	_ojos.clear()
+	_escalas_ojos.clear()
 	var ruta := "res://assets/kid.glb" if idx == 0 else "res://assets/mujer.glb"
 	if not ResourceLoader.exists(ruta):
 		return
@@ -104,14 +118,19 @@ func _set_modelo(idx: int) -> void:
 	_modelo = packed.instantiate() as Node3D
 	_ancla.add_child(_modelo)
 	CharModel.fit_model(_modelo)
-	# el pescador trae un cangrejo pegado: en el menú no va
+	CharModel.sombrero_solido(_modelo)      # el ala no se ve hueca desde abajo
 	for mi in _modelo.find_children("*", "MeshInstance3D", true, false):
 		var nm := String(mi.name)
+		var mio := mi as MeshInstance3D
+		# el pescador trae un cangrejo pegado al modelo
 		for pre in ["brazoC", "pataC", "pinza", "ojoC", "pupC", "reborde",
 				"pedunculo", "dedo-1x", "concha", "vientre"]:
 			if nm.begins_with(pre):
-				(mi as MeshInstance3D).visible = false
+				mio.visible = false
 				break
+		if mio.visible and (nm.begins_with("ojo") or nm.begins_with("pup")):
+			_ojos.append(mio)
+			_escalas_ojos.append(mio.scale)
 	_silueta(_modelo, not desbloqueado(idx))
 
 
@@ -121,6 +140,7 @@ func _silueta(model: Node3D, negro: bool) -> void:
 		var sm := StandardMaterial3D.new()
 		sm.albedo_color = Color(0.07, 0.08, 0.10)
 		sm.roughness = 1.0
+		sm.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mat = sm
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		if (mi as MeshInstance3D).visible:
@@ -128,9 +148,37 @@ func _silueta(model: Node3D, negro: bool) -> void:
 
 
 func desbloqueado(idx: int) -> bool:
-	if idx == 0:
-		return true
-	return SaveGame.tiene("mujer")
+	return idx == 0 or SaveGame.tiene("mujer")
+
+
+## Idle: respiración + balanceo mínimo. Nunca gira sobre sí mismo.
+func _idle_anim(delta: float) -> void:
+	_idle += delta
+	# parpadeo cada tanto
+	_prox_parpadeo -= delta
+	if _prox_parpadeo <= 0.0:
+		_parpadeo = 1.0
+		_prox_parpadeo = randf_range(2.2, 5.0)
+	_parpadeo = maxf(0.0, _parpadeo - delta * 8.5)
+	# gesto (sorpresa) cada tanto
+	_prox_gesto -= delta
+	if _prox_gesto <= 0.0:
+		_prox_gesto = randf_range(5.5, 10.0)
+		_gesto = 1.0
+	_gesto = maxf(0.0, _gesto - delta * 0.8)
+
+	if _modelo == null or not is_instance_valid(_modelo):
+		return
+	var respira := sin(_idle * 1.5)
+	var salto := sin((1.0 - _gesto) * PI) if _gesto > 0.0 else 0.0
+	_modelo.position.y = respira * 0.007 + salto * 0.012
+	_modelo.rotation.y = sin(_idle * 0.42) * 0.075
+	_modelo.rotation.z = sin(_idle * 1.05) * 0.012
+	_modelo.rotation.x = -_gesto * 0.04
+	var abierto := (1.0 - _parpadeo * 0.9) * (1.0 + _gesto * 0.35)
+	for i in _ojos.size():
+		var base: Vector3 = _escalas_ojos[i]
+		(_ojos[i] as Node3D).scale = Vector3(base.x, base.y * abierto, base.z)
 
 
 func _process(delta: float) -> void:
@@ -139,11 +187,9 @@ func _process(delta: float) -> void:
 	t += delta
 	if aviso_t > 0.0:
 		aviso_t = maxf(0.0, aviso_t - delta)
-	# si cambió la selección (por teclado o por código) se cambia el modelo
 	if modo == "menu" and _modelo_idx != sel:
 		_set_modelo(sel)
-	if _modelo != null and is_instance_valid(_modelo) and modo == "menu":
-		_modelo.rotation.y += delta * 0.55
+	_idle_anim(delta)
 	queue_redraw()
 
 
@@ -160,7 +206,6 @@ func abrir_coleccion() -> void:
 	visible = true
 
 
-## Solo desde la run: la plata es la que se junta jugando.
 func abrir_tienda(plata: int) -> void:
 	modo = "tienda"
 	cursor = 0
@@ -194,17 +239,94 @@ func cambiar_personaje(dir: int) -> void:
 	_set_modelo(sel)
 
 
-## Devuelve la acción del menú para que main la ejecute.
 func accion_menu() -> String:
-	match fila:
-		0:
-			return "jugar"
-		1:
-			return "personaje"
-		2:
-			return "coleccion"
-		_:
-			return "arena"
+	return FILAS[clampi(fila, 0, FILAS.size() - 1)]
+
+
+## Activa una fila/celda concreta (lo usan el click y el teclado).
+func activar(indice: int) -> void:
+	if modo == "menu":
+		fila = clampi(indice, 0, FILAS.size() - 1)
+		accion.emit(accion_menu())
+	elif modo == "tienda":
+		if cursor == indice:
+			accion.emit("comprar")
+		else:
+			cursor = indice
+	else:
+		cursor = indice
+
+
+# ------------------------------------------------------------------ mouse
+func _gui_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event is InputEventMouseMotion:
+		var i := _indice_en(event.position)
+		if i >= 0:
+			if modo == "menu":
+				if fila != i:
+					fila = i
+					queue_redraw()
+			elif cursor != i:
+				cursor = i
+				queue_redraw()
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var i := _indice_en(mb.position)
+			if i >= 0:
+				activar(i)
+
+
+func _indice_en(pos: Vector2) -> int:
+	var k := _k()
+	var rects := _rects(k)
+	for i in rects.size():
+		if (rects[i] as Rect2).has_point(pos):
+			return i
+	return -1
+
+
+func _k() -> float:
+	var size := get_viewport_rect().size
+	return minf(size.x / ANCHO_BASE, size.y / ALTO_BASE)
+
+
+## Rectángulos clicables del modo actual (los mismos que se dibujan).
+func _rects(k: float) -> Array:
+	var out: Array = []
+	if modo == "menu":
+		for i in FILAS.size():
+			out.append(Rect2(44.0 * k, (236.0 + float(i) * 62.0) * k, 440.0 * k, 54.0 * k))
+	elif modo == "coleccion":
+		var cols := 2
+		var ancho := 470.0 * k
+		var alto := 150.0 * k
+		var hueco := 18.0 * k
+		var cx := get_viewport_rect().size.x * 0.5
+		var x0 := cx - (ancho * cols + hueco * (cols - 1)) * 0.5
+		var y0 := 132.0 * k
+		for i in ShopCatalog.DESBLOQUEOS.size():
+			var col := i % cols
+			var fil := i / cols
+			out.append(Rect2(x0 + float(col) * (ancho + hueco),
+				y0 + float(fil) * (alto + hueco), ancho, alto))
+	else:
+		var cols := 3
+		var ancho := 360.0 * k
+		var alto := 168.0 * k
+		var hueco := 16.0 * k
+		var cx := get_viewport_rect().size.x * 0.5
+		var x0 := cx - (ancho * cols + hueco * (cols - 1)) * 0.5
+		var y0 := 150.0 * k
+		for i in ShopCatalog.CARTAS.size():
+			var col := i % cols
+			var fil := i / cols
+			out.append(Rect2(x0 + float(col) * (ancho + hueco),
+				y0 + float(fil) * (alto + hueco), ancho, alto))
+	return out
 
 
 # ------------------------------------------------------------------ dibujo
@@ -227,7 +349,6 @@ func _esc(v: float, k: float) -> int:
 	return maxi(1, int(round(v * k)))
 
 
-## Cielo en bandas, sol de bloques, ciudad lejana, mar con olas y arena.
 func _fondo(size: Vector2, k: float) -> void:
 	var cielo := [Pixel.PALETA["cielo_1"], Pixel.PALETA["cielo_1"].lightened(0.10),
 		Pixel.PALETA["cielo_2"], Pixel.PALETA["cielo_2"].lightened(0.10),
@@ -275,7 +396,6 @@ func _fondo(size: Vector2, k: float) -> void:
 		draw_rect(Rect2(fx, fy, 3.0 * k, 3.0 * k), Pixel.PALETA["arena_2"].darkened(0.05))
 
 
-## Elipse dibujada con cuadraditos (para que tenga el mismo filo que el resto).
 func _elipse_pixel(centro: Vector2, rx: float, ry: float, color: Color, paso: float) -> void:
 	var y := -ry
 	while y <= ry:
@@ -286,7 +406,6 @@ func _elipse_pixel(centro: Vector2, rx: float, ry: float, color: Color, paso: fl
 		y += paso
 
 
-## Panel donde vive el modelo 3D (a la derecha).
 func _escenario(size: Vector2, k: float) -> void:
 	var rect := Rect2(size.x * 0.515, size.y * 0.05, size.x * 0.45, size.y * 0.90)
 	draw_rect(rect.grow(6.0 * k), Color("141a20"))
@@ -295,7 +414,6 @@ func _escenario(size: Vector2, k: float) -> void:
 	for i in bandas.size():
 		draw_rect(Rect2(rect.position.x, rect.position.y + alto_b * i,
 			rect.size.x, alto_b + 1.0), bandas[i])
-	# sombra del personaje: elipse de bloques justo donde apoyan los pies
 	var pies_y := rect.position.y + rect.size.y * 0.882
 	_elipse_pixel(Vector2(rect.get_center().x, pies_y), rect.size.x * 0.20,
 		rect.size.x * 0.055, Color(0, 0, 0, 0.20), maxf(3.0, 5.0 * k))
@@ -313,29 +431,27 @@ func _menu(size: Vector2, k: float) -> void:
 	Pixel.dibujar(self, Vector2(66.0 * k, 186.0 * k), "UNA PLAYA, DOS MANOS, UNA CUOTA",
 		_esc(1.9, k), Color(Pixel.PALETA["crema"], 0.9))
 
-	var y := 250.0 * k
-	for i in FILAS.size():
+	var rects := _rects(k)
+	for i in FILAS_TXT.size():
+		var r: Rect2 = rects[i]
 		var elegida := fila == i
-		var color: Color = Pixel.PALETA["ambar"] if elegida else Pixel.PALETA["papel"]
 		if elegida:
-			Pixel.icono(self, Vector2(40.0 * k, y + 10.0 * k), "flecha_d", _esc(2.2, k),
-				Pixel.PALETA["ambar"])
-		var txt: String = FILAS[i]
-		if i == 1:
-			txt = "PERSONAJE"
-		Pixel.dibujar_sombra(self, Vector2(78.0 * k, y), txt, _esc(3.4, k), color)
+			draw_rect(r, Color(0, 0, 0, 0.18))
+			Pixel.icono(self, Vector2(r.position.x - 4.0 * k, r.position.y + 12.0 * k),
+				"flecha_d", _esc(2.2, k), Pixel.PALETA["ambar"])
+		var color: Color = Pixel.PALETA["ambar"] if elegida else Pixel.PALETA["papel"]
+		Pixel.dibujar_sombra(self, Vector2(78.0 * k, r.position.y + 12.0 * k),
+			FILAS_TXT[i], _esc(3.4, k), color)
 		if i == 0:
 			var modo_txt := "SOLO" if sel == 0 else "COOPERATIVO"
-			Pixel.dibujar(self, Vector2(300.0 * k, y + 10.0 * k), modo_txt, _esc(1.9, k),
-				Color(Pixel.PALETA["crema"], 0.75))
-		if i == 1:
+			Pixel.dibujar(self, Vector2(300.0 * k, r.position.y + 22.0 * k), modo_txt,
+				_esc(1.9, k), Color(Pixel.PALETA["crema"], 0.75))
+		elif i == 1:
 			var nom := "JUGADOR 1" if sel == 0 else "JUGADORA 2"
-			var lock_txt := nom if desbloqueado(sel) else nom + "  [BLOQUEADA]"
-			Pixel.dibujar(self, Vector2(300.0 * k, y + 10.0 * k), lock_txt, _esc(1.9, k),
-				Pixel.PALETA["crema"] if desbloqueado(sel) else Pixel.PALETA["rojo"])
-		y += 62.0 * k
+			var txt := nom if desbloqueado(sel) else nom + "  [BLOQUEADA]"
+			Pixel.dibujar(self, Vector2(300.0 * k, r.position.y + 22.0 * k), txt,
+				_esc(1.9, k), Pixel.PALETA["crema"] if desbloqueado(sel) else Pixel.PALETA["rojo"])
 
-	# estado del personaje elegido, abajo a la izquierda
 	var estado_y := 560.0 * k
 	if desbloqueado(sel):
 		Pixel.dibujar(self, Vector2(64.0 * k, estado_y), "ELEGIDO", _esc(1.9, k),
@@ -351,11 +467,11 @@ func _menu(size: Vector2, k: float) -> void:
 			"COMPLETA EL DIA 2 PARA ABRIRLA", _esc(1.6, k), Pixel.PALETA["crema"])
 
 	Pixel.dibujar(self, Vector2(64.0 * k, 726.0 * k),
-		"[ ARRIBA / ABAJO ]  ELEGIR     [ IZQ / DER ]  PERSONAJE",
-		_esc(1.7, k), Color(Pixel.PALETA["crema"], 0.85))
+		"[ ARRIBA / ABAJO ]  ELEGIR     [ IZQ / DER ]  PERSONAJE     [ CLICK ]  ELEGIR",
+		_esc(1.6, k), Color(Pixel.PALETA["crema"], 0.85))
 	Pixel.dibujar(self, Vector2(64.0 * k, 752.0 * k),
 		"[ ENTER ]  JUGAR     [ C ]  COLECCION",
-		_esc(1.7, k), Color(Pixel.PALETA["crema"], 0.85))
+		_esc(1.6, k), Color(Pixel.PALETA["crema"], 0.85))
 
 
 func _coleccion(size: Vector2, k: float) -> void:
@@ -364,41 +480,33 @@ func _coleccion(size: Vector2, k: float) -> void:
 	Pixel.centrado_sombra(self, cx, 92.0 * k, "SE DESBLOQUEA JUGANDO (NO SE COMPRA)",
 		_esc(1.8, k), Pixel.PALETA["crema"])
 
-	var cols := 2
-	var ancho := 470.0 * k
-	var alto := 150.0 * k
-	var hueco := 18.0 * k
-	var total := ShopCatalog.DESBLOQUEOS.size()
-	var x0 := cx - (ancho * cols + hueco * (cols - 1)) * 0.5
-	var y0 := 132.0 * k
-	for i in total:
+	var rects := _rects(k)
+	for i in ShopCatalog.DESBLOQUEOS.size():
 		var it: Dictionary = ShopCatalog.DESBLOQUEOS[i]
-		var col := i % cols
-		var fil := i / cols
-		var pos := Vector2(x0 + float(col) * (ancho + hueco), y0 + float(fil) * (alto + hueco))
+		var pos: Rect2 = rects[i]
 		var abierto := SaveGame.tiene(String(it["id"]))
 		var elegida := cursor == i
-		Pixel.panel(self, Rect2(pos, Vector2(ancho, alto)),
-			Pixel.PALETA["crema"] if abierto else Pixel.PALETA["crema_2"],
+		Pixel.panel(self, pos, Pixel.PALETA["crema"] if abierto else Pixel.PALETA["crema_2"],
 			Pixel.PALETA["ambar"] if elegida else Pixel.PALETA["tinta"],
 			_esc(1.4 if elegida else 0.8, k))
-		Pixel.dibujar(self, Vector2(pos.x + 20.0 * k, pos.y + 18.0 * k),
+		Pixel.dibujar(self, Vector2(pos.position.x + 20.0 * k, pos.position.y + 18.0 * k),
 			String(it["nombre"]), _esc(2.4, k),
 			Pixel.PALETA["tinta"] if abierto else Pixel.PALETA["gris"])
-		Pixel.dibujar(self, Vector2(pos.x + 20.0 * k, pos.y + 54.0 * k),
+		Pixel.dibujar(self, Vector2(pos.position.x + 20.0 * k, pos.position.y + 54.0 * k),
 			String(it["desc"]), _esc(1.5, k), Pixel.PALETA["gris"])
 		if abierto:
-			Pixel.icono(self, Vector2(pos.x + 20.0 * k, pos.y + 96.0 * k), "check",
-				_esc(2.2, k), Pixel.PALETA["verde"])
-			Pixel.dibujar(self, Vector2(pos.x + 48.0 * k, pos.y + 100.0 * k),
+			Pixel.icono(self, Vector2(pos.position.x + 20.0 * k, pos.position.y + 96.0 * k),
+				"check", _esc(2.2, k), Pixel.PALETA["verde"])
+			Pixel.dibujar(self, Vector2(pos.position.x + 48.0 * k, pos.position.y + 100.0 * k),
 				"DESBLOQUEADO", _esc(1.9, k), Pixel.PALETA["verde"])
 		else:
-			Pixel.icono(self, Vector2(pos.x + 20.0 * k, pos.y + 94.0 * k), "candado",
-				_esc(2.0, k), Pixel.PALETA["ambar"])
-			Pixel.dibujar(self, Vector2(pos.x + 48.0 * k, pos.y + 100.0 * k),
+			Pixel.icono(self, Vector2(pos.position.x + 20.0 * k, pos.position.y + 94.0 * k),
+				"candado", _esc(2.0, k), Pixel.PALETA["ambar"])
+			Pixel.dibujar(self, Vector2(pos.position.x + 48.0 * k, pos.position.y + 100.0 * k),
 				String(it["condicion"]), _esc(1.6, k), Pixel.PALETA["ambar"])
 
-	Pixel.centrado_sombra(self, cx, 720.0 * k, "[ FLECHAS ]  MOVER        [ ESC / C ]  VOLVER",
+	Pixel.centrado_sombra(self, cx, 720.0 * k,
+		"[ FLECHAS O CLICK ]  MOVER        [ ESC / C ]  VOLVER",
 		_esc(1.8, k), Pixel.PALETA["crema"])
 
 
@@ -412,18 +520,10 @@ func _tienda(size: Vector2, k: float) -> void:
 	Pixel.dibujar_sombra(self, Vector2(160.0 * k, 106.0 * k), str(monedas), _esc(2.8, k),
 		Pixel.PALETA["papel"])
 
-	var cols := 3
-	var ancho := 360.0 * k
-	var alto := 168.0 * k
-	var hueco := 16.0 * k
-	var total := ShopCatalog.CARTAS.size()
-	var x0 := cx - (ancho * cols + hueco * (cols - 1)) * 0.5
-	var y0 := 150.0 * k
-	for i in total:
+	var rects := _rects(k)
+	for i in ShopCatalog.CARTAS.size():
 		var it: Dictionary = ShopCatalog.CARTAS[i]
-		var col := i % cols
-		var fil := i / cols
-		var pos := Vector2(x0 + float(col) * (ancho + hueco), y0 + float(fil) * (alto + hueco))
+		var pos: Rect2 = rects[i]
 		var comprada := compradas.has(String(it["id"]))
 		var precio := int(it["precio"])
 		var alcanza := monedas >= precio
@@ -434,28 +534,28 @@ func _tienda(size: Vector2, k: float) -> void:
 				color_rareza = Color("e8dcc0")
 			"maldita":
 				color_rareza = Color("e9c7c0")
-		Pixel.panel(self, Rect2(pos, Vector2(ancho, alto)), color_rareza,
+		Pixel.panel(self, pos, color_rareza,
 			Pixel.PALETA["ambar"] if elegida else Pixel.PALETA["tinta"],
 			_esc(1.4 if elegida else 0.8, k))
-		Pixel.dibujar(self, Vector2(pos.x + 16.0 * k, pos.y + 16.0 * k),
+		Pixel.dibujar(self, Vector2(pos.position.x + 16.0 * k, pos.position.y + 16.0 * k),
 			String(it["nombre"]), _esc(2.1, k), Pixel.PALETA["tinta"])
-		Pixel.dibujar(self, Vector2(pos.x + 16.0 * k, pos.y + 52.0 * k),
+		Pixel.dibujar(self, Vector2(pos.position.x + 16.0 * k, pos.position.y + 52.0 * k),
 			String(it["desc"]), _esc(1.4, k), Pixel.PALETA["gris"])
-		Pixel.dibujar(self, Vector2(pos.x + 16.0 * k, pos.y + 128.0 * k),
+		Pixel.dibujar(self, Vector2(pos.position.x + 16.0 * k, pos.position.y + 128.0 * k),
 			String(it["rareza"]).to_upper(), _esc(1.4, k), Pixel.PALETA["gris"])
 		if comprada:
-			Pixel.dibujar(self, Vector2(pos.x + ancho - 110.0 * k, pos.y + 128.0 * k),
-				"COMPRADA", _esc(1.6, k), Pixel.PALETA["verde"])
+			Pixel.dibujar(self, Vector2(pos.position.x + pos.size.x - 110.0 * k,
+				pos.position.y + 128.0 * k), "COMPRADA", _esc(1.6, k), Pixel.PALETA["verde"])
 		else:
-			Pixel.icono(self, Vector2(pos.x + ancho - 74.0 * k, pos.y + 126.0 * k),
-				"concha", _esc(1.6, k),
+			Pixel.icono(self, Vector2(pos.position.x + pos.size.x - 74.0 * k,
+				pos.position.y + 126.0 * k), "concha", _esc(1.6, k),
 				Pixel.PALETA["ambar"] if alcanza else Pixel.PALETA["gris"])
-			Pixel.dibujar(self, Vector2(pos.x + ancho - 50.0 * k, pos.y + 124.0 * k),
-				str(precio), _esc(2.2, k),
+			Pixel.dibujar(self, Vector2(pos.position.x + pos.size.x - 50.0 * k,
+				pos.position.y + 124.0 * k), str(precio), _esc(2.2, k),
 				Pixel.PALETA["tinta"] if alcanza else Pixel.PALETA["rojo"])
 
 	Pixel.centrado_sombra(self, cx, 742.0 * k,
-		"[ FLECHAS ]  ELEGIR     [ ENTER ]  COMPRAR     [ ESC ]  SEGUIR",
+		"[ FLECHAS O CLICK ]  ELEGIR     [ ENTER / CLICK ]  COMPRAR     [ ESC ]  SEGUIR",
 		_esc(1.7, k), Pixel.PALETA["crema"])
 
 

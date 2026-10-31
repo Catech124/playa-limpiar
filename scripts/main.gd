@@ -63,6 +63,7 @@ func _ready() -> void:
 
 	home = UiHome.new()
 	layer.add_child(home)
+	home.accion.connect(_home_accion)
 	home.abrir_menu()
 
 	_reset_world(1)
@@ -215,6 +216,11 @@ func start_game(count: int, is_sandbox := false, idx := 0) -> void:
 	for t in GameConfig.RESIDUE_ORDER:
 		delivered[t] = 0
 	state = State.PLAYING
+	# la pantalla de inicio tapa TODO: si no se esconde, el juego arranca abajo
+	# y parece que el botón no hace nada
+	en_run = not sandbox
+	if home != null:
+		home.visible = false
 	_cam_setup()
 	_update_light()
 
@@ -234,21 +240,30 @@ func _toggle_pause() -> void:
 func menu_confirmar() -> void:
 	if home == null:
 		start_game(1, false, 0)
-		return
-	match home.accion_menu():
+	else:
+		_home_accion(home.accion_menu())
+
+
+## Acciones que pide la pantalla de inicio (teclado o mouse).
+func _home_accion(nombre: String) -> void:
+	match nombre:
 		"jugar":
-			if home.sel == 0:
+			if home == null or home.sel == 0:
 				start_game(1, false, 0)
 			elif SaveGame.tiene("mujer"):
 				start_game(2, false, 0)
 			else:
 				home.avisar("JUGADORA 2 BLOQUEADA")
 		"personaje":
-			home.cambiar_personaje(1)
+			if home != null:
+				home.cambiar_personaje(1)
 		"coleccion":
-			home.abrir_coleccion()
+			if home != null:
+				home.abrir_coleccion()
 		"arena":
 			start_game(1, true, 0)
+		"comprar":
+			_comprar_carta()
 
 
 ## Compra la carta bajo el cursor con la plata de la RUN (no con conchas).
