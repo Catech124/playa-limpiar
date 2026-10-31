@@ -532,10 +532,12 @@ static func pelo_arriba(model: Node3D) -> void:
 	var piv := Node3D.new()
 	piv.name = "pelo_pivote"
 	padre.add_child(piv)
-	piv.position = caja.get_center()
+	# pivote en la BASE del pelo: crece SOLO hacia arriba. Escalarlo también en
+	# ancho agrandaba el marco de la cara y parecía barba.
+	piv.position = Vector3(caja.get_center().x, caja.position.y, caja.get_center().z)
 	for mi in pelo:
 		(mi as Node3D).reparent(piv, true)
-	piv.scale = Vector3(1.09, 1.09, 1.09)
+	piv.scale = Vector3(1.0, 1.14, 1.0)
 
 
 static func _caja_en(meshes: Array, padre: Node3D) -> AABB:
